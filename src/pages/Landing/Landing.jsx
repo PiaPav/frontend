@@ -21,6 +21,7 @@ export default function Landing() {
             </div>
             <div className={styles.ScrollButton}>
                 <p>Scroll down</p>
+                <img src="src\assets\img\arrow_down.svg" alt="arrow down" />
             </div>
         </div>
 

@@ -44,6 +44,7 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    margin-bottom: 15%;
 }
 .tryButton button {
     border: none;
@@ -65,6 +66,15 @@
 .tryButton p a {
     color: #2A0077;
     text-decoration: none;
+    
+}
+
+.ScrollButton {
+    display: flex;
+    align-items: center;
+    margin-left: 5%;
+    font-size: 2rem;
+    gap: 0.7%;
 }
 
 
