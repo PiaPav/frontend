@@ -11,7 +11,16 @@ export default function Landing() {
                     <p>FAQ</p>
                 </div>
             </div>
-            <section className=""></section>
+            <div className={styles.NameDescription}>
+                <h1>PIAPAV</h1>
+                <p>Your system map in one click.  Interactive diagrams from your codebase and project artifacts, reveals module relationships, layers, and dependencies, and helps you spot risks fast.</p>
+            </div>
+            <div className={styles.tryButton}>
+                <button><a href="#guest">TRY FOR FREE</a></button>
+                <p>Already have account? <a href="#login">Login</a></p>
+            </div>
+
         </div>
+
     );
 }
