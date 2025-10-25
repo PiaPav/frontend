@@ -19,7 +19,9 @@ export default function Landing() {
                 <button><a href="#guest">TRY FOR FREE</a></button>
                 <p>Already have account? <a href="#login">Login</a></p>
             </div>
-
+            <div className={styles.ScrollButton}>
+                <p>Scroll down</p>
+            </div>
         </div>
 
     );
