@@ -1,5 +1,5 @@
-import styles from './Landing.module.css'
-
+import styles from './Landing.module.css';
+import { Link } from 'react-router-dom';
 
 export default function Landing() {
     return (
@@ -16,12 +16,16 @@ export default function Landing() {
                 <p>Your system map in one click.  Interactive diagrams from your codebase and project artifacts, reveals module relationships, layers, and dependencies, and helps you spot risks fast.</p>
             </div>
             <div className={styles.tryButton}>
-                <button><a href="#guest">TRY FOR FREE</a></button>
-                <p>Already have account? <a href="#login">Login</a></p>
+                <button><a className={styles.primaryCta} href="#guest">TRY FOR FREE</a></button>
+                <p>Already have account? <Link to="/login">Login</Link></p>
             </div>
             <div className={styles.ScrollButton}>
-                <p>Scroll down</p>
-                <img src="src\assets\img\arrow_down.svg" alt="arrow down" />
+                <button>         
+                    <a href="#scrolldown">
+                        <p>Scroll down</p>
+                        <img src="src\assets\img\arrow_down.svg" alt="arrow down" />
+                    </a>
+                </button>
             </div>
         </div>
 

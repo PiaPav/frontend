@@ -63,19 +63,29 @@
     color: white;
     text-decoration: none;
 }
+.tryButton p {
+    font-size: 1.3rem;
+    font-weight: 500;
+}
 .tryButton p a {
     color: #2A0077;
     text-decoration: none;
-    
 }
 
-.ScrollButton {
+.ScrollButton button {
+    margin-left: 5%;
+    background: none;
+    border: none;
+}
+.ScrollButton button a {
     display: flex;
     align-items: center;
-    margin-left: 5%;
     font-size: 2rem;
-    gap: 0.7%;
+    gap: 7%;
+    width: 250px;
+    text-decoration: none;
 }
+
 
 
 
