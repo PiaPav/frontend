@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { projectsAPI } from '../../services/api';
 import styles from './Projects.module.css';
 
 export default function NewProject() {
@@ -7,24 +8,62 @@ export default function NewProject() {
     name: '',
     description: '',
   });
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setError('');
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    //тут подключить создание проекта
+    // Валидация
+    if (!form.name.trim()) {
+      setError('Введите название проекта');
+      setLoading(false);
+      return;
+    }
 
+    if (!form.description.trim()) {
+      setError('Введите описание проекта');
+      setLoading(false);
+      return;
+    }
 
-    setTimeout(() => {
+    try {
+      // Отправка на backend
+      const result = await projectsAPI.create(form);
+      console.log('Проект создан:', result);
+      
+      // После успешного создания перейти к списку проектов
       navigate('/projects');
-    }, 500);
+    } catch (err) {
+      console.error('Ошибка создания проекта:', err);
+      
+      // Обработка ошибок
+      let errorMessage = 'Ошибка создания проекта';
+      
+      if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        if (typeof detail === 'string') {
+          errorMessage = detail;
+        } else if (Array.isArray(detail)) {
+          errorMessage = detail.map(e => e.msg).join(', ');
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -42,7 +81,8 @@ export default function NewProject() {
               value={form.name}
               onChange={handleChange}
               placeholder="Введите название"
-              required
+              disabled={loading}
+              maxLength={100}
             />
           </div>
 
@@ -55,18 +95,32 @@ export default function NewProject() {
               onChange={handleChange}
               placeholder="Опишите ваш проект"
               rows={4}
+              disabled={loading}
+              maxLength={500}
             />
           </div>
+
+          {/* Ошибка */}
+          {error && (
+            <div className={styles.error}>
+              {error}
+            </div>
+          )}
 
           <div className={styles.formActions}>
             <button
               type="button"
               className={styles.cancelBtn}
               onClick={() => navigate('/projects')}
+              disabled={loading}
             >
               Отмена
             </button>
-            <button type="submit" className={styles.createProjectBtn} disabled={loading}>
+            <button 
+              type="submit" 
+              className={styles.createProjectBtn} 
+              disabled={loading}
+            >
               {loading ? 'Создание...' : 'Создать'}
             </button>
           </div>

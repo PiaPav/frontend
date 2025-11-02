@@ -76,27 +76,43 @@ export const authAPI = {
 //для будущего
 export const projectsAPI = {
   getAll: async () => {
-    const response = await api.get('/v1/projects');
+    const response = await api.get('/v1/project/');
     return response.data;
   },
 
   getById: async (id) => {
-    const response = await api.get(`/v1/projects/${id}`);
+    const response = await api.get(`/v1/project/${id}`);
     return response.data;
   },
 
   create: async (projectData) => {
-    const response = await api.post('/v1/projects', projectData);
+    // Создаём FormData для отправки файла
+    const formData = new FormData();
+    
+    // Создаём пустой blob для file (обязательное поле в API)
+    const emptyBlob = new Blob(['{}'], { type: 'application/json' });
+    formData.append('file', emptyBlob, 'architecture.json');
+
+    // Отправляем name и description как query параметры
+    const response = await api.post('/v1/project/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      params: {
+        name: projectData.name,
+        description: projectData.description,
+      }
+    });
     return response.data;
   },
 
   update: async (id, projectData) => {
-    const response = await api.put(`/v1/projects/${id}`, projectData);
+    const response = await api.put(`/v1/project/${id}`, projectData);
     return response.data;
   },
 
   delete: async (id) => {
-    const response = await api.delete(`/v1/projects/${id}`);
+    const response = await api.delete(`/v1/project/${id}`);
     return response.data;
   },
 };

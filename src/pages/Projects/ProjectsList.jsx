@@ -1,26 +1,35 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { projectsAPI } from '../../services/api';
 import styles from './Projects.module.css';
 
 export default function ProjectsList() {
-  const [projects, setProjects] = useState([
-    {
-      id: 1,
-      name: 'Чебуречная',
-      description: 'Этот проект описывает работоспособность',
-      imageUrl: null,
-    },
-    {
-      id: 2,
-      name: 'Финансовый трекер',
-      description: 'Этот проект описывает работоспособность подсчёта денег',
-      imageUrl: null,
-    },
-  ]);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Загрузка проектов при монтировании компонента
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  async function loadProjects() {
+    try {
+      setLoading(true);
+      const data = await projectsAPI.getAll();
+      setProjects(data);
+      setError('');
+    } catch (err) {
+      console.error('Ошибка загрузки проектов:', err);
+      setError('Не удалось загрузить проекты');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const handleLogout = () => {
     logout();
@@ -30,6 +39,22 @@ export default function ProjectsList() {
   const handleCreateProject = () => {
     navigate('/projects/new');
   };
+
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '100px 20px',
+          color: 'white',
+          fontSize: '20px',
+          fontWeight: '600'
+        }}>
+          Загрузка проектов...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -46,10 +71,10 @@ export default function ProjectsList() {
         <div className={styles.userMenu}>
           <button className={styles.userBtn}>
             <div className={styles.avatar}>
-              {user?.name?.[0]?.toUpperCase() || 'И'}
+              {user?.name?.[0]?.toUpperCase() || user?.login?.[0]?.toUpperCase() || 'П'}
             </div>
             <span className={styles.userName}>
-              {user?.name || 'Игорь'}
+              {user?.name || user?.login || 'Пользователь'}
             </span>
             <span className={styles.chevron}>▼</span>
           </button>
@@ -61,27 +86,46 @@ export default function ProjectsList() {
       </header>
 
       <main className={styles.main}>
-        <div className={styles.projectsGrid}>
-          {projects.map((project) => (
-            <Link
-              key={project.id}
-              to={`/projects/${project.id}`}
-              className={styles.projectCard}
-            >
-              <div className={styles.projectImage}>
-                {project.imageUrl ? (
-                  <img src={project.imageUrl} alt={project.name} />
-                ) : (
-                  <div className={styles.projectImagePlaceholder}></div>
-                )}
-              </div>
-              <div className={styles.projectInfo}>
-                <h2 className={styles.projectName}>{project.name}</h2>
-                <p className={styles.projectDescription}>{project.description}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
+        {error && (
+          <div className={styles.error} style={{ marginBottom: '20px', textAlign: 'center' }}>
+            {error}
+          </div>
+        )}
+
+        {projects.length === 0 && !error ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '100px 20px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '20px',
+            color: '#666'
+          }}>
+            <h2 style={{ marginBottom: '10px', color: '#1a1a1a' }}>У вас пока нет проектов</h2>
+            <p>Создайте свой первый проект!</p>
+          </div>
+        ) : (
+          <div className={styles.projectsGrid}>
+            {projects.map((project) => (
+              <Link
+                key={project.id}
+                to={`/projects/${project.id}`}
+                className={styles.projectCard}
+              >
+                <div className={styles.projectImage}>
+                  {project.picture_url ? (
+                    <img src={project.picture_url} alt={project.name} />
+                  ) : (
+                    <div className={styles.projectImagePlaceholder}></div>
+                  )}
+                </div>
+                <div className={styles.projectInfo}>
+                  <h2 className={styles.projectName}>{project.name}</h2>
+                  <p className={styles.projectDescription}>{project.description}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
