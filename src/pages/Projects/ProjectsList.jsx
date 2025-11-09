@@ -5,8 +5,30 @@ import { projectsAPI } from '../../services/api';
 import styles from './Projects.module.css';
 
 export default function ProjectsList() {
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Демо-проекты для визуализации
+  const demoProjects = [
+    {
+      id: 'demo-1',
+      name: 'E-Commerce Platform',
+      description: 'Микросервисная архитектура интернет-магазина с FastAPI, PostgreSQL и RabbitMQ',
+      picture_url: null,
+    },
+    {
+      id: 'demo-2',
+      name: 'Social Network API',
+      description: 'REST API для социальной сети с Django, Redis кэшированием и Celery для фоновых задач',
+      picture_url: null,
+    },
+    {
+      id: 'demo-3',
+      name: 'ML Pipeline Service',
+      description: 'Сервис машинного обучения с Flask, TensorFlow и MongoDB для хранения моделей',
+      picture_url: null,
+    },
+  ];
+
+  const [projects, setProjects] = useState(demoProjects); // Используем демо-данные
+  const [loading, setLoading] = useState(false); // Отключаем загрузку для демо
   const [error, setError] = useState('');
   
   const { user, logout } = useAuth();
@@ -14,7 +36,8 @@ export default function ProjectsList() {
 
   // Загрузка проектов при монтировании компонента
   useEffect(() => {
-    loadProjects();
+    // Временно отключаем загрузку с API для демо
+    // loadProjects();
   }, []);
 
   async function loadProjects() {

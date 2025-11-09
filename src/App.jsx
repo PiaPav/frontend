@@ -5,6 +5,8 @@ import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import ProjectsList from './pages/Projects/ProjectsList';
 import NewProject from './pages/Projects/NewProject';
+import ProjectView from './pages/Projects/ProjectView';
+import TestFlow from './pages/Projects/TestFlow';
 import ProtectedRoute from './routes/ProtectedRoute';
 
 export default function App() {
@@ -15,6 +17,7 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/test-flow" element={<TestFlow />} />
           
           <Route
             path="/projects"
@@ -29,6 +32,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <NewProject />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id"
+            element={
+              <ProtectedRoute>
+                <ProjectView />
               </ProtectedRoute>
             }
           />
