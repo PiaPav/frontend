@@ -1,11 +1,13 @@
 import styles from './Landing.module.css';
 import { Link } from 'react-router-dom';
+import logoImage from '../../assets/img/logo/deep-learning.png';
+import arrowDownImage from '../../assets/img/arrow_down.svg';
 
 export default function Landing() {
     return (
         <div className={styles.container}>
             <div className={styles.header}>
-                <div className={styles.logo}><img src=".\src\assets\img\logo\deep-learning.png" alt="logo" /></div>
+                <div className={styles.logo}><img src={logoImage} alt="logo" /></div>
                 <div className={styles.infoSection}>
                     <p>How it works</p>
                     <p>FAQ</p>
@@ -23,7 +25,7 @@ export default function Landing() {
                 <button>         
                     <a href="#scrolldown">
                         <p>Scroll down</p>
-                        <img src="src\assets\img\arrow_down.svg" alt="arrow down" />
+                        <img src={arrowDownImage} alt="arrow down" />
                     </a>
                 </button>
             </div>
