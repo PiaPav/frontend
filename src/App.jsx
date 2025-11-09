@@ -7,6 +7,7 @@ import ProjectsList from './pages/Projects/ProjectsList';
 import NewProject from './pages/Projects/NewProject';
 import ProjectView from './pages/Projects/ProjectView';
 import ProjectViewV2 from './pages/Projects/ProjectViewV2';
+import ProjectViewDetailed from './pages/Projects/ProjectViewDetailed';
 import TestFlow from './pages/Projects/TestFlow';
 import ProtectedRoute from './routes/ProtectedRoute';
 
@@ -49,6 +50,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProjectViewV2 />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id/detailed"
+            element={
+              <ProtectedRoute>
+                <ProjectViewDetailed />
               </ProtectedRoute>
             }
           />
