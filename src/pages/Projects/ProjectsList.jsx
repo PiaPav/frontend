@@ -12,18 +12,21 @@ export default function ProjectsList() {
       name: 'E-Commerce Platform',
       description: 'Микросервисная архитектура интернет-магазина с FastAPI, PostgreSQL и RabbitMQ',
       picture_url: null,
+      hasV2View: true, // Новый вид с папками
     },
     {
       id: 'demo-2',
       name: 'Social Network API',
       description: 'REST API для социальной сети с Django, Redis кэшированием и Celery для фоновых задач',
       picture_url: null,
+      hasV2View: false,
     },
     {
       id: 'demo-3',
       name: 'ML Pipeline Service',
       description: 'Сервис машинного обучения с Flask, TensorFlow и MongoDB для хранения моделей',
       picture_url: null,
+      hasV2View: false,
     },
   ];
 
@@ -129,23 +132,27 @@ export default function ProjectsList() {
         ) : (
           <div className={styles.projectsGrid}>
             {projects.map((project) => (
-              <Link
-                key={project.id}
-                to={`/projects/${project.id}`}
-                className={styles.projectCard}
-              >
-                <div className={styles.projectImage}>
-                  {project.picture_url ? (
-                    <img src={project.picture_url} alt={project.name} />
-                  ) : (
-                    <div className={styles.projectImagePlaceholder}></div>
-                  )}
-                </div>
-                <div className={styles.projectInfo}>
-                  <h2 className={styles.projectName}>{project.name}</h2>
-                  <p className={styles.projectDescription}>{project.description}</p>
-                </div>
-              </Link>
+              <div key={project.id} className={styles.projectCard}>
+                <Link
+                  to={project.hasV2View ? `/projects/${project.id}/v2` : `/projects/${project.id}`}
+                  className={styles.projectLink}
+                >
+                  <div className={styles.projectImage}>
+                    {project.picture_url ? (
+                      <img src={project.picture_url} alt={project.name} />
+                    ) : (
+                      <div className={styles.projectImagePlaceholder}></div>
+                    )}
+                  </div>
+                  <div className={styles.projectInfo}>
+                    <h2 className={styles.projectName}>{project.name}</h2>
+                    <p className={styles.projectDescription}>{project.description}</p>
+                    {project.hasV2View && (
+                      <span className={styles.newBadge}>✨ С деревом файлов</span>
+                    )}
+                  </div>
+                </Link>
+              </div>
             ))}
           </div>
         )}

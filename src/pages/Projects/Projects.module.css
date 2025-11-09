@@ -171,8 +171,11 @@
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
-    text-decoration: none;
+}
+
+.projectLink {
     display: block;
+    text-decoration: none;
 }
 
 .projectCard:hover {
@@ -215,6 +218,18 @@
     font-size: 14px;
     color: #666;
     line-height: 1.5;
+}
+
+.newBadge {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
 }
 
 /* Адаптивность */
