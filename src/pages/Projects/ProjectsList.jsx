@@ -133,25 +133,25 @@ export default function ProjectsList() {
           <div className={styles.projectsGrid}>
             {projects.map((project) => (
               <div key={project.id} className={styles.projectCard}>
-                <Link
-                  to={project.hasV2View ? `/projects/${project.id}/v2` : `/projects/${project.id}`}
-                  className={styles.projectLink}
-                >
-                  <div className={styles.projectImage}>
-                    {project.picture_url ? (
-                      <img src={project.picture_url} alt={project.name} />
-                    ) : (
-                      <div className={styles.projectImagePlaceholder}></div>
-                    )}
-                  </div>
-                  <div className={styles.projectInfo}>
-                    <h2 className={styles.projectName}>{project.name}</h2>
-                    <p className={styles.projectDescription}>{project.description}</p>
-                    {project.hasV2View && (
-                      <span className={styles.newBadge}>✨ С деревом файлов</span>
-                    )}
-                  </div>
-                </Link>
+                <div className={styles.projectImage}>
+                  {project.picture_url ? (
+                    <img src={project.picture_url} alt={project.name} />
+                  ) : (
+                    <div className={styles.projectImagePlaceholder}></div>
+                  )}
+                </div>
+                <div className={styles.projectInfo}>
+                  <h2 className={styles.projectName}>{project.name}</h2>
+                  <p className={styles.projectDescription}>{project.description}</p>
+                </div>
+                <div className={styles.projectActions}>
+                  <Link to={`/projects/${project.id}`} className={styles.actionBtn}>
+                    📊 Basic View
+                  </Link>
+                  <Link to={`/projects/${project.id}/stream`} className={styles.actionBtnPrimary}>
+                    🚀 Live Stream
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
