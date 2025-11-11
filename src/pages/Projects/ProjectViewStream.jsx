@@ -11,8 +11,8 @@ import ReactFlow, {
   Panel,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { getGRPCClient } from '../../services/grpcClient';
 import styles from './ProjectViewStream.module.css';
+import graphData from '../../data/graph42.json';
 
 export default function ProjectViewStream() {
   const { id } = useParams();
@@ -25,80 +25,50 @@ export default function ProjectViewStream() {
   const [endpoints, setEndpoints] = useState({});
   const [architecture, setArchitecture] = useState([]);
   
-  const [selectedTab, setSelectedTab] = useState('requirements');
+  // tabs removed: we show requirements, endpoints and architecture side-by-side
   const [expandedClasses, setExpandedClasses] = useState(new Set());
   const [selectedNode, setSelectedNode] = useState(null);
   
   const [streamStatus, setStreamStatus] = useState('connecting'); // connecting, streaming, done
   const [progress, setProgress] = useState({ total: 0, current: 0 });
 
-  // Подключение к gRPC стриму
+  // Load saved graph data sequentially (requirements -> endpoints -> architecture)
   useEffect(() => {
-    const connectToStream = async () => {
+    let cancelled = false;
+    const loadSequential = async () => {
       try {
         setStreamStatus('streaming');
-        
-        const grpcClient = getGRPCClient();
-        
-        await grpcClient.connectToStream(
-          1, // TODO: Получить реальный userId из контекста
-          parseInt(id),
-          {
-            onRequirements: (data) => {
-              console.log('📦 Requirements received:', data);
-              setRequirements(data.requirements);
-              setProgress(prev => ({ 
-                ...prev, 
-                total: prev.total + data.total,
-                current: prev.current + data.total 
-              }));
-            },
-            
-            onEndpoints: (data) => {
-              console.log('🌐 Endpoints received:', data);
-              setEndpoints(data.endpoints);
-              setProgress(prev => ({ 
-                ...prev, 
-                total: prev.total + data.total,
-                current: prev.current + data.total 
-              }));
-            },
-            
-            onArchitecture: (data) => {
-              console.log('🏗️ Architecture part received:', data);
-              setArchitecture(prev => [...prev, data]);
-              setProgress(prev => ({ 
-                ...prev, 
-                total: prev.total + 1,
-                current: prev.current + 1 
-              }));
-            },
-            
-            onDone: () => {
-              console.log('✅ Stream completed');
-              setStreamStatus('done');
-            },
-            
-            onError: (error) => {
-              console.error('❌ Stream error:', error);
-              setStreamStatus('error');
-            }
-          }
-        );
-        
-      } catch (error) {
-        console.error('Stream error:', error);
+
+        // 1) Requirements
+        await new Promise((r) => setTimeout(r, 300));
+        if (cancelled) return;
+        setRequirements(graphData.requirements || []);
+        setProgress({ total: (graphData.requirements?.length || 0) + (Object.keys(graphData.endpoints || {}).length) + (graphData.architecture?.length || 0), current: graphData.requirements?.length || 0 });
+
+        // 2) Endpoints
+        await new Promise((r) => setTimeout(r, 400));
+        if (cancelled) return;
+        setEndpoints(graphData.endpoints || {});
+
+        // 3) Architecture - add parts one by one to emulate streaming
+        const archParts = graphData.architecture || [];
+        for (let i = 0; i < archParts.length; i++) {
+          await new Promise((r) => setTimeout(r, 150));
+          if (cancelled) return;
+          setArchitecture((prev) => [...prev, archParts[i]]);
+          setProgress((prev) => ({ ...prev, current: (prev.current || 0) + 1 }));
+        }
+
+        setStreamStatus('done');
+      } catch (err) {
+        console.error('Load error', err);
         setStreamStatus('error');
       }
     };
 
-    connectToStream();
-    
-    return () => {
-      // Cleanup при размонтировании
-      const grpcClient = getGRPCClient();
-      grpcClient.disconnect();
-    };
+    loadSequential();
+
+    return () => { cancelled = true; };
   }, [id]);
 
   // Группировка endpoints по классам
@@ -114,99 +84,156 @@ export default function ProjectViewStream() {
     return grouped;
   }, [endpoints]);
 
-  // Построение графа из architecture
+  // expand all classes by default when endpoints arrive
+  useEffect(() => {
+    const classes = Object.keys(endpointsByClass);
+    if (classes.length > 0) {
+      setExpandedClasses(new Set(classes));
+    }
+  }, [endpointsByClass]);
+
+  // Построение графа из architecture с группировкой по классам
   useEffect(() => {
     if (architecture.length === 0) return;
 
     const newNodes = [];
     const newEdges = [];
-    const nodeMap = new Map();
     
-    let yOffset = 0;
-    const levelMap = new Map(); // для определения уровня узла
+    // Layout: слева направо (Requirements → Endpoints → Architecture)
+    const COLUMN_WIDTH = 350;
+    const ROW_HEIGHT = 80;
+    const START_X = 50;
+    const START_Y = 50;
 
-    // Функция для получения или создания узла
-    const getOrCreateNode = (name, level = 0) => {
-      if (nodeMap.has(name)) {
-        return nodeMap.get(name);
+    // Группировка по классам
+    const classMethods = {};
+    
+    architecture.forEach((arch) => {
+      const [className, methodName] = arch.parent.split('.');
+      if (!classMethods[className]) {
+        classMethods[className] = [];
       }
+      classMethods[className].push({
+        fullName: arch.parent,
+        methodName: methodName || arch.parent,
+        children: arch.children
+      });
+    });
 
-      if (!levelMap.has(level)) {
-        levelMap.set(level, []);
-      }
-      levelMap.get(level).push(name);
+    // Создание узлов классов с методами
+    let currentY = START_Y;
+    const nodeMap = new Map();
 
-      const xPosition = level * 300;
-      const yPosition = levelMap.get(level).length * 100;
-
-      const node = {
-        id: name,
+    Object.entries(classMethods).forEach(([className, methods]) => {
+      const classNodeId = `class_${className}`;
+      
+      // Создаём узел класса (группа)
+      const classNode = {
+        id: classNodeId,
         type: 'default',
-        position: { x: xPosition, y: yPosition },
+        position: { x: START_X + COLUMN_WIDTH * 2, y: currentY },
         data: { 
-          label: name,
-          className: name.split('.')[0],
-          methodName: name.split('.')[1]
+          label: (
+            <div style={{ padding: '10px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>
+                {className}
+              </div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)' }}>
+                {methods.length} {methods.length === 1 ? 'method' : 'methods'}
+              </div>
+            </div>
+          ),
+          className: className,
         },
         style: {
-          background: getNodeColor(name),
+          background: getNodeColor(className),
           color: 'white',
-          border: '2px solid #333',
-          borderRadius: '8px',
-          padding: '12px',
+          border: '3px solid rgba(255,255,255,0.3)',
+          borderRadius: '12px',
+          padding: '8px',
           fontSize: '12px',
           fontWeight: '600',
-          minWidth: '180px',
+          minWidth: '200px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
         },
       };
 
-      nodeMap.set(name, node);
-      newNodes.push(node);
-      return node;
-    };
+      newNodes.push(classNode);
+      nodeMap.set(classNodeId, classNode);
 
-    // Построение графа по уровням
-    architecture.forEach((arch) => {
-      const parentNode = getOrCreateNode(arch.parent, 0);
-      
-      arch.children.forEach((child, index) => {
-        const childNode = getOrCreateNode(child, 1);
-        
-        // Создаём связь
-        newEdges.push({
-          id: `${arch.parent}-${child}`,
-          source: arch.parent,
-          target: child,
-          type: 'smoothstep',
-          animated: true,
-          style: { stroke: '#667eea', strokeWidth: 2 },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: '#667eea',
-          },
-          label: `depends`,
-          labelStyle: { fill: '#667eea', fontSize: 10, fontWeight: 600 },
+      // Создаём связи для всех методов класса
+      methods.forEach((method) => {
+        method.children.forEach((child) => {
+          const childName = child.split('/').pop();
+          const edgeId = `${classNodeId}-${child}`;
+          
+          newEdges.push({
+            id: edgeId,
+            source: classNodeId,
+            target: child,
+            type: 'smoothstep',
+            animated: false, // Убрали анимацию
+            style: { stroke: '#667eea', strokeWidth: 2, opacity: 0.6 },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: '#667eea',
+            },
+            label: method.methodName,
+            labelStyle: { fill: '#667eea', fontSize: 9, fontWeight: 600 },
+          });
+
+          // Создаём узел для child если его ещё нет
+          if (!nodeMap.has(child)) {
+            const childNode = {
+              id: child,
+              type: 'default',
+              position: { x: START_X + COLUMN_WIDTH * 3, y: newNodes.length * 60 },
+              data: { 
+                label: child.split('/').pop(),
+                fullPath: child,
+              },
+              style: {
+                background: '#f7fafc',
+                color: '#2d3748',
+                border: '2px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '11px',
+                fontWeight: '500',
+                minWidth: '120px',
+              },
+            };
+            newNodes.push(childNode);
+            nodeMap.set(child, childNode);
+          }
         });
       });
+
+      currentY += 120; // Spacing between classes
     });
 
     setNodes(newNodes);
     setEdges(newEdges);
   }, [architecture]);
 
-  // Цвета узлов в зависимости от типа
-  const getNodeColor = (nodeName) => {
-    if (nodeName.includes('Account')) return 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    if (nodeName.includes('Project')) return 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-    if (nodeName.includes('Database')) return 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
-    if (nodeName.includes('Health')) return 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)';
-    if (nodeName.includes('session')) return 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)';
-    return 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)';
+  // Цвета узлов в зависимости от типа класса
+  const getNodeColor = (className) => {
+    if (className.includes('Account')) return 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    if (className.includes('Auth')) return 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+    if (className.includes('Project')) return 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
+    if (className.includes('Database') || className.includes('DataBase')) return 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)';
+    if (className.includes('Core')) return 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)';
+    if (className.includes('Task')) return 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)';
+    if (className.includes('Frontend') || className.includes('Algorithm')) return 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)';
+    if (className.includes('Consumer') || className.includes('Producer') || className.includes('Broker')) return 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)';
+    if (className.includes('Storage') || className.includes('Object')) return 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)';
+    if (className.includes('Service')) return 'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)';
+    return 'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)';
   };
 
   // Обработка соединений (растягивание стрелок)
   const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: true }, eds)),
+    (params) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: false }, eds)),
     [setEdges]
   );
 
@@ -260,109 +287,58 @@ export default function ProjectViewStream() {
       </header>
 
       <div className={styles.content}>
-        {/* Sidebar */}
-        <aside className={styles.sidebar}>
-          <div className={styles.tabs}>
-            <button
-              className={`${styles.tab} ${selectedTab === 'requirements' ? styles.tabActive : ''}`}
-              onClick={() => setSelectedTab('requirements')}
-            >
-              📦 Requirements ({requirements.length})
-            </button>
-            <button
-              className={`${styles.tab} ${selectedTab === 'endpoints' ? styles.tabActive : ''}`}
-              onClick={() => setSelectedTab('endpoints')}
-            >
-              🌐 Endpoints ({Object.keys(endpoints).length})
-            </button>
-            <button
-              className={`${styles.tab} ${selectedTab === 'architecture' ? styles.tabActive : ''}`}
-              onClick={() => setSelectedTab('architecture')}
-            >
-              🏗️ Architecture ({architecture.length})
-            </button>
+        {/* Left column: Requirements */}
+        <aside className={styles.sidebar} style={{ width: 300 }}>
+          <div className={styles.sidebarHeader}>
+            <h3>📦 Requirements</h3>
           </div>
-
           <div className={styles.sidebarContent}>
-            {/* Requirements Tab */}
-            {selectedTab === 'requirements' && (
+            {requirements.length === 0 ? (
+              <p className={styles.emptyState}>⏳ Waiting for requirements...</p>
+            ) : (
               <div className={styles.requirementsList}>
-                {requirements.length === 0 ? (
-                  <p className={styles.emptyState}>⏳ Waiting for requirements...</p>
-                ) : (
-                  requirements.map((req, index) => (
-                    <div key={index} className={styles.requirementItem}>
-                      <span className={styles.reqIcon}>📦</span>
-                      <span>{req}</span>
-                    </div>
-                  ))
-                )}
+                {requirements.map((req, i) => (
+                  <div key={i} className={styles.requirementItem}>
+                    <span className={styles.reqIcon}>📦</span>
+                    <span>{req}</span>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        </aside>
 
-            {/* Endpoints Tab - Grouped by Class */}
-            {selectedTab === 'endpoints' && (
+        {/* Middle column: Endpoints (vertical) */}
+        <aside className={styles.sidebar} style={{ width: 360 }}>
+          <div className={styles.sidebarHeader}>
+            <h3>🌐 Endpoints</h3>
+          </div>
+          <div className={styles.sidebarContent}>
+            {Object.keys(endpointsByClass).length === 0 ? (
+              <p className={styles.emptyState}>⏳ Waiting for endpoints...</p>
+            ) : (
               <div className={styles.endpointsList}>
-                {Object.keys(endpointsByClass).length === 0 ? (
-                  <p className={styles.emptyState}>⏳ Waiting for endpoints...</p>
-                ) : (
-                  Object.entries(endpointsByClass).map(([className, methods]) => (
-                    <div key={className} className={styles.endpointClass}>
-                      <button
-                        className={styles.classHeader}
-                        onClick={() => toggleClass(className)}
-                      >
-                        <span className={styles.classIcon}>
-                          {expandedClasses.has(className) ? '▼' : '▶'}
-                        </span>
-                        <span className={styles.className}>{className}</span>
-                        <span className={styles.methodCount}>({methods.length})</span>
-                      </button>
-                      
-                      {expandedClasses.has(className) && (
-                        <div className={styles.methodsList}>
-                          {methods.map((m, idx) => (
-                            <div key={idx} className={styles.methodItem}>
-                              <span className={styles.httpMethod}>
-                                {m.route.split(' ')[0]}
-                              </span>
-                              <div className={styles.methodDetails}>
-                                <span className={styles.routePath}>{m.route.split(' ')[1]}</span>
-                                <span className={styles.methodName}>{m.method}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                {Object.entries(endpointsByClass).map(([className, methods]) => (
+                  <div key={className} className={styles.endpointClass}>
+                    <div className={styles.classHeader} onClick={() => toggleClass(className)}>
+                      <span className={styles.classIcon}>{expandedClasses.has(className) ? '▼' : '▶'}</span>
+                      <span className={styles.className}>{className}</span>
+                      <span className={styles.methodCount}>({methods.length})</span>
                     </div>
-                  ))
-                )}
-              </div>
-            )}
 
-            {/* Architecture Tab */}
-            {selectedTab === 'architecture' && (
-              <div className={styles.architectureList}>
-                {architecture.length === 0 ? (
-                  <p className={styles.emptyState}>⏳ Waiting for architecture data...</p>
-                ) : (
-                  architecture.map((arch, index) => (
-                    <div key={index} className={styles.archItem}>
-                      <div className={styles.archParent}>
-                        <span className={styles.archIcon}>🔵</span>
-                        {arch.parent}
-                      </div>
-                      <div className={styles.archChildren}>
-                        {arch.children.map((child, idx) => (
-                          <div key={idx} className={styles.archChild}>
-                            <span className={styles.archArrow}>└─</span>
-                            {child}
+                    <div className={styles.methodsList}>
+                      {methods.map((m, idx) => (
+                        <div key={idx} className={styles.methodItem}>
+                          <span className={styles.httpMethod}>{m.route.split(' ')[0]}</span>
+                          <div className={styles.methodDetails}>
+                            <span className={styles.routePath}>{m.route.split(' ')[1]}</span>
+                            <span className={styles.methodName}>{m.method}</span>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -406,15 +382,27 @@ export default function ProjectViewStream() {
                   </div>
                   <div className={styles.legendItem}>
                     <div className={styles.legendColor} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}></div>
-                    <span>Project</span>
+                    <span>Auth</span>
                   </div>
                   <div className={styles.legendItem}>
                     <div className={styles.legendColor} style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}></div>
-                    <span>Database</span>
+                    <span>Project</span>
                   </div>
                   <div className={styles.legendItem}>
                     <div className={styles.legendColor} style={{ background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' }}></div>
-                    <span>Health</span>
+                    <span>Database</span>
+                  </div>
+                  <div className={styles.legendItem}>
+                    <div className={styles.legendColor} style={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' }}></div>
+                    <span>Core</span>
+                  </div>
+                  <div className={styles.legendItem}>
+                    <div className={styles.legendColor} style={{ background: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)' }}></div>
+                    <span>Broker/Queue</span>
+                  </div>
+                  <div className={styles.legendItem}>
+                    <div className={styles.legendColor} style={{ background: 'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)' }}></div>
+                    <span>Service</span>
                   </div>
                 </div>
               </Panel>

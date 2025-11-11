@@ -30,6 +30,7 @@
 ## Proto файлы
 
 ### common.proto
+
 Определяет общие структуры данных:
 
 ```protobuf
@@ -37,7 +38,7 @@ message GraphPartResponse {
   int64 task_id = 1;
   int32 response_id = 2;
   ParseStatus status = 3;  // START, REQUIREMENTS, ENDPOINTS, ARHITECTURE, DONE
-  
+
   oneof graph_part_type {
     GraphPartRequirements graph_requirements = 4;
     GraphPartEndpoints graph_endpoints = 5;
@@ -70,6 +71,7 @@ enum ParseStatus {
 ```
 
 ### core.proto
+
 Определяет сервис для фронтенда:
 
 ```protobuf
@@ -95,6 +97,7 @@ npm install grpc-web google-protobuf
 ### 2. Установите Protocol Buffers compiler
 
 Скачайте и установите protoc:
+
 - https://github.com/protocolbuffers/protobuf/releases
 - Добавьте в PATH
 
@@ -117,6 +120,7 @@ mkdir src\proto\generated
 ```
 
 Скопируйте .proto файлы в `src\proto\`:
+
 - common.proto
 - core.proto
 - algorithm.proto
@@ -133,6 +137,7 @@ protoc -I=. common.proto core.proto `
 ```
 
 Это создаст файлы:
+
 - `generated/common_pb.js`
 - `generated/core_pb.js`
 - `generated/core_grpc_web_pb.js`
@@ -142,8 +147,8 @@ protoc -I=. common.proto core.proto `
 Раскомментируйте импорты в `src/services/grpcClient.js`:
 
 ```javascript
-import { FrontendStreamServiceClient } from '../proto/generated/core_grpc_web_pb';
-import { AlgorithmRequest } from '../proto/generated/core_pb';
+import { FrontendStreamServiceClient } from "../proto/generated/core_grpc_web_pb";
+import { AlgorithmRequest } from "../proto/generated/core_pb";
 ```
 
 ### 6. Настройте Envoy Proxy
@@ -155,64 +160,64 @@ gRPC-Web не может напрямую общаться с gRPC сервер�
 ```yaml
 static_resources:
   listeners:
-  - name: listener_0
-    address:
-      socket_address:
-        address: 0.0.0.0
-        port_value: 8080
-    filter_chains:
-    - filters:
-      - name: envoy.filters.network.http_connection_manager
-        typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-          codec_type: auto
-          stat_prefix: ingress_http
-          route_config:
-            name: local_route
-            virtual_hosts:
-            - name: local_service
-              domains: ["*"]
-              routes:
-              - match:
-                  prefix: "/"
-                route:
-                  cluster: grpc_service
-                  timeout: 0s
-                  max_stream_duration:
-                    grpc_timeout_header_max: 0s
-              cors:
-                allow_origin_string_match:
-                - prefix: "*"
-                allow_methods: GET, PUT, DELETE, POST, OPTIONS
-                allow_headers: keep-alive,user-agent,cache-control,content-type,content-transfer-encoding,custom-header-1,x-accept-content-transfer-encoding,x-accept-response-streaming,x-user-agent,x-grpc-web,grpc-timeout
-                max_age: "1728000"
-                expose_headers: custom-header-1,grpc-status,grpc-message
-          http_filters:
-          - name: envoy.filters.http.grpc_web
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
-          - name: envoy.filters.http.cors
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
-          - name: envoy.filters.http.router
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+    - name: listener_0
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8080
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                codec_type: auto
+                stat_prefix: ingress_http
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: local_service
+                      domains: ["*"]
+                      routes:
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: grpc_service
+                            timeout: 0s
+                            max_stream_duration:
+                              grpc_timeout_header_max: 0s
+                      cors:
+                        allow_origin_string_match:
+                          - prefix: "*"
+                        allow_methods: GET, PUT, DELETE, POST, OPTIONS
+                        allow_headers: keep-alive,user-agent,cache-control,content-type,content-transfer-encoding,custom-header-1,x-accept-content-transfer-encoding,x-accept-response-streaming,x-user-agent,x-grpc-web,grpc-timeout
+                        max_age: "1728000"
+                        expose_headers: custom-header-1,grpc-status,grpc-message
+                http_filters:
+                  - name: envoy.filters.http.grpc_web
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+                  - name: envoy.filters.http.cors
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
   clusters:
-  - name: grpc_service
-    connect_timeout: 0.25s
-    type: logical_dns
-    http2_protocol_options: {}
-    lb_policy: round_robin
-    load_assignment:
-      cluster_name: grpc_service
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address:
-                address: 78.153.139.47  # Адрес Core gRPC сервера
-                port_value: 50051        # Порт Core gRPC сервера
+    - name: grpc_service
+      connect_timeout: 0.25s
+      type: logical_dns
+      http2_protocol_options: {}
+      lb_policy: round_robin
+      load_assignment:
+        cluster_name: grpc_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: 78.153.139.47 # Адрес Core gRPC сервера
+                      port_value: 50051 # Порт Core gRPC сервера
 ```
 
 Запустите Envoy:
@@ -226,39 +231,35 @@ docker run -d -p 8080:8080 -v ${PWD}/envoy.yaml:/etc/envoy/envoy.yaml envoyproxy
 ### Компонент ProjectViewStream
 
 ```javascript
-import { getGRPCClient } from '../../services/grpcClient';
+import { getGRPCClient } from "../../services/grpcClient";
 
 const grpcClient = getGRPCClient();
 
-await grpcClient.connectToStream(
-  userId,
-  projectId,
-  {
-    onRequirements: (data) => {
-      // data.requirements: ["fastapi", "sqlalchemy", ...]
-      setRequirements(data.requirements);
-    },
-    
-    onEndpoints: (data) => {
-      // data.endpoints: {"POST /v1/auth/login": "Account.login", ...}
-      setEndpoints(data.endpoints);
-    },
-    
-    onArchitecture: (data) => {
-      // data.parent: "Account.create_account"
-      // data.children: ["DatabaseManager.session", "Account"]
-      setArchitecture(prev => [...prev, data]);
-    },
-    
-    onDone: () => {
-      setStreamStatus('done');
-    },
-    
-    onError: (error) => {
-      console.error('Stream error:', error);
-    }
-  }
-);
+await grpcClient.connectToStream(userId, projectId, {
+  onRequirements: (data) => {
+    // data.requirements: ["fastapi", "sqlalchemy", ...]
+    setRequirements(data.requirements);
+  },
+
+  onEndpoints: (data) => {
+    // data.endpoints: {"POST /v1/auth/login": "Account.login", ...}
+    setEndpoints(data.endpoints);
+  },
+
+  onArchitecture: (data) => {
+    // data.parent: "Account.create_account"
+    // data.children: ["DatabaseManager.session", "Account"]
+    setArchitecture((prev) => [...prev, data]);
+  },
+
+  onDone: () => {
+    setStreamStatus("done");
+  },
+
+  onError: (error) => {
+    console.error("Stream error:", error);
+  },
+});
 ```
 
 ## Пример потока данных
@@ -292,6 +293,7 @@ await grpcClient.connectToStream(
 ## Визуализация процесса
 
 ### 1. Requirements Tab
+
 Отображает список пакетов по мере получения:
 
 ```
@@ -303,6 +305,7 @@ await grpcClient.connectToStream(
 ```
 
 ### 2. Endpoints Tab (Grouped by Class)
+
 Группирует эндпоинты по классам с раскрытием:
 
 ```
@@ -311,12 +314,13 @@ await grpcClient.connectToStream(
     ├─ POST /v1/auth/registration → create_account
     ├─ POST /v1/auth/login → login
     └─ POST /v1/auth/refresh → refresh_token
-  
+
   ▶ Project (7)
   ▶ Health (1)
 ```
 
 ### 3. Architecture Tab
+
 Показывает граф зависимостей:
 
 ```
@@ -325,7 +329,7 @@ await grpcClient.connectToStream(
      └─ datamanager/DatabaseManager.session
      └─ accounts/Account
      └─ accounts/session.add
-  
+
   🔵 Account.login
      └─ datamanager/DatabaseManager.session
      └─ accounts/session.query
@@ -333,7 +337,9 @@ await grpcClient.connectToStream(
 ```
 
 ### 4. React Flow Graph
+
 Строит интерактивный граф в реальном времени:
+
 - Узлы создаются для каждого parent и child
 - Стрелки показывают зависимости
 - Цвета узлов зависят от типа (Account, Project, Database, etc.)
@@ -346,7 +352,7 @@ await grpcClient.connectToStream(
 
 ```javascript
 // В DevTools Console
-console.log('gRPC Client:', getGRPCClient());
+console.log("gRPC Client:", getGRPCClient());
 ```
 
 ### Логи в консоли
@@ -375,6 +381,7 @@ docker logs <envoy-container-id>
 ## Текущий статус
 
 ✅ **Готово**:
+
 - Структура компонента ProjectViewStream
 - UI с тремя вкладками (Requirements, Endpoints, Architecture)
 - React Flow визуализация с перетаскиванием
@@ -385,6 +392,7 @@ docker logs <envoy-container-id>
 - Симуляция gRPC стрима (для тестирования)
 
 ⏳ **Требует настройки**:
+
 - Установка grpc-web пакетов
 - Генерация proto клиентов
 - Настройка Envoy proxy

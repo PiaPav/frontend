@@ -1,0 +1,87 @@
+{
+  "task_id": 42,
+  "requirements": [
+    "aio-pika",
+    "asyncpg",
+    "bcrypt",
+    "boto3",
+    "fastapi",
+    "grpcio",
+    "grpcio-tools",
+    "pika",
+    "protobuf",
+    "pyjwt",
+    "python-dotenv",
+    "python-multipart",
+    "pyyaml",
+    "sqlalchemy",
+    "uvicorn"
+  ],
+  "endpoints": {
+    "POST /v1/auth/registration": "Account.create_account",
+    "POST /v1/auth/login": "Account.login",
+    "POST /v1/auth/refresh": "Account.refresh_token",
+    "GET /v1/project": "Project.get_all_projects",
+    "POST /v1/project": "Project.create_project",
+    "GET /v1/project/{id}": "Project.get_project_by_id",
+    "PUT /v1/project/{id}": "Project.update_project",
+    "DELETE /v1/project/{id}": "Project.delete_project",
+    "POST /v1/project/{id}/upload": "Project.upload_file",
+    "GET /v1/project/{id}/status": "Project.get_status",
+    "GET /v1/health": "Health.check"
+  },
+  "architecture": [
+    {
+      "parent": "Account.create_account",
+      "children": ["datamanager/DatabaseManager.session", "accounts/Account", "accounts/session.add"]
+    },
+    {
+      "parent": "Account.get_account_by_id",
+      "children": ["datamanager/DatabaseManager.session", "accounts/session.get", "accounts/log.error", "accounts/DataBaseEntityNotExists"]
+    },
+    {
+      "parent": "Account.login",
+      "children": ["datamanager/DatabaseManager.session", "accounts/session.query", "accounts/verify_password", "accounts/create_tokens"]
+    },
+    {
+      "parent": "Account.refresh_token",
+      "children": ["accounts/verify_token", "accounts/create_tokens"]
+    },
+    {
+      "parent": "Project.create_project",
+      "children": ["datamanager/DatabaseManager.session", "projects/Project", "projects/session.add", "projects/commit"]
+    },
+    {
+      "parent": "Project.get_all_projects",
+      "children": ["datamanager/DatabaseManager.session", "projects/session.query", "projects/all"]
+    },
+    {
+      "parent": "Project.get_project_by_id",
+      "children": ["datamanager/DatabaseManager.session", "projects/session.get", "projects/DataBaseEntityNotExists"]
+    },
+    {
+      "parent": "Project.update_project",
+      "children": ["datamanager/DatabaseManager.session", "projects/session.query", "projects/commit"]
+    },
+    {
+      "parent": "Project.delete_project",
+      "children": ["datamanager/DatabaseManager.session", "projects/session.delete", "projects/commit"]
+    },
+    {
+      "parent": "Project.upload_file",
+      "children": ["boto3/S3Client", "projects/upload_to_s3", "projects/update_project"]
+    },
+    {
+      "parent": "DatabaseManager.session",
+      "children": ["sqlalchemy/Session", "sqlalchemy/create_engine", "sqlalchemy/sessionmaker"]
+    },
+    {
+      "parent": "DatabaseManager.create_tables",
+      "children": ["sqlalchemy/Base.metadata.create_all"]
+    },
+    {
+      "parent": "Health.check",
+      "children": ["fastapi/Response", "health/status"]
+    }
+  ]
+}
