@@ -9,6 +9,8 @@ import ProjectView from './pages/Projects/ProjectView';
 import ProjectViewV2 from './pages/Projects/ProjectViewV2';
 import ProjectViewDetailed from './pages/Projects/ProjectViewDetailed';
 import ProjectViewStream from './pages/Projects/ProjectViewStream';
+import ProjectViewArchitecture from './pages/Projects/ProjectViewArchitecture';
+import ProjectViewLayered from './pages/Projects/ProjectViewLayered';
 import TestFlow from './pages/Projects/TestFlow';
 import ProtectedRoute from './routes/ProtectedRoute';
 
@@ -67,6 +69,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProjectViewStream />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id/architecture"
+            element={
+              <ProtectedRoute>
+                <ProjectViewArchitecture />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id/layered"
+            element={
+              <ProtectedRoute>
+                <ProjectViewLayered />
               </ProtectedRoute>
             }
           />
