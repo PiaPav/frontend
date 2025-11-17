@@ -11,6 +11,7 @@ import ProjectViewDetailed from './pages/Projects/ProjectViewDetailed';
 import ProjectViewStream from './pages/Projects/ProjectViewStream';
 import ProjectViewArchitecture from './pages/Projects/ProjectViewArchitecture';
 import ProjectViewLayered from './pages/Projects/ProjectViewLayered';
+import ProjectAnalysis from './pages/Projects/ProjectAnalysis';
 import TestFlow from './pages/Projects/TestFlow';
 import ProtectedRoute from './routes/ProtectedRoute';
 
@@ -85,6 +86,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProjectViewLayered />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id/analysis"
+            element={
+              <ProtectedRoute>
+                <ProjectAnalysis />
               </ProtectedRoute>
             }
           />

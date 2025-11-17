@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 //запросы через Vite proxy
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -33,7 +33,7 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refresh_token');
-        const response = await axios.post(`${API_BASE_URL}/v1/auth/refresh`, {
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refresh_token: refreshToken,
         });
 
@@ -58,17 +58,17 @@ api.interceptors.response.use(
 //апи для авторизации
 export const authAPI = {
   login: async (credentials) => {
-    const response = await api.post('/v1/auth/login', credentials);
+    const response = await api.post('/auth/login', credentials);
     return response.data;
   },
 
   register: async (userData) => {
-    const response = await api.post('/v1/auth/registration', userData);
+    const response = await api.post('/auth/registration', userData);
     return response.data;
   },
 
   refresh: async (refreshToken) => {
-    const response = await api.post('/v1/auth/refresh', { refresh_token: refreshToken });
+    const response = await api.post('/auth/refresh', { refresh_token: refreshToken });
     return response.data;
   },
 };
@@ -76,12 +76,12 @@ export const authAPI = {
 //для будущего
 export const projectsAPI = {
   getAll: async () => {
-    const response = await api.get('/v1/project/');
+    const response = await api.get('/project/');
     return response.data;
   },
 
   getById: async (id) => {
-    const response = await api.get(`/v1/project/${id}`);
+    const response = await api.get(`/project/${id}`);
     return response.data;
   },
 
@@ -94,7 +94,7 @@ export const projectsAPI = {
     formData.append('file', emptyBlob, 'architecture.json');
 
     // Отправляем name и description как query параметры
-    const response = await api.post('/v1/project/', formData, {
+    const response = await api.post('/project/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -107,12 +107,12 @@ export const projectsAPI = {
   },
 
   update: async (id, projectData) => {
-    const response = await api.put(`/v1/project/${id}`, projectData);
+    const response = await api.put(`/project/${id}`, projectData);
     return response.data;
   },
 
   delete: async (id) => {
-    const response = await api.delete(`/v1/project/${id}`);
+    const response = await api.delete(`/project/${id}`);
     return response.data;
   },
 };
