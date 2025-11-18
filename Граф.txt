@@ -1,0 +1,1168 @@
+📡 Подключаюсь к Core RunAlgorithm(task_id=42)...
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 1
+status: REQUIREMENTS
+graph_requirements {
+  total: 15
+  requirements: "aio-pika"
+  requirements: "asyncpg"
+  requirements: "bcrypt"
+  requirements: "boto3"
+  requirements: "fastapi"
+  requirements: "grpcio"
+  requirements: "grpcio-tools"
+  requirements: "pika"
+  requirements: "protobuf"
+  requirements: "pyjwt"
+  requirements: "python-dotenv"
+  requirements: "python-multipart"
+  requirements: "pyyaml"
+  requirements: "sqlalchemy"
+  requirements: "uvicorn"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 2
+status: ENDPOINTS
+graph_endpoints {
+  total: 11
+  endpoints {
+    key: "registration"
+    value: "POST /v1/auth/registration"
+  }
+  endpoints {
+    key: "refresh"
+    value: "POST /v1/auth/refresh"
+  }
+  endpoints {
+    key: "patch_project"
+    value: "PATCH /v1/project/{project_id}"
+  }
+  endpoints {
+    key: "patch_account"
+    value: "PATCH /v1/account"
+  }
+  endpoints {
+    key: "login"
+    value: "POST /v1/auth/login"
+  }
+  endpoints {
+    key: "homepage"
+    value: "GET /v1/home"
+  }
+  endpoints {
+    key: "get_project"
+    value: "GET /v1/project/{project_id}"
+  }
+  endpoints {
+    key: "get_projects_list"
+    value: "GET /v1/project"
+  }
+  endpoints {
+    key: "get_account"
+    value: "GET /v1/account"
+  }
+  endpoints {
+    key: "delete_project"
+    value: "DELETE /v1/project/{project_id}"
+  }
+  endpoints {
+    key: "create_project"
+    value: "POST /v1/project"
+  }
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 3
+status: ARHITECTURE
+graph_architecture {
+  parent: "Account.create_account"
+  children: "datamanager/DatabaseManager.session"
+  children: "accounts/Account"
+  children: "accounts/session.add"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 4
+status: ARHITECTURE
+graph_architecture {
+  parent: "Account.get_account_by_id"
+  children: "datamanager/DatabaseManager.session"
+  children: "accounts/session.get"
+  children: "accounts/log.error"
+  children: "accounts/DataBaseEntityNotExists"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 5
+status: ARHITECTURE
+graph_architecture {
+  parent: "Account.get_account_by_login"
+  children: "datamanager/DatabaseManager.session"
+  children: "accounts/session.execute"
+  children: "accounts/where"
+  children: "accounts/select"
+  children: "accounts/result.scalar_one_or_none"
+  children: "accounts/log.error"
+  children: "accounts/DataBaseEntityNotExists"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 6
+status: ARHITECTURE
+graph_architecture {
+  parent: "Account.is_login_exists"
+  children: "datamanager/DatabaseManager.session"
+  children: "accounts/session.execute"
+  children: "accounts/where"
+  children: "accounts/select"
+  children: "accounts/result.scalar_one_or_none"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 7
+status: ARHITECTURE
+graph_architecture {
+  parent: "Account.patch_account_by_id"
+  children: "datamanager/DatabaseManager.session"
+  children: "accounts/Account.get_account_by_id"
+  children: "accounts/items"
+  children: "accounts/patch_data.model_dump"
+  children: "accounts/setattr"
+  children: "accounts/session.flush"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 8
+status: ARHITECTURE
+graph_architecture {
+  parent: "DataBaseException.__init__"
+  children: "base/__init__"
+  children: "base/super"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 9
+status: ARHITECTURE
+graph_architecture {
+  parent: "DataBaseEntityNotExists.__init__"
+  children: "base/__init__"
+  children: "base/super"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 10
+status: ARHITECTURE
+graph_architecture {
+  parent: "DatabaseManager.__init__"
+  children: "datamanager/create_async_engine"
+  children: "datamanager/async_sessionmaker"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 11
+status: ARHITECTURE
+graph_architecture {
+  parent: "DatabaseManager.init_models"
+  children: "datamanager/self.engine.begin"
+  children: "datamanager/Base.metadata.tables.get"
+  children: "datamanager/conn.run_sync"
+  children: "datamanager/ValueError"
+  children: "datamanager/conn.run_sync"
+  children: "datamanager/Base.metadata.tables.get"
+  children: "datamanager/conn.run_sync"
+  children: "datamanager/ValueError"
+  children: "datamanager/conn.run_sync"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 12
+status: ARHITECTURE
+graph_architecture {
+  parent: "DatabaseManager.session"
+  children: "datamanager/self.session_factory"
+  children: "datamanager/session.commit"
+  children: "datamanager/session.rollback"
+  children: "datamanager/DatabaseManager.close"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 13
+status: ARHITECTURE
+graph_architecture {
+  parent: "DatabaseManager.close"
+  children: "datamanager/self.engine.dispose"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 14
+status: ARHITECTURE
+graph_architecture {
+  parent: "init_db"
+  children: "datamanager/DatabaseManager.init_models"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 15
+status: ARHITECTURE
+graph_architecture {
+  parent: "Project.create_project"
+  children: "datamanager/DatabaseManager.session"
+  children: "projects/Project"
+  children: "projects/session.add"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 16
+status: ARHITECTURE
+graph_architecture {
+  parent: "Project.get_project_by_id"
+  children: "datamanager/DatabaseManager.session"
+  children: "projects/session.get"
+  children: "projects/log.error"
+  children: "projects/DataBaseEntityNotExists"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 17
+status: ARHITECTURE
+graph_architecture {
+  parent: "Project.patch_project_by_id"
+  children: "datamanager/DatabaseManager.session"
+  children: "projects/Project.get_project_by_id"
+  children: "projects/items"
+  children: "projects/patch_data.model_dump"
+  children: "projects/setattr"
+  children: "projects/session.flush"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 18
+status: ARHITECTURE
+graph_architecture {
+  parent: "Project.get_project_list_by_account_id"
+  children: "datamanager/DatabaseManager.session"
+  children: "projects/where"
+  children: "projects/select"
+  children: "projects/session.execute"
+  children: "projects/all"
+  children: "projects/result.scalars"
+  children: "projects/len"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 19
+status: ARHITECTURE
+graph_architecture {
+  parent: "Project.delete_project"
+  children: "datamanager/DatabaseManager.session"
+  children: "projects/Project.get_project_by_id"
+  children: "projects/session.delete"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 20
+status: ARHITECTURE
+graph_architecture {
+  parent: "get_account"
+  children: "account_endpoints/Depends"
+  children: "account_endpoints/Depends"
+  children: "account_endpoints/Depends"
+  children: "account_endpoints/log.info"
+  children: "auth_service/AuthService.verify_token"
+  children: "account_service/AccountService.get_account_by_id"
+  children: "account_endpoints/log.info"
+  children: "account_endpoints/router.get"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 21
+status: ARHITECTURE
+graph_architecture {
+  parent: "patch_account"
+  children: "account_endpoints/Depends"
+  children: "account_endpoints/Depends"
+  children: "account_endpoints/Depends"
+  children: "account_endpoints/log.info"
+  children: "auth_service/AuthService.verify_token"
+  children: "account_service/AccountService.patch_account_by_id"
+  children: "account_endpoints/log.info"
+  children: "account_endpoints/router.patch"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 22
+status: ARHITECTURE
+graph_architecture {
+  parent: "login"
+  children: "auth_endpoints/Depends"
+  children: "auth_endpoints/log.info"
+  children: "auth_service/AuthService.login"
+  children: "auth_endpoints/log.info"
+  children: "auth_endpoints/router.post"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 23
+status: ARHITECTURE
+graph_architecture {
+  parent: "refresh"
+  children: "auth_endpoints/Depends"
+  children: "auth_endpoints/log.info"
+  children: "auth_service/AuthService.refresh"
+  children: "auth_endpoints/log.info"
+  children: "auth_endpoints/router.post"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 24
+status: ARHITECTURE
+graph_architecture {
+  parent: "registration"
+  children: "auth_endpoints/Depends"
+  children: "auth_endpoints/log.info"
+  children: "auth_service/AuthService.registration"
+  children: "auth_endpoints/log.info"
+  children: "auth_endpoints/router.post"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 25
+status: ARHITECTURE
+graph_architecture {
+  parent: "homepage"
+  children: "core_endpoints/Depends"
+  children: "core_endpoints/Depends"
+  children: "core_endpoints/Depends"
+  children: "core_endpoints/log.info"
+  children: "auth_service/AuthService.verify_token"
+  children: "core_service/CoreService.get_homepage"
+  children: "core_endpoints/log.info"
+  children: "core_endpoints/router.get"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 26
+status: ARHITECTURE
+graph_architecture {
+  parent: "get_project"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/log.info"
+  children: "auth_service/AuthService.verify_token"
+  children: "project_service/ProjectService.get_project_by_id"
+  children: "project_endpoints/log.info"
+  children: "project_endpoints/router.get"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 27
+status: ARHITECTURE
+graph_architecture {
+  parent: "create_project"
+  children: "project_endpoints/File"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/log.info"
+  children: "auth_service/AuthService.verify_token"
+  children: "project_service/ProjectService.create_project"
+  children: "project_endpoints/ProjectCreateData"
+  children: "project_endpoints/log.info"
+  children: "project_endpoints/router.post"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 28
+status: ARHITECTURE
+graph_architecture {
+  parent: "patch_project"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/log.info"
+  children: "auth_service/AuthService.verify_token"
+  children: "project_service/ProjectService.update_project"
+  children: "project_endpoints/log.info"
+  children: "project_endpoints/router.patch"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 29
+status: ARHITECTURE
+graph_architecture {
+  parent: "delete_project"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/log.info"
+  children: "auth_service/AuthService.verify_token"
+  children: "project_service/ProjectService.delete_project"
+  children: "project_endpoints/log.info"
+  children: "project_endpoints/router.delete"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 30
+status: ARHITECTURE
+graph_architecture {
+  parent: "get_projects_list"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/Depends"
+  children: "project_endpoints/log.info"
+  children: "auth_service/AuthService.verify_token"
+  children: "project_service/ProjectService.get_projects_by_account_id"
+  children: "project_endpoints/log.info"
+  children: "project_endpoints/router.get"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 31
+status: ARHITECTURE
+graph_architecture {
+  parent: "lifespan"
+  children: "datamanager/DatabaseManager.init_models"
+  children: "manager/ConnectionBrokerManager.connect"
+  children: "datamanager/DatabaseManager.close"
+  children: "datamanager/DatabaseManager.close"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 32
+status: ARHITECTURE
+graph_architecture {
+  parent: "TaskSession.__init__"
+  children: "core_server/asyncio.Queue"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 33
+status: ARHITECTURE
+graph_architecture {
+  parent: "TaskSession.add_message"
+  children: "core_server/self.message_queue.put"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 34
+status: ARHITECTURE
+graph_architecture {
+  parent: "TaskSession.get_next_message"
+  children: "core_server/self.message_queue.get"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 35
+status: ARHITECTURE
+graph_architecture {
+  parent: "TaskSession.close"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 36
+status: ARHITECTURE
+graph_architecture {
+  parent: "TaskManager.__init__"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 37
+status: ARHITECTURE
+graph_architecture {
+  parent: "TaskManager.get_or_create_session"
+  children: "core_server/TaskSession"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 38
+status: ARHITECTURE
+graph_architecture {
+  parent: "TaskManager.remove_session"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 39
+status: ARHITECTURE
+graph_architecture {
+  parent: "FrontendStreamService.__init__"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 40
+status: ARHITECTURE
+graph_architecture {
+  parent: "FrontendStreamService.RunAlgorithm"
+  children: "core_pb2_grpc/grpc.experimental.unary_stream"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 41
+status: ARHITECTURE
+graph_architecture {
+  parent: "AlgorithmConnectionService.__init__"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 42
+status: ARHITECTURE
+graph_architecture {
+  parent: "AlgorithmConnectionService.ConnectToCore"
+  children: "algorithm_pb2_grpc/grpc.experimental.stream_unary"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 43
+status: ARHITECTURE
+graph_architecture {
+  parent: "CoreServer.__init__"
+  children: "core_server/TaskManager"
+  children: "core_server/FrontendStreamService"
+  children: "core_server/AlgorithmConnectionService"
+  children: "core_server/grpc.aio.server"
+  children: "core_server/core_pb2_grpc.add_FrontendStreamServiceServicer_to_server"
+  children: "core_server/algorithm_pb2_grpc.add_AlgorithmConnectionServiceServicer_to_server"
+  children: "core_server/self.server.add_insecure_port"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 44
+status: ARHITECTURE
+graph_architecture {
+  parent: "CoreServer.start"
+  children: "core_server/print"
+  children: "core_server/self.server.start"
+  children: "core_server/self.server.wait_for_termination"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 45
+status: ARHITECTURE
+graph_architecture {
+  parent: "CoreServer.stop"
+  children: "core_server/print"
+  children: "core_server/list"
+  children: "core_server/self.task_manager.tasks.items"
+  children: "datamanager/DatabaseManager.close"
+  children: "core_server/self.task_manager.remove_session"
+  children: "core_server/self.server.stop"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 46
+status: ARHITECTURE
+graph_architecture {
+  parent: "AlgorithmConnectionServiceStub.__init__"
+  children: "algorithm_pb2_grpc/channel.stream_unary"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 47
+status: ARHITECTURE
+graph_architecture {
+  parent: "AlgorithmConnectionServiceServicer.ConnectToCore"
+  children: "algorithm_pb2_grpc/context.set_code"
+  children: "algorithm_pb2_grpc/context.set_details"
+  children: "algorithm_pb2_grpc/NotImplementedError"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 48
+status: ARHITECTURE
+graph_architecture {
+  parent: "add_AlgorithmConnectionServiceServicer_to_server"
+  children: "algorithm_pb2_grpc/grpc.stream_unary_rpc_method_handler"
+  children: "algorithm_pb2_grpc/grpc.method_handlers_generic_handler"
+  children: "algorithm_pb2_grpc/server.add_generic_rpc_handlers"
+  children: "algorithm_pb2_grpc/server.add_registered_method_handlers"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 49
+status: ARHITECTURE
+graph_architecture {
+  parent: "FrontendStreamServiceStub.__init__"
+  children: "core_pb2_grpc/channel.unary_stream"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 50
+status: ARHITECTURE
+graph_architecture {
+  parent: "FrontendStreamServiceServicer.RunAlgorithm"
+  children: "core_pb2_grpc/context.set_code"
+  children: "core_pb2_grpc/context.set_details"
+  children: "core_pb2_grpc/NotImplementedError"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 51
+status: ARHITECTURE
+graph_architecture {
+  parent: "add_FrontendStreamServiceServicer_to_server"
+  children: "core_pb2_grpc/grpc.unary_stream_rpc_method_handler"
+  children: "core_pb2_grpc/grpc.method_handlers_generic_handler"
+  children: "core_pb2_grpc/server.add_generic_rpc_handlers"
+  children: "core_pb2_grpc/server.add_registered_method_handlers"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 52
+status: ARHITECTURE
+graph_architecture {
+  parent: "Consumer.__init__"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 53
+status: ARHITECTURE
+graph_architecture {
+  parent: "Consumer.start"
+  children: "consumer/self.connection.connect"
+  children: "consumer/self.connection.channel.declare_queue"
+  children: "consumer/log.info"
+  children: "consumer/self.connection.channel.set_qos"
+  children: "consumer/log.info"
+  children: "consumer/wait"
+  children: "consumer/asyncio.Event"
+  children: "consumer/log.info"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 54
+status: ARHITECTURE
+graph_architecture {
+  parent: "Consumer.messages"
+  children: "consumer/RuntimeError"
+  children: "consumer/self.queue.iterator"
+  children: "consumer/message.process"
+  children: "consumer/json.loads"
+  children: "consumer/log.info"
+  children: "consumer/log.error"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 55
+status: ARHITECTURE
+graph_architecture {
+  parent: "ConnectionBrokerManager.__init__"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 56
+status: ARHITECTURE
+graph_architecture {
+  parent: "ConnectionBrokerManager.connect"
+  children: "manager/aio_pika.connect_robust"
+  children: "manager/self.connection.channel"
+  children: "manager/self.channel.declare_exchange"
+  children: "manager/log.info"
+  children: "manager/ConnectionBrokerManager._create_queue"
+  children: "manager/ConnectionBrokerManager._bind_exchange_as_queue"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 57
+status: ARHITECTURE
+graph_architecture {
+  parent: "ConnectionBrokerManager.close"
+  children: "manager/self.connection.close"
+  children: "manager/log.info"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 58
+status: ARHITECTURE
+graph_architecture {
+  parent: "ConnectionBrokerManager._create_queue"
+  children: "manager/self.channel.declare_queue"
+  children: "manager/log.info"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 59
+status: ARHITECTURE
+graph_architecture {
+  parent: "ConnectionBrokerManager._bind_exchange_as_queue"
+  children: "manager/queue.bind"
+  children: "manager/log.info"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 60
+status: ARHITECTURE
+graph_architecture {
+  parent: "Producer.__init__"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 61
+status: ARHITECTURE
+graph_architecture {
+  parent: "Producer.publish"
+  children: "producer/encode"
+  children: "producer/json.dumps"
+  children: "producer/aio_pika.Message"
+  children: "producer/self.connection.exchange.publish"
+  children: "producer/log.info"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 62
+status: ARHITECTURE
+graph_architecture {
+  parent: "AbstractStorage.upload_fileobj"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 63
+status: ARHITECTURE
+graph_architecture {
+  parent: "AbstractStorage.delete_file"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 64
+status: ARHITECTURE
+graph_architecture {
+  parent: "ObjectStorageManager.__init__"
+  children: "s3_manager/boto3.session.Session"
+  children: "s3_manager/session.client"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 65
+status: ARHITECTURE
+graph_architecture {
+  parent: "ObjectStorageManager.upload_fileobj"
+  children: "s3_manager/run_in_threadpool"
+  children: "s3_manager/log.info"
+  children: "s3_manager/log.error"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 66
+status: ARHITECTURE
+graph_architecture {
+  parent: "ObjectStorageManager.delete_file"
+  children: "s3_manager/run_in_threadpool"
+  children: "s3_manager/log.info"
+  children: "s3_manager/log.error"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 67
+status: ARHITECTURE
+graph_architecture {
+  parent: "AccountService.get_account_by_id"
+  children: "accounts/Account.get_account_by_id"
+  children: "account_service/AccountFullData.model_validate"
+  children: "account_service/log.error"
+  children: "account_service/HTTPException"
+  children: "account_service/log.error"
+  children: "account_service/type"
+  children: "account_service/str"
+  children: "account_service/HTTPException"
+  children: "account_service/type"
+  children: "account_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 68
+status: ARHITECTURE
+graph_architecture {
+  parent: "AccountService.patch_account_by_id"
+  children: "accounts/Account.patch_account_by_id"
+  children: "account_service/AccountFullData.model_validate"
+  children: "account_service/log.error"
+  children: "account_service/HTTPException"
+  children: "account_service/log.error"
+  children: "account_service/type"
+  children: "account_service/str"
+  children: "account_service/HTTPException"
+  children: "account_service/type"
+  children: "account_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 69
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.registration"
+  children: "auth_service/AuthService.hash_password"
+  children: "accounts/Account.is_login_exists"
+  children: "auth_service/log.error"
+  children: "auth_service/HTTPException"
+  children: "accounts/Account.create_account"
+  children: "auth_service/AccountCreateData"
+  children: "auth_service/log.error"
+  children: "auth_service/type"
+  children: "auth_service/str"
+  children: "auth_service/HTTPException"
+  children: "auth_service/type"
+  children: "auth_service/str"
+  children: "auth_service/AccountData.model_validate"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 70
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.verify_token"
+  children: "auth_service/AuthService.check_access_token"
+  children: "auth_service/log.error"
+  children: "auth_service/HTTPException"
+  children: "auth_service/log.error"
+  children: "auth_service/type"
+  children: "auth_service/str"
+  children: "auth_service/HTTPException"
+  children: "auth_service/type"
+  children: "auth_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 71
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.check_access_token"
+  children: "auth_service/AuthService.decode_token"
+  children: "auth_service/datetime.now"
+  children: "auth_service/HTTPException"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 72
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.login"
+  children: "accounts/Account.get_account_by_login"
+  children: "auth_service/AuthService.verify_password"
+  children: "auth_service/AccountData"
+  children: "auth_service/AuthService.encode_to_token"
+  children: "auth_service/AuthService.encode_to_token"
+  children: "auth_service/log.error"
+  children: "auth_service/HTTPException"
+  children: "auth_service/log.error"
+  children: "auth_service/type"
+  children: "auth_service/str"
+  children: "auth_service/HTTPException"
+  children: "auth_service/type"
+  children: "auth_service/str"
+  children: "auth_service/AuthResponseData"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 73
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.refresh"
+  children: "auth_service/AuthService.decode_token"
+  children: "auth_service/datetime.now"
+  children: "auth_service/log.error"
+  children: "auth_service/HTTPException"
+  children: "accounts/Account.get_account_by_id"
+  children: "auth_service/HTTPException"
+  children: "auth_service/AccountData"
+  children: "auth_service/AuthService.encode_to_token"
+  children: "auth_service/AuthService.encode_to_token"
+  children: "auth_service/log.error"
+  children: "auth_service/HTTPException"
+  children: "auth_service/log.error"
+  children: "auth_service/type"
+  children: "auth_service/str"
+  children: "auth_service/HTTPException"
+  children: "auth_service/type"
+  children: "auth_service/str"
+  children: "auth_service/AuthResponseData"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 74
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.encode_to_token"
+  children: "auth_service/datetime.now"
+  children: "auth_service/timedelta"
+  children: "auth_service/data.model_dump"
+  children: "auth_service/start_date.isoformat"
+  children: "auth_service/end_date.isoformat"
+  children: "auth_service/JWT.encode"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 75
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.decode_token"
+  children: "auth_service/JWT.decode"
+  children: "auth_service/AccountEncodeData"
+  children: "auth_service/datetime.fromisoformat"
+  children: "auth_service/datetime.fromisoformat"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 76
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.hash_password"
+  children: "auth_service/bcrypt.gensalt"
+  children: "auth_service/bcrypt.hashpw"
+  children: "auth_service/password.encode"
+  children: "auth_service/hashed.decode"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 77
+status: ARHITECTURE
+graph_architecture {
+  parent: "AuthService.verify_password"
+  children: "auth_service/bcrypt.checkpw"
+  children: "auth_service/password.encode"
+  children: "auth_service/hashed_password.encode"
+  children: "auth_service/log.error"
+  children: "auth_service/HTTPException"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 78
+status: ARHITECTURE
+graph_architecture {
+  parent: "CoreService.get_homepage"
+  children: "accounts/Account.get_account_by_id"
+  children: "core_service/AccountData.model_validate"
+  children: "projects/Project.get_project_list_by_account_id"
+  children: "core_service/ProjectDataLite.model_validate"
+  children: "core_service/ProjectListDataLite"
+  children: "core_service/HomePageData"
+  children: "core_service/log.error"
+  children: "core_service/type"
+  children: "core_service/str"
+  children: "core_service/HTTPException"
+  children: "core_service/type"
+  children: "core_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 79
+status: ARHITECTURE
+graph_architecture {
+  parent: "ProjectService.get_project_by_id"
+  children: "projects/Project.get_project_by_id"
+  children: "project_service/ArchitectureModel"
+  children: "project_service/ProjectData"
+  children: "project_service/log.error"
+  children: "project_service/HTTPException"
+  children: "project_service/log.error"
+  children: "project_service/type"
+  children: "project_service/str"
+  children: "project_service/HTTPException"
+  children: "project_service/type"
+  children: "project_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 80
+status: ARHITECTURE
+graph_architecture {
+  parent: "ProjectService.create_project"
+  children: "projects/Project.create_project"
+  children: "project_service/ArchitectureModel"
+  children: "project_service/ProjectData"
+  children: "project_service/log.error"
+  children: "project_service/type"
+  children: "project_service/str"
+  children: "project_service/HTTPException"
+  children: "project_service/type"
+  children: "project_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 81
+status: ARHITECTURE
+graph_architecture {
+  parent: "ProjectService.update_project"
+  children: "projects/Project.patch_project_by_id"
+  children: "project_service/ArchitectureModel"
+  children: "project_service/ProjectData"
+  children: "project_service/log.error"
+  children: "project_service/HTTPException"
+  children: "project_service/log.error"
+  children: "project_service/type"
+  children: "project_service/str"
+  children: "project_service/HTTPException"
+  children: "project_service/type"
+  children: "project_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 82
+status: ARHITECTURE
+graph_architecture {
+  parent: "ProjectService.delete_project"
+  children: "projects/Project.delete_project"
+  children: "project_service/log.error"
+  children: "project_service/HTTPException"
+  children: "project_service/log.error"
+  children: "project_service/type"
+  children: "project_service/str"
+  children: "project_service/HTTPException"
+  children: "project_service/type"
+  children: "project_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 83
+status: ARHITECTURE
+graph_architecture {
+  parent: "ProjectService.get_projects_by_account_id"
+  children: "projects/Project.get_project_list_by_account_id"
+  children: "project_service/ProjectDataLite.model_validate"
+  children: "project_service/ProjectListDataLite"
+  children: "project_service/log.error"
+  children: "project_service/type"
+  children: "project_service/str"
+  children: "project_service/HTTPException"
+  children: "project_service/type"
+  children: "project_service/str"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 84
+status: ARHITECTURE
+graph_architecture {
+  parent: "TaskService.add_task"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 85
+status: ARHITECTURE
+graph_architecture {
+  parent: "load_config"
+  children: "config/Config"
+  children: "config/ConfigAuth"
+  children: "config/os.environ.get"
+  children: "config/int"
+  children: "config/int"
+  children: "config/ConfigServer"
+  children: "config/os.environ.get"
+  children: "config/int"
+  children: "config/os.environ.get"
+  children: "config/ConfigDB"
+  children: "config/os.environ.get"
+  children: "config/int"
+  children: "config/os.environ.get"
+  children: "config/lower"
+  children: "config/os.environ.get"
+  children: "config/ConfigBroker"
+  children: "config/os.environ.get"
+  children: "config/os.environ.get"
+  children: "config/os.environ.get"
+  children: "config/os.environ.get"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 86
+status: ARHITECTURE
+graph_architecture {
+  parent: "create_logger"
+  children: "logger/logging.getLogger"
+  children: "logger/logger.setLevel"
+  children: "logger/logging.Formatter"
+  children: "logger/logging.StreamHandler"
+  children: "logger/console_handler.setFormatter"
+  children: "logger/logger.addHandler"
+}
+
+✅ Получено сообщение от Core:
+task_id: 42
+response_id: 87
+status: DONE
+graph_architecture {
+}

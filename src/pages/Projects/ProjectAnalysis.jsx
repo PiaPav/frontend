@@ -10,12 +10,12 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import styles from './ProjectAnalysis.module.css';
 
-// Симуляция потока данных с сервера (в будущем заменить на gRPC)
+// Симуляция потока данных с сервера (имитация реального gRPC)
 const simulateServerStream = async (onMessage) => {
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   
   // 1. REQUIREMENTS (response_id: 1)
-  await delay(800);
+  await delay(300);
   onMessage({
     task_id: 42,
     response_id: 1,
@@ -31,7 +31,7 @@ const simulateServerStream = async (onMessage) => {
   });
 
   // 2. ENDPOINTS (response_id: 2)
-  await delay(1000);
+  await delay(400);
   onMessage({
     task_id: 42,
     response_id: 2,
@@ -54,28 +54,59 @@ const simulateServerStream = async (onMessage) => {
     }
   });
 
-  // 3-87. ARCHITECTURE (response_id: 3-86, поэтапно)
-  const architectureData = [
+  // 3-87. ARCHITECTURE (response_id: 3-86, поэтапно с задержками)
+  const architectureMessages = [
     { parent: 'Account.create_account', children: ['datamanager/DatabaseManager.session', 'accounts/Account', 'accounts/session.add'] },
-    { parent: 'Account.get_account_by_id', children: ['datamanager/DatabaseManager.session', 'accounts/session.get'] },
-    { parent: 'Account.get_account_by_login', children: ['datamanager/DatabaseManager.session', 'accounts/session.execute'] },
+    { parent: 'Account.get_account_by_id', children: ['datamanager/DatabaseManager.session', 'accounts/session.get', 'accounts/log.error', 'accounts/DataBaseEntityNotExists'] },
+    { parent: 'Account.get_account_by_login', children: ['datamanager/DatabaseManager.session', 'accounts/session.execute', 'accounts/where', 'accounts/select', 'accounts/result.scalar_one_or_none'] },
+    { parent: 'Account.is_login_exists', children: ['datamanager/DatabaseManager.session', 'accounts/session.execute', 'accounts/where', 'accounts/select', 'accounts/result.scalar_one_or_none'] },
+    { parent: 'Account.patch_account_by_id', children: ['datamanager/DatabaseManager.session', 'accounts/Account.get_account_by_id', 'accounts/items', 'accounts/patch_data.model_dump', 'accounts/setattr', 'accounts/session.flush'] },
     { parent: 'DatabaseManager.__init__', children: ['datamanager/create_async_engine', 'datamanager/async_sessionmaker'] },
-    { parent: 'DatabaseManager.session', children: ['datamanager/self.session_factory', 'datamanager/session.commit'] },
-    { parent: 'Project.create_project', children: ['datamanager/DatabaseManager.session', 'projects/Project'] },
-    { parent: 'Project.get_project_by_id', children: ['datamanager/DatabaseManager.session', 'projects/session.get'] },
-    { parent: 'AuthService.registration', children: ['auth_service/AuthService.hash_password', 'accounts/Account.is_login_exists'] },
-    { parent: 'AuthService.login', children: ['accounts/Account.get_account_by_login', 'auth_service/AuthService.verify_password'] },
-    { parent: 'AuthService.hash_password', children: ['auth_service/bcrypt.gensalt', 'auth_service/bcrypt.hashpw'] },
-    { parent: 'ProjectService.create_project', children: ['projects/Project.create_project', 'project_service/ArchitectureModel'] },
-    { parent: 'AccountService.get_account_by_id', children: ['accounts/Account.get_account_by_id'] },
-    { parent: 'get_account', children: ['account_endpoints/Depends', 'auth_service/AuthService.verify_token', 'account_service/AccountService.get_account_by_id'] },
-    { parent: 'login', children: ['auth_endpoints/Depends', 'auth_service/AuthService.login'] },
-    { parent: 'registration', children: ['auth_endpoints/Depends', 'auth_service/AuthService.registration'] },
+    { parent: 'DatabaseManager.init_models', children: ['datamanager/self.engine.begin', 'datamanager/Base.metadata.tables.get', 'datamanager/conn.run_sync', 'datamanager/ValueError'] },
+    { parent: 'DatabaseManager.session', children: ['datamanager/self.session_factory', 'datamanager/session.commit', 'datamanager/session.rollback', 'datamanager/DatabaseManager.close'] },
+    { parent: 'DatabaseManager.close', children: ['datamanager/self.engine.dispose'] },
+    { parent: 'init_db', children: ['datamanager/DatabaseManager.init_models'] },
+    { parent: 'Project.create_project', children: ['datamanager/DatabaseManager.session', 'projects/Project', 'projects/session.add'] },
+    { parent: 'Project.get_project_by_id', children: ['datamanager/DatabaseManager.session', 'projects/session.get', 'projects/log.error', 'projects/DataBaseEntityNotExists'] },
+    { parent: 'Project.patch_project_by_id', children: ['datamanager/DatabaseManager.session', 'projects/Project.get_project_by_id', 'projects/items', 'projects/patch_data.model_dump', 'projects/setattr', 'projects/session.flush'] },
+    { parent: 'Project.get_project_list_by_account_id', children: ['datamanager/DatabaseManager.session', 'projects/where', 'projects/select', 'projects/session.execute', 'projects/all', 'projects/result.scalars', 'projects/len'] },
+    { parent: 'Project.delete_project', children: ['datamanager/DatabaseManager.session', 'projects/Project.get_project_by_id', 'projects/session.delete'] },
+    { parent: 'get_account', children: ['account_endpoints/Depends', 'auth_service/AuthService.verify_token', 'account_service/AccountService.get_account_by_id', 'account_endpoints/log.info', 'account_endpoints/router.get'] },
+    { parent: 'patch_account', children: ['account_endpoints/Depends', 'auth_service/AuthService.verify_token', 'account_service/AccountService.patch_account_by_id', 'account_endpoints/log.info', 'account_endpoints/router.patch'] },
+    { parent: 'login', children: ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.login', 'auth_endpoints/router.post'] },
+    { parent: 'refresh', children: ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.refresh', 'auth_endpoints/router.post'] },
+    { parent: 'registration', children: ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.registration', 'auth_endpoints/router.post'] },
+    { parent: 'homepage', children: ['core_endpoints/Depends', 'auth_service/AuthService.verify_token', 'core_service/CoreService.get_homepage', 'core_endpoints/log.info', 'core_endpoints/router.get'] },
+    { parent: 'get_project', children: ['project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.get_project_by_id', 'project_endpoints/log.info', 'project_endpoints/router.get'] },
+    { parent: 'create_project', children: ['project_endpoints/File', 'project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.create_project', 'project_endpoints/ProjectCreateData', 'project_endpoints/router.post'] },
+    { parent: 'patch_project', children: ['project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.update_project', 'project_endpoints/router.patch'] },
+    { parent: 'delete_project', children: ['project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.delete_project', 'project_endpoints/router.delete'] },
+    { parent: 'get_projects_list', children: ['project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.get_projects_by_account_id', 'project_endpoints/router.get'] },
+    { parent: 'AuthService.registration', children: ['auth_service/AuthService.hash_password', 'accounts/Account.is_login_exists', 'accounts/Account.create_account', 'auth_service/AccountCreateData', 'auth_service/AccountData.model_validate'] },
+    { parent: 'AuthService.verify_token', children: ['auth_service/AuthService.check_access_token', 'auth_service/log.error', 'auth_service/HTTPException'] },
+    { parent: 'AuthService.check_access_token', children: ['auth_service/AuthService.decode_token', 'auth_service/datetime.now', 'auth_service/HTTPException'] },
+    { parent: 'AuthService.login', children: ['accounts/Account.get_account_by_login', 'auth_service/AuthService.verify_password', 'auth_service/AccountData', 'auth_service/AuthService.encode_to_token', 'auth_service/AuthResponseData'] },
+    { parent: 'AuthService.refresh', children: ['auth_service/AuthService.decode_token', 'auth_service/datetime.now', 'accounts/Account.get_account_by_id', 'auth_service/AccountData', 'auth_service/AuthService.encode_to_token', 'auth_service/AuthResponseData'] },
+    { parent: 'AuthService.encode_to_token', children: ['auth_service/datetime.now', 'auth_service/timedelta', 'auth_service/data.model_dump', 'auth_service/start_date.isoformat', 'auth_service/end_date.isoformat', 'auth_service/JWT.encode'] },
+    { parent: 'AuthService.decode_token', children: ['auth_service/JWT.decode', 'auth_service/AccountEncodeData', 'auth_service/datetime.fromisoformat'] },
+    { parent: 'AuthService.hash_password', children: ['auth_service/bcrypt.gensalt', 'auth_service/bcrypt.hashpw', 'auth_service/password.encode', 'auth_service/hashed.decode'] },
+    { parent: 'AuthService.verify_password', children: ['auth_service/bcrypt.checkpw', 'auth_service/password.encode', 'auth_service/hashed_password.encode', 'auth_service/log.error', 'auth_service/HTTPException'] },
+    { parent: 'AccountService.get_account_by_id', children: ['accounts/Account.get_account_by_id', 'account_service/AccountFullData.model_validate', 'account_service/log.error', 'account_service/HTTPException'] },
+    { parent: 'AccountService.patch_account_by_id', children: ['accounts/Account.patch_account_by_id', 'account_service/AccountFullData.model_validate', 'account_service/log.error', 'account_service/HTTPException'] },
+    { parent: 'CoreService.get_homepage', children: ['accounts/Account.get_account_by_id', 'core_service/AccountData.model_validate', 'projects/Project.get_project_list_by_account_id', 'core_service/ProjectDataLite.model_validate', 'core_service/ProjectListDataLite', 'core_service/HomePageData'] },
+    { parent: 'ProjectService.get_project_by_id', children: ['projects/Project.get_project_by_id', 'project_service/ArchitectureModel', 'project_service/ProjectData', 'project_service/log.error', 'project_service/HTTPException'] },
+    { parent: 'ProjectService.create_project', children: ['projects/Project.create_project', 'project_service/ArchitectureModel', 'project_service/ProjectData'] },
+    { parent: 'ProjectService.update_project', children: ['projects/Project.patch_project_by_id', 'project_service/ArchitectureModel', 'project_service/ProjectData', 'project_service/log.error', 'project_service/HTTPException'] },
+    { parent: 'ProjectService.delete_project', children: ['projects/Project.delete_project', 'project_service/log.error', 'project_service/HTTPException'] },
+    { parent: 'ProjectService.get_projects_by_account_id', children: ['projects/Project.get_project_list_by_account_id', 'project_service/ProjectDataLite.model_validate', 'project_service/ProjectListDataLite'] },
+    { parent: 'ConnectionBrokerManager.__init__', children: [] },
+    { parent: 'ConnectionBrokerManager.connect', children: ['manager/aio_pika.connect_robust', 'manager/self.connection.channel', 'manager/self.channel.declare_exchange', 'manager/log.info', 'manager/ConnectionBrokerManager._create_queue', 'manager/ConnectionBrokerManager._bind_exchange_as_queue'] },
+    { parent: 'ConnectionBrokerManager.close', children: ['manager/self.connection.close', 'manager/log.info'] },
   ];
 
   let responseId = 3;
-  for (const arch of architectureData) {
-    await delay(400);
+  for (const arch of architectureMessages) {
+    await delay(150 + Math.random() * 100); // 150-250ms задержка между сообщениями
     onMessage({
       task_id: 42,
       response_id: responseId++,
@@ -85,7 +116,7 @@ const simulateServerStream = async (onMessage) => {
   }
 
   // Final DONE message
-  await delay(500);
+  await delay(400);
   onMessage({
     task_id: 42,
     response_id: responseId,
@@ -108,6 +139,7 @@ export default function ProjectAnalysis() {
   const [endpoints, setEndpoints] = useState({});
   const [architectureData, setArchitectureData] = useState([]);
   const [currentMessageId, setCurrentMessageId] = useState(0);
+  const [initialGraphBuilt, setInitialGraphBuilt] = useState(false);
 
   // Обработка входящих сообщений
   const handleServerMessage = useCallback((message) => {
@@ -130,9 +162,9 @@ export default function ProjectAnalysis() {
     simulateServerStream(handleServerMessage);
   }, [handleServerMessage]);
 
-  // Построение layered графа
+  // Построение начального графа (Main Service + Endpoints + Services + DB + Broker)
   useEffect(() => {
-    if (Object.keys(endpoints).length === 0) return;
+    if (Object.keys(endpoints).length === 0 || initialGraphBuilt) return;
 
     const newNodes = [];
     const newEdges = [];
@@ -350,7 +382,7 @@ export default function ProjectAnalysis() {
       targetPosition: 'left',
     });
 
-    // Соединяем сервисы с database manager (справа)
+    // Соединения между сервисами и database manager
     services.forEach(svc => {
       newEdges.push({
         id: `edge-${svc.id}-dbm`,
@@ -489,7 +521,228 @@ export default function ProjectAnalysis() {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [endpoints, setNodes, setEdges]);
+    setInitialGraphBuilt(true);
+  }, [endpoints, initialGraphBuilt, setNodes, setEdges]);
+
+  // Поэтапное добавление узлов из ARCHITECTURE данных (в правильных слоях)
+  useEffect(() => {
+    if (!initialGraphBuilt || architectureData.length === 0) return;
+
+    const latestArch = architectureData[architectureData.length - 1];
+    if (!latestArch || !latestArch.parent) return;
+
+    const parent = latestArch.parent;
+    const LAYER_GAP = 380;
+    const START_X = 100;
+    const START_Y = 50;
+
+    // Счетчики для вертикального позиционирования в каждом слое
+    const getNodePosition = (type, index) => {
+      const positions = {
+        'endpoint': { x: START_X + LAYER_GAP, y: START_Y + index * 95 },
+        'service': { x: START_X + LAYER_GAP * 2, y: START_Y + index * 90 },
+        'database': { x: START_X + LAYER_GAP * 3, y: START_Y + 200 + index * 120 },
+        'broker': { x: START_X + LAYER_GAP * 4, y: START_Y + 300 + index * 100 },
+      };
+      return positions[type] || { x: START_X + LAYER_GAP * 2 + 200, y: START_Y + 100 + index * 60 };
+    };
+
+    setNodes((prevNodes) => {
+      const newNodes = [...prevNodes];
+      const newNodeId = `arch-${parent}`;
+      
+      // Проверяем, не существует ли уже такой узел
+      if (newNodes.some(n => n.id === newNodeId)) return prevNodes;
+
+      let nodeX, nodeY, nodeColor, layerType;
+      const archCount = architectureData.length;
+
+      // Пропускаем создание основных сервисов - они уже созданы статично
+      if (parent === 'AuthService' || parent === 'AccountService' || parent === 'ProjectService' || parent === 'CoreService') {
+        return prevNodes;
+      }
+
+      // Определяем позицию и цвет на основе типа узла
+      if (parent.includes('Account.') && !parent.includes('Service')) {
+        // Database layer - Account методы
+        const accountNodes = architectureData.filter(a => a.parent.includes('Account.') && !a.parent.includes('Service')).length;
+        nodeX = START_X + LAYER_GAP * 3 + 200;
+        nodeY = START_Y + 50 + accountNodes * 55;
+        nodeColor = '#3b82f6';
+        layerType = 'db-method';
+      } else if (parent.includes('Project.') && !parent.includes('Service')) {
+        // Database layer - Project методы
+        const projectNodes = architectureData.filter(a => a.parent.includes('Project.') && !a.parent.includes('Service')).length;
+        nodeX = START_X + LAYER_GAP * 3 + 200;
+        nodeY = START_Y + 550 + projectNodes * 55;
+        nodeColor = '#10b981';
+        layerType = 'db-method';
+      } else if (parent.includes('DatabaseManager') || parent.includes('init_db')) {
+        // Database Manager layer
+        const dbmNodes = architectureData.filter(a => a.parent.includes('DatabaseManager') || a.parent.includes('init_db')).length;
+        nodeX = START_X + LAYER_GAP * 3 + 200;
+        nodeY = START_Y + 350 + dbmNodes * 50;
+        nodeColor = '#06b6d4';
+        layerType = 'db-manager';
+      } else if (parent.includes('AuthService')) {
+        // Service layer - Auth
+        const authNodes = architectureData.filter(a => a.parent.includes('AuthService')).length;
+        nodeX = START_X + LAYER_GAP * 2 + 200;
+        nodeY = START_Y + 80 + authNodes * 65;
+        nodeColor = '#8b5cf6';
+        layerType = 'service-method';
+      } else if (parent.includes('AccountService')) {
+        // Service layer - Account
+        const accSvcNodes = architectureData.filter(a => a.parent.includes('AccountService')).length;
+        nodeX = START_X + LAYER_GAP * 2 + 200;
+        nodeY = START_Y + 280 + accSvcNodes * 65;
+        nodeColor = '#3b82f6';
+        layerType = 'service-method';
+      } else if (parent.includes('ProjectService')) {
+        // Service layer - Project
+        const projSvcNodes = architectureData.filter(a => a.parent.includes('ProjectService')).length;
+        nodeX = START_X + LAYER_GAP * 2 + 200;
+        nodeY = START_Y + 480 + projSvcNodes * 65;
+        nodeColor = '#10b981';
+        layerType = 'service-method';
+      } else if (parent.includes('CoreService')) {
+        // Service layer - Core
+        const coreSvcNodes = architectureData.filter(a => a.parent.includes('CoreService')).length;
+        nodeX = START_X + LAYER_GAP * 2 + 200;
+        nodeY = START_Y + 680 + coreSvcNodes * 65;
+        nodeColor = '#f59e0b';
+        layerType = 'service-method';
+      } else if (parent.includes('ConnectionBrokerManager') || parent.includes('Consumer') || parent.includes('Producer')) {
+        // Broker layer
+        const brokerNodes = architectureData.filter(a => 
+          a.parent.includes('ConnectionBrokerManager') || 
+          a.parent.includes('Consumer') || 
+          a.parent.includes('Producer')
+        ).length;
+        nodeX = START_X + LAYER_GAP * 4 + 200;
+        nodeY = START_Y + 250 + brokerNodes * 60;
+        nodeColor = '#f97316';
+        layerType = 'broker-method';
+      } else if (parent.includes('ObjectStorageManager') || parent.includes('AbstractStorage')) {
+        // Storage layer (возле broker)
+        const storageNodes = architectureData.filter(a => 
+          a.parent.includes('ObjectStorage') || 
+          a.parent.includes('AbstractStorage')
+        ).length;
+        nodeX = START_X + LAYER_GAP * 4 + 200;
+        nodeY = START_Y + 100 + storageNodes * 55;
+        nodeColor = '#ec4899';
+        layerType = 'storage';
+      } else if (parent.includes('CoreServer') || parent.includes('TaskManager') || parent.includes('TaskSession') || parent.includes('FrontendStreamService') || parent.includes('AlgorithmConnectionService')) {
+        // Core server layer (возле broker)
+        const coreNodes = architectureData.filter(a => 
+          a.parent.includes('CoreServer') || 
+          a.parent.includes('TaskManager') || 
+          a.parent.includes('TaskSession') ||
+          a.parent.includes('FrontendStreamService') ||
+          a.parent.includes('AlgorithmConnectionService')
+        ).length;
+        nodeX = START_X + LAYER_GAP * 4 + 200;
+        nodeY = START_Y + 500 + coreNodes * 55;
+        nodeColor = '#a855f7';
+        layerType = 'core-server';
+      } else if (parent.includes('load_config') || parent.includes('create_logger')) {
+        // Config/Utils layer (внизу)
+        const utilNodes = architectureData.filter(a => 
+          a.parent.includes('load_config') || 
+          a.parent.includes('create_logger')
+        ).length;
+        nodeX = START_X + LAYER_GAP * 3;
+        nodeY = START_Y + 850 + utilNodes * 50;
+        nodeColor = '#64748b';
+        layerType = 'util';
+      } else {
+        // Остальные узлы - справа
+        nodeX = START_X + LAYER_GAP * 4 + 400;
+        nodeY = START_Y + 100 + (archCount % 10) * 70;
+        nodeColor = '#71717a';
+        layerType = 'other';
+      }
+
+      // Создаем узел с анимацией
+      const shortName = parent.split('.').pop() || parent;
+      
+      newNodes.push({
+        id: newNodeId,
+        type: 'default',
+        position: { x: nodeX, y: nodeY },
+        data: {
+          label: (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: '600', fontSize: '10px', lineHeight: '1.3' }}>
+                {shortName}
+              </div>
+              {latestArch.children && latestArch.children.length > 0 && (
+                <div style={{ fontSize: '8px', opacity: 0.7, marginTop: '3px' }}>
+                  {latestArch.children.length} deps
+                </div>
+              )}
+            </div>
+          ),
+        },
+        style: {
+          background: `linear-gradient(135deg, ${nodeColor} 0%, ${nodeColor}dd 100%)`,
+          color: 'white',
+          border: `2px solid ${nodeColor}`,
+          borderRadius: '8px',
+          padding: '10px 12px',
+          fontSize: '10px',
+          fontWeight: '600',
+          boxShadow: `0 3px 12px ${nodeColor}50`,
+          animation: 'fadeInScale 0.4s ease-out',
+          minWidth: '110px',
+        },
+        sourcePosition: 'right',
+        targetPosition: 'left',
+      });
+
+      return newNodes;
+    });
+
+    // Добавляем связи между узлами
+    if (latestArch.children && latestArch.children.length > 0) {
+      setEdges((prevEdges) => {
+        const newEdges = [...prevEdges];
+        const parentId = `arch-${parent}`;
+
+        latestArch.children.forEach((child) => {
+          const childId = `arch-${child}`;
+          const edgeId = `edge-${parentId}-${childId}`;
+          
+          // Проверяем, не существует ли уже такое ребро
+          if (newEdges.some(e => e.id === edgeId)) return;
+
+          newEdges.push({
+            id: edgeId,
+            source: parentId,
+            target: childId,
+            type: 'smoothstep',
+            animated: false,
+            style: { 
+              stroke: '#94a3b8', 
+              strokeWidth: 1,
+              opacity: 0.25,
+            },
+            markerEnd: { 
+              type: MarkerType.ArrowClosed, 
+              color: '#94a3b8', 
+              width: 12, 
+              height: 12 
+            },
+            sourceHandle: 'right',
+            targetHandle: 'left',
+          });
+        });
+
+        return newEdges;
+      });
+    }
+  }, [architectureData, initialGraphBuilt, setNodes, setEdges]);
 
   const onNodeClick = useCallback((event, node) => {
     setSelectedNode(node);
