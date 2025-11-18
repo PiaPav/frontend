@@ -101,7 +101,6 @@ export default function ProjectAnalysis() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [expandedMethods, setExpandedMethods] = useState(new Set()); // Какие методы раскрыты
   
   // Данные с сервера
   const [status, setStatus] = useState('START');
@@ -139,7 +138,7 @@ export default function ProjectAnalysis() {
     const newEdges = [];
 
     // Конфигурация слоев
-    const LAYER_GAP = 350;
+    const LAYER_GAP = 380;
     const START_X = 100;
     const START_Y = 50;
 
@@ -147,7 +146,7 @@ export default function ProjectAnalysis() {
     newNodes.push({
       id: 'main-service',
       type: 'default',
-      position: { x: START_X, y: START_Y + 250 },
+      position: { x: START_X, y: START_Y + 300 },
       data: {
         label: (
           <div className={styles.nodeLabel}>
@@ -167,158 +166,98 @@ export default function ProjectAnalysis() {
         fontSize: '16px',
         boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
       },
+      sourcePosition: 'right',
+      targetPosition: 'left',
     });
 
-    // === LAYER 2: API Endpoints (группировка по методам) ===
-    // Группируем эндпоинты по HTTP методам
-    const groupedEndpoints = {};
-    Object.entries(endpoints).forEach(([key, value]) => {
-      const method = value.split(' ')[0];
-      if (!groupedEndpoints[method]) {
-        groupedEndpoints[method] = [];
-      }
-      groupedEndpoints[method].push({ key, value });
-    });
-
+    // === LAYER 2: API Endpoints (сортировка по HTTP методам) ===
     const methodColors = {
-      'GET': { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669', text: '#fff' },
-      'POST': { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb', text: '#fff' },
-      'PATCH': { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706', text: '#fff' },
-      'PUT': { bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', border: '#7c3aed', text: '#fff' },
-      'DELETE': { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626', text: '#fff' },
+      'GET': { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
+      'POST': { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' },
+      'PATCH': { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706' },
+      'PUT': { bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', border: '#7c3aed' },
+      'DELETE': { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626' },
     };
 
-    let methodYOffset = START_Y;
-    Object.entries(groupedEndpoints).forEach(([method, endpointList], methodIdx) => {
-      const isExpanded = expandedMethods.has(method);
-      const color = methodColors[method] || methodColors['GET'];
+    // Сортируем эндпоинты по HTTP методам
+    const endpointsList = Object.entries(endpoints);
+    const methodOrder = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
+    const sortedEndpoints = endpointsList.sort((a, b) => {
+      const methodA = a[1].split(' ')[0];
+      const methodB = b[1].split(' ')[0];
+      return methodOrder.indexOf(methodA) - methodOrder.indexOf(methodB);
+    });
 
-      // Узел-группа метода
+    sortedEndpoints.forEach(([key, value], idx) => {
+      const method = value.split(' ')[0];
+      const path = value.split(' ')[1] || '';
+      const color = methodColors[method] || methodColors['GET'];
+      
       newNodes.push({
-        id: `method-${method}`,
+        id: `endpoint-${key}`,
         type: 'default',
-        position: { x: START_X + LAYER_GAP, y: methodYOffset },
+        position: { x: START_X + LAYER_GAP, y: START_Y + idx * 95 },
         data: {
           label: (
-            <div className={styles.methodGroup} onClick={() => {
-              const newExpanded = new Set(expandedMethods);
-              if (isExpanded) {
-                newExpanded.delete(method);
-              } else {
-                newExpanded.add(method);
-              }
-              setExpandedMethods(newExpanded);
-            }}>
-              <div className={styles.methodBadge}>{method}</div>
-              <div className={styles.methodCount}>{endpointList.length} endpoints</div>
-              <div className={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</div>
+            <div className={styles.endpointCard}>
+              <div className={styles.endpointMethod} style={{ background: color.bg }}>
+                {method}
+              </div>
+              <div className={styles.endpointPath}>{path}</div>
+              <div className={styles.endpointKey}>{key}</div>
             </div>
           ),
         },
         style: {
-          background: color.bg,
-          color: color.text,
-          border: `3px solid ${color.border}`,
+          background: 'white',
+          color: '#1e293b',
+          border: `2px solid ${color.border}`,
           borderRadius: '12px',
-          padding: '16px 20px',
-          width: 160,
-          fontWeight: '700',
-          fontSize: '14px',
-          textAlign: 'center',
-          boxShadow: `0 4px 16px ${color.border}40`,
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
+          padding: '14px 18px',
+          width: 240,
+          fontWeight: '600',
+          fontSize: '12px',
+          boxShadow: `0 4px 16px ${color.border}30`,
         },
+        sourcePosition: 'right',
+        targetPosition: 'left',
       });
 
-      // Соединяем Main Service с методом-группой
+      // Соединяем Main Service с эндпоинтами (справа)
       newEdges.push({
-        id: `edge-main-method-${method}`,
+        id: `edge-main-${key}`,
         source: 'main-service',
-        target: `method-${method}`,
+        target: `endpoint-${key}`,
         type: 'smoothstep',
         animated: true,
         style: { 
           stroke: color.border, 
-          strokeWidth: 3,
-          strokeDasharray: '5,5',
+          strokeWidth: 2.5,
         },
         markerEnd: { 
           type: MarkerType.ArrowClosed, 
           color: color.border, 
-          width: 24, 
-          height: 24 
+          width: 22, 
+          height: 22 
         },
+        sourceHandle: 'right',
+        targetHandle: 'left',
       });
-
-      // Если метод раскрыт, показываем эндпоинты
-      if (isExpanded) {
-        endpointList.forEach((endpoint, idx) => {
-          const path = endpoint.value.split(' ')[1] || '';
-          const endpointY = methodYOffset + 100 + idx * 90;
-          
-          newNodes.push({
-            id: `endpoint-${endpoint.key}`,
-            type: 'default',
-            position: { x: START_X + LAYER_GAP + 200, y: endpointY },
-            data: {
-              label: (
-                <div className={styles.endpointCard}>
-                  <div className={styles.endpointPath}>{path}</div>
-                  <div className={styles.endpointKey}>{endpoint.key}</div>
-                </div>
-              ),
-            },
-            style: {
-              background: 'white',
-              color: '#1e293b',
-              border: `2px solid ${color.border}`,
-              borderRadius: '10px',
-              padding: '12px 16px',
-              width: 200,
-              fontWeight: '600',
-              fontSize: '12px',
-              boxShadow: `0 2px 12px ${color.border}30`,
-            },
-          });
-
-          // Соединяем группу метода с эндпоинтом
-          newEdges.push({
-            id: `edge-method-endpoint-${endpoint.key}`,
-            source: `method-${method}`,
-            target: `endpoint-${endpoint.key}`,
-            type: 'smoothstep',
-            animated: false,
-            style: { 
-              stroke: color.border, 
-              strokeWidth: 2,
-            },
-            markerEnd: { 
-              type: MarkerType.ArrowClosed, 
-              color: color.border, 
-              width: 20, 
-              height: 20 
-            },
-          });
-        });
-      }
-
-      methodYOffset += isExpanded ? 100 + endpointList.length * 90 : 100;
     });
 
     // === LAYER 3: Services ===
     const services = [
-      { id: 'auth-service', label: '🔐 Auth', color: '#8b5cf6', y: START_Y + 80 },
-      { id: 'account-service', label: '👤 Account', color: '#3b82f6', y: START_Y + 220 },
-      { id: 'project-service', label: '📁 Project', color: '#10b981', y: START_Y + 360 },
-      { id: 'core-service', label: '⚙️ Core', color: '#f59e0b', y: START_Y + 500 },
+      { id: 'auth-service', label: '🔐 Auth', color: '#8b5cf6', y: START_Y + 100 },
+      { id: 'account-service', label: '👤 Account', color: '#3b82f6', y: START_Y + 300 },
+      { id: 'project-service', label: '📁 Project', color: '#10b981', y: START_Y + 500 },
+      { id: 'core-service', label: '⚙️ Core', color: '#f59e0b', y: START_Y + 700 },
     ];
 
     services.forEach((svc) => {
       newNodes.push({
         id: svc.id,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 2 + 100, y: svc.y },
+        position: { x: START_X + LAYER_GAP * 2, y: svc.y },
         data: {
           label: (
             <div className={styles.serviceLabel}>
@@ -339,10 +278,12 @@ export default function ProjectAnalysis() {
           textAlign: 'center',
           boxShadow: `0 6px 20px ${svc.color}50`,
         },
+        sourcePosition: 'right',
+        targetPosition: 'left',
       });
     });
 
-    // Соединяем раскрытые эндпоинты с сервисами
+    // Соединяем эндпоинты с сервисами (справа)
     const endpointServiceMapping = [
       { endpoint: 'registration', service: 'auth-service', color: '#8b5cf6' },
       { endpoint: 'login', service: 'auth-service', color: '#8b5cf6' },
@@ -358,32 +299,32 @@ export default function ProjectAnalysis() {
     ];
 
     endpointServiceMapping.forEach(({ endpoint, service, color }) => {
-      if (newNodes.some(n => n.id === `endpoint-${endpoint}`)) {
-        newEdges.push({
-          id: `edge-${endpoint}-${service}`,
-          source: `endpoint-${endpoint}`,
-          target: service,
-          type: 'smoothstep',
-          animated: false,
-          style: { 
-            stroke: color, 
-            strokeWidth: 2.5,
-          },
-          markerEnd: { 
-            type: MarkerType.ArrowClosed, 
-            color: color, 
-            width: 22, 
-            height: 22 
-          },
-        });
-      }
+      newEdges.push({
+        id: `edge-${endpoint}-${service}`,
+        source: `endpoint-${endpoint}`,
+        target: service,
+        type: 'smoothstep',
+        animated: false,
+        style: { 
+          stroke: color, 
+          strokeWidth: 2.5,
+        },
+        markerEnd: { 
+          type: MarkerType.ArrowClosed, 
+          color: color, 
+          width: 22, 
+          height: 22 
+        },
+        sourceHandle: 'right',
+        targetHandle: 'left',
+      });
     });
 
-    // === LAYER 4: Database Manager ===
+    // === LAYER 4: Database Manager (по центру между БД) ===
     newNodes.push({
       id: 'database-manager',
       type: 'default',
-      position: { x: START_X + LAYER_GAP * 3 + 100, y: START_Y + 250 },
+      position: { x: START_X + LAYER_GAP * 3, y: START_Y + 400 },
       data: {
         label: (
           <div className={styles.dbManagerLabel}>
@@ -405,9 +346,11 @@ export default function ProjectAnalysis() {
         textAlign: 'center',
         boxShadow: '0 6px 20px rgba(6, 182, 212, 0.4)',
       },
+      sourcePosition: 'right',
+      targetPosition: 'left',
     });
 
-    // Соединяем сервисы с database manager
+    // Соединяем сервисы с database manager (справа)
     services.forEach(svc => {
       newEdges.push({
         id: `edge-${svc.id}-dbm`,
@@ -425,20 +368,22 @@ export default function ProjectAnalysis() {
           width: 22, 
           height: 22 
         },
+        sourceHandle: 'right',
+        targetHandle: 'left',
       });
     });
 
-    // === LAYER 4: Databases (красивые формы) ===
+    // === LAYER 4: Databases (подальше друг от друга) ===
     const databases = [
-      { id: 'accounts-db', label: '👥 Accounts', icon: '🗃️', y: START_Y + 120 },
-      { id: 'projects-db', label: '📊 Projects', icon: '🗃️', y: START_Y + 380 },
+      { id: 'accounts-db', label: '👥 Accounts', icon: '🗃️', y: START_Y + 150 },
+      { id: 'projects-db', label: '📊 Projects', icon: '🗃️', y: START_Y + 650 },
     ];
 
     databases.forEach((db) => {
       newNodes.push({
         id: db.id,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 3 + 100, y: db.y },
+        position: { x: START_X + LAYER_GAP * 3, y: db.y },
         data: {
           label: (
             <div className={styles.dbLabel}>
@@ -460,9 +405,11 @@ export default function ProjectAnalysis() {
           textAlign: 'center',
           boxShadow: '0 8px 24px rgba(15, 23, 42, 0.5)',
         },
+        sourcePosition: 'right',
+        targetPosition: 'left',
       });
 
-      // Соединяем database manager с databases
+      // Соединяем database manager с databases (справа)
       newEdges.push({
         id: `edge-dbm-${db.id}`,
         source: 'database-manager',
@@ -479,14 +426,16 @@ export default function ProjectAnalysis() {
           width: 24, 
           height: 24 
         },
+        sourceHandle: 'right',
+        targetHandle: 'left',
       });
     });
 
-    // === LAYER 5: Broker (красивая форма) ===
+    // === LAYER 5: Broker ===
     newNodes.push({
       id: 'broker',
       type: 'default',
-      position: { x: START_X + LAYER_GAP * 4 + 150, y: START_Y + 250 },
+      position: { x: START_X + LAYER_GAP * 4, y: START_Y + 350 },
       data: {
         label: (
           <div className={styles.brokerLabel}>
@@ -512,9 +461,11 @@ export default function ProjectAnalysis() {
         justifyContent: 'center',
         boxShadow: '0 8px 28px rgba(249, 115, 22, 0.5)',
       },
+      sourcePosition: 'right',
+      targetPosition: 'left',
     });
 
-    // Соединяем database manager с broker
+    // Соединяем database manager с broker (справа)
     newEdges.push({
       id: 'edge-dbm-broker',
       source: 'database-manager',
@@ -532,11 +483,13 @@ export default function ProjectAnalysis() {
         width: 26, 
         height: 26 
       },
+      sourceHandle: 'right',
+      targetHandle: 'left',
     });
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [endpoints, expandedMethods, setNodes, setEdges]);
+  }, [endpoints, setNodes, setEdges]);
 
   const onNodeClick = useCallback((event, node) => {
     setSelectedNode(node);

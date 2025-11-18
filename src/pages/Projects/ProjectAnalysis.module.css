@@ -220,6 +220,22 @@
   gap: 6px;
 }
 
+.endpointMethod {
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 11px;
+  color: white;
+  letter-spacing: 0.5px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.endpointMethod:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
 .endpointPath {
   font-size: 11px;
   font-family: 'Courier New', monospace;
