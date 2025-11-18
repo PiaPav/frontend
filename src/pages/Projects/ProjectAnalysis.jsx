@@ -562,6 +562,12 @@ export default function ProjectAnalysis() {
         return prevNodes;
       }
 
+      // Пропускаем методы основных сервисов - они не нужны как отдельные узлы
+      if (parent.includes('AuthService.') || parent.includes('AccountService.') || 
+          parent.includes('ProjectService.') || parent.includes('CoreService.')) {
+        return prevNodes;
+      }
+
       // Определяем позицию и цвет на основе типа узла
       if (parent.includes('Account.') && !parent.includes('Service')) {
         // Database layer - Account методы
@@ -584,34 +590,6 @@ export default function ProjectAnalysis() {
         nodeY = START_Y + 350 + dbmNodes * 50;
         nodeColor = '#06b6d4';
         layerType = 'db-manager';
-      } else if (parent.includes('AuthService')) {
-        // Service layer - Auth
-        const authNodes = architectureData.filter(a => a.parent.includes('AuthService')).length;
-        nodeX = START_X + LAYER_GAP * 2 + 200;
-        nodeY = START_Y + 80 + authNodes * 65;
-        nodeColor = '#8b5cf6';
-        layerType = 'service-method';
-      } else if (parent.includes('AccountService')) {
-        // Service layer - Account
-        const accSvcNodes = architectureData.filter(a => a.parent.includes('AccountService')).length;
-        nodeX = START_X + LAYER_GAP * 2 + 200;
-        nodeY = START_Y + 280 + accSvcNodes * 65;
-        nodeColor = '#3b82f6';
-        layerType = 'service-method';
-      } else if (parent.includes('ProjectService')) {
-        // Service layer - Project
-        const projSvcNodes = architectureData.filter(a => a.parent.includes('ProjectService')).length;
-        nodeX = START_X + LAYER_GAP * 2 + 200;
-        nodeY = START_Y + 480 + projSvcNodes * 65;
-        nodeColor = '#10b981';
-        layerType = 'service-method';
-      } else if (parent.includes('CoreService')) {
-        // Service layer - Core
-        const coreSvcNodes = architectureData.filter(a => a.parent.includes('CoreService')).length;
-        nodeX = START_X + LAYER_GAP * 2 + 200;
-        nodeY = START_Y + 680 + coreSvcNodes * 65;
-        nodeColor = '#f59e0b';
-        layerType = 'service-method';
       } else if (parent.includes('ConnectionBrokerManager') || parent.includes('Consumer') || parent.includes('Producer')) {
         // Broker layer
         const brokerNodes = architectureData.filter(a => 
