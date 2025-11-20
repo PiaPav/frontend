@@ -381,8 +381,19 @@ export default function ProjectAnalysis() {
         data: {
           label: (
             <div className={styles.serviceLabel}>
-              <div>{serviceConfig.icon} {serviceConfig.label}</div>
-              <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Service</div>
+              <div style={{ 
+                fontSize: '8px', 
+                fontWeight: '700', 
+                background: 'rgba(255,255,255,0.25)',
+                padding: '3px 10px',
+                borderRadius: '8px',
+                marginBottom: '8px',
+                letterSpacing: '0.5px'
+              }}>
+                SERVICE
+              </div>
+              <div style={{ fontSize: '16px', marginBottom: '4px' }}>{serviceConfig.icon}</div>
+              <div style={{ fontSize: '15px', fontWeight: '700' }}>{serviceConfig.label}</div>
             </div>
           ),
         },
@@ -417,9 +428,24 @@ export default function ProjectAnalysis() {
         position: { x: START_X + LAYER_GAP * 2.5, y: START_Y + idx * 90 },
         data: {
           label: (
-            <div style={{ fontSize: '11px', fontWeight: '600', textAlign: 'center', color: '#1e293b' }}>
-              <div style={{ opacity: 0.6, marginBottom: '2px', fontSize: '10px' }}>{serviceName.replace('Service', '')}</div>
-              <div style={{ color: serviceConfig.color }}>{methodShortName}</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                fontSize: '7px', 
+                fontWeight: '700', 
+                color: serviceConfig.color,
+                background: `${serviceConfig.color}15`,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                marginBottom: '6px',
+                display: 'inline-block',
+                border: `1px solid ${serviceConfig.color}40`,
+                letterSpacing: '0.5px'
+              }}>
+                {serviceName.replace('Service', '').toUpperCase()} METHOD
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: serviceConfig.color }}>
+                {methodShortName}
+              </div>
             </div>
           ),
         },
@@ -459,15 +485,27 @@ export default function ProjectAnalysis() {
           textAlign: 'center',
           boxShadow: '0 6px 20px rgba(6, 182, 212, 0.4)',
         };
+        const methodName = nodeName.replace('DatabaseManager.', '');
         nodeLabel = (
           <div className={styles.dbManagerLabel}>
-            <div style={{ fontSize: '20px', marginBottom: '6px' }}>🗄️</div>
-            <div>{nodeName.replace('DatabaseManager.', '')}</div>
+            <div style={{ 
+              fontSize: '8px', 
+              fontWeight: '700', 
+              background: 'rgba(255,255,255,0.2)',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              marginBottom: '6px'
+            }}>
+              DATABASE MANAGER
+            </div>
+            <div style={{ fontSize: '18px', marginBottom: '4px' }}>🗄️</div>
+            <div style={{ fontSize: '12px' }}>{methodName}</div>
           </div>
         );
       } else {
         const dbColor = isAccountDB ? '#3b82f6' : isProjectDB ? '#10b981' : '#64748b';
         const dbIcon = isAccountDB ? '👥' : isProjectDB ? '📊' : '🗃️';
+        const dbType = isAccountDB ? 'ACCOUNT DB' : isProjectDB ? 'PROJECT DB' : 'DATABASE';
         const dbLabel = nodeName.split('.').pop();
         
         nodeStyle = {
@@ -484,8 +522,20 @@ export default function ProjectAnalysis() {
         };
         nodeLabel = (
           <div className={styles.dbLabel}>
-            <div style={{ fontSize: '24px', marginBottom: '4px' }}>{dbIcon}</div>
-            <div style={{ fontWeight: '700', fontSize: '11px' }}>{dbLabel}</div>
+            <div style={{ 
+              fontSize: '7px', 
+              fontWeight: '700', 
+              background: `${dbColor}30`,
+              color: dbColor,
+              padding: '2px 6px',
+              borderRadius: '4px',
+              marginBottom: '6px',
+              letterSpacing: '0.5px'
+            }}>
+              {dbType}
+            </div>
+            <div style={{ fontSize: '20px', marginBottom: '4px' }}>{dbIcon}</div>
+            <div style={{ fontWeight: '700', fontSize: '10px' }}>{dbLabel}</div>
           </div>
         );
       }
@@ -506,6 +556,7 @@ export default function ProjectAnalysis() {
       const isBroker = nodeName.startsWith('Broker');
       
       if (isBroker) {
+        const brokerMethod = nodeName.replace('Broker.', '');
         newNodes.push({
           id: nodeName,
           type: 'default',
@@ -513,8 +564,19 @@ export default function ProjectAnalysis() {
           data: {
             label: (
               <div className={styles.brokerLabel}>
-                <div style={{ fontSize: '28px', marginBottom: '6px' }}>📮</div>
-                <div style={{ fontWeight: '700', fontSize: '12px' }}>{nodeName.replace('Broker.', '')}</div>
+                <div style={{ 
+                  fontSize: '7px', 
+                  fontWeight: '700', 
+                  background: 'rgba(255,255,255,0.25)',
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  marginBottom: '6px',
+                  letterSpacing: '0.5px'
+                }}>
+                  MESSAGE BROKER
+                </div>
+                <div style={{ fontSize: '24px', marginBottom: '4px' }}>📮</div>
+                <div style={{ fontWeight: '700', fontSize: '11px' }}>{brokerMethod}</div>
               </div>
             ),
           },
@@ -537,26 +599,70 @@ export default function ProjectAnalysis() {
           targetPosition: 'left',
         });
       } else {
-        // Прочие компоненты
+        // Прочие компоненты - определяем тип по имени
+        let componentType = 'Util';
+        let componentColor = '#64748b';
+        let componentBg = '#f1f5f9';
+        let componentIcon = '⚙️';
+        
+        if (nodeName.includes('Exception') || nodeName.includes('Error')) {
+          componentType = 'Exception';
+          componentColor = '#dc2626';
+          componentBg = '#fef2f2';
+          componentIcon = '⚠️';
+        } else if (nodeName.startsWith('log.')) {
+          componentType = 'Logger';
+          componentColor = '#7c3aed';
+          componentBg = '#faf5ff';
+          componentIcon = '📝';
+        } else if (nodeName.includes('session') || nodeName.includes('Session')) {
+          componentType = 'Session';
+          componentColor = '#0891b2';
+          componentBg = '#ecfeff';
+          componentIcon = '🔗';
+        } else if (nodeName.includes('Depends') || nodeName.includes('router')) {
+          componentType = 'FastAPI';
+          componentColor = '#059669';
+          componentBg = '#f0fdf4';
+          componentIcon = '🚀';
+        }
+        
+        const shortName = nodeName.split('.').pop();
+        
         newNodes.push({
           id: nodeName,
           type: 'default',
           position: { x: START_X + LAYER_GAP * 4, y: START_Y + idx * 100 },
           data: {
             label: (
-              <div style={{ fontSize: '12px', fontWeight: '600' }}>
-                {nodeName}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ 
+                  fontSize: '9px', 
+                  fontWeight: '700', 
+                  color: componentColor,
+                  background: componentBg,
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  marginBottom: '6px',
+                  display: 'inline-block',
+                  border: `1px solid ${componentColor}40`
+                }}>
+                  {componentIcon} {componentType}
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#1e293b' }}>
+                  {shortName}
+                </div>
               </div>
             ),
           },
           style: {
-            background: '#f1f5f9',
-            color: '#1e293b',
-            border: '2px solid #cbd5e1',
+            background: 'white',
+            border: `2px solid ${componentColor}`,
             borderRadius: '10px',
-            padding: '12px 16px',
-            fontSize: '12px',
+            padding: '10px 14px',
+            fontSize: '11px',
             fontWeight: '600',
+            boxShadow: `0 3px 12px ${componentColor}30`,
           },
           sourcePosition: 'right',
           targetPosition: 'left',
