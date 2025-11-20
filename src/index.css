@@ -5,3 +5,38 @@
     margin: 0;
 }
 
+/* Черный курсор везде - максимальный приоритет */
+body,
+body *,
+#root,
+#root * {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>') 0 0, auto !important;
+}
+
+/* ReactFlow специфичные курсоры */
+.react-flow,
+.react-flow *,
+.react-flow__renderer,
+.react-flow__viewport,
+.react-flow__pane,
+.react-flow__selectionpane,
+.react-flow__background {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M9 10v8h2v-8h4l-5-5-5 5h4zm5 4v4h4v-4h-4z"/></svg>') 12 12, grab !important;
+}
+
+.react-flow__pane:active,
+.react-flow__viewport:active {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M9 10v8h2v-8h4l-5-5-5 5h4zm5 4v4h4v-4h-4z"/></svg>') 12 12, grabbing !important;
+}
+
+.react-flow__node,
+.react-flow__node *,
+.react-flow__edge,
+.react-flow__edge * {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>') 12 12, pointer !important;
+}
+
+.react-flow__controls button {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>') 12 12, pointer !important;
+}
+
