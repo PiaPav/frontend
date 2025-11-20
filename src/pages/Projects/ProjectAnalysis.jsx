@@ -139,7 +139,6 @@ export default function ProjectAnalysis() {
   const [endpoints, setEndpoints] = useState({});
   const [architectureData, setArchitectureData] = useState([]);
   const [currentMessageId, setCurrentMessageId] = useState(0);
-  const [initialGraphBuilt, setInitialGraphBuilt] = useState(false);
 
   // Обработка входящих сообщений
   const handleServerMessage = useCallback((message) => {
@@ -162,9 +161,10 @@ export default function ProjectAnalysis() {
     simulateServerStream(handleServerMessage);
   }, [handleServerMessage]);
 
-  // Построение начального графа (Main Service + Endpoints + Services + DB + Broker)
+  // Построение динамического графа из данных Граф.txt
   useEffect(() => {
-    if (Object.keys(endpoints).length === 0 || initialGraphBuilt) return;
+    // Ждем пока появятся endpoints, но строим граф каждый раз когда приходят новые данные
+    if (Object.keys(endpoints).length === 0) return;
 
     const newNodes = [];
     const newEdges = [];
@@ -173,6 +173,88 @@ export default function ProjectAnalysis() {
     const LAYER_GAP = 380;
     const START_X = 100;
     const START_Y = 50;
+    const NODE_HEIGHT = 80; // Средняя высота узла для расчета позиций
+
+    console.log('🔄 Перестраиваем граф. Architecture данных:', architectureData.length);
+
+    // === ФУНКЦИЯ ОПРЕДЕЛЕНИЯ ТИПА УЗЛА ===
+    const getNodeType = (nodeName) => {
+      // HTTP Endpoints (из endpoints)
+      if (endpoints[nodeName]) {
+        return { type: 'endpoint', layer: 2 };
+      }
+      
+      // Services (точно соответствуют AuthService, AccountService, ProjectService, CoreService)
+      const serviceNames = ['AuthService', 'AccountService', 'ProjectService', 'CoreService'];
+      if (serviceNames.includes(nodeName)) {
+        return { type: 'service', layer: 3 };
+      }
+      
+      // Service methods (AuthService.login, AccountService.get_account_by_id и т.д.)
+      if (nodeName.includes('Service.')) {
+        return { type: 'service-method', layer: 3.5 }; // Промежуточный слой между сервисами и БД
+      }
+      
+      // Database methods (Account.*, Project.*)
+      if (nodeName.startsWith('Account.') || nodeName.startsWith('Project.')) {
+        return { type: 'database-method', layer: 4 };
+      }
+      
+      // DatabaseManager
+      if (nodeName.startsWith('DatabaseManager.') || nodeName === 'DatabaseManager') {
+        return { type: 'database-manager', layer: 4 };
+      }
+      
+      // Broker
+      if (nodeName.startsWith('Broker.') || nodeName === 'Broker') {
+        return { type: 'broker', layer: 5 };
+      }
+      
+      // Остальное - прочие компоненты (вероятно вспомогательные функции)
+      return { type: 'other', layer: 5 };
+    };
+
+    // === СБОР ВСЕХ УНИКАЛЬНЫХ УЗЛОВ ИЗ ARCHITECTURE DATA ===
+    const allNodes = new Set();
+    architectureData.forEach(({ parent, children }) => {
+      allNodes.add(parent);
+      children.forEach(child => {
+        // Убираем префиксы типа 'accounts/', 'datamanager/' и т.д.
+        const cleanChild = child.split('/').pop();
+        allNodes.add(cleanChild);
+      });
+    });
+
+    // === ГРУППИРОВКА УЗЛОВ ПО СЛОЯМ ===
+    const nodesByLayer = {
+      1: ['main-service'], // Main Service всегда один
+      2: [], // Endpoints
+      3: [], // Services (AuthService, AccountService, ProjectService, CoreService)
+      3.5: [], // Service methods (AuthService.login, AccountService.get_account_by_id)
+      4: [], // Database components
+      5: [], // Broker и прочее
+    };
+
+    allNodes.forEach(nodeName => {
+      const { layer } = getNodeType(nodeName);
+      if (!nodesByLayer[layer]) {
+        nodesByLayer[layer] = [];
+      }
+      nodesByLayer[layer].push(nodeName);
+    });
+
+    // Добавляем endpoints в слой 2 (берем только из endpoints, не из architectureData)
+    nodesByLayer[2] = Object.keys(endpoints);
+
+    // Отладка: выводим количество узлов на каждом слое
+    console.log('📊 Узлы по слоям:', {
+      'Layer 1 (Main)': nodesByLayer[1].length,
+      'Layer 2 (Endpoints)': nodesByLayer[2].length,
+      'Layer 3 (Services)': nodesByLayer[3].length,
+      'Layer 3.5 (Service Methods)': (nodesByLayer[3.5] || []).length,
+      'Layer 4 (Database)': nodesByLayer[4].length,
+      'Layer 5 (Broker & Other)': nodesByLayer[5].length,
+    });
 
     // === LAYER 1: Main Service ===
     newNodes.push({
@@ -202,7 +284,7 @@ export default function ProjectAnalysis() {
       targetPosition: 'left',
     });
 
-    // === LAYER 2: API Endpoints (сортировка по HTTP методам) ===
+    // === LAYER 2: API Endpoints (динамически из данных) ===
     const methodColors = {
       'GET': { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
       'POST': { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' },
@@ -212,15 +294,15 @@ export default function ProjectAnalysis() {
     };
 
     // Сортируем эндпоинты по HTTP методам
-    const endpointsList = Object.entries(endpoints);
+    const endpointsList = nodesByLayer[2].map(key => ({ key, value: endpoints[key] }));
     const methodOrder = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
     const sortedEndpoints = endpointsList.sort((a, b) => {
-      const methodA = a[1].split(' ')[0];
-      const methodB = b[1].split(' ')[0];
+      const methodA = a.value.split(' ')[0];
+      const methodB = b.value.split(' ')[0];
       return methodOrder.indexOf(methodA) - methodOrder.indexOf(methodB);
     });
 
-    sortedEndpoints.forEach(([key, value], idx) => {
+    sortedEndpoints.forEach(({ key, value }, idx) => {
       const method = value.split(' ')[0];
       const path = value.split(' ')[1] || '';
       const color = methodColors[method] || methodColors['GET'];
@@ -277,29 +359,35 @@ export default function ProjectAnalysis() {
       });
     });
 
-    // === LAYER 3: Services ===
-    const services = [
-      { id: 'auth-service', label: '🔐 Auth', color: '#8b5cf6', y: START_Y + 100 },
-      { id: 'account-service', label: '👤 Account', color: '#3b82f6', y: START_Y + 300 },
-      { id: 'project-service', label: '📁 Project', color: '#10b981', y: START_Y + 500 },
-      { id: 'core-service', label: '⚙️ Core', color: '#f59e0b', y: START_Y + 700 },
-    ];
+    // === LAYER 3: Services (динамически из данных) ===
+    const serviceColors = {
+      'AuthService': { color: '#8b5cf6', icon: '🔐', label: 'Auth' },
+      'AccountService': { color: '#3b82f6', icon: '👤', label: 'Account' },
+      'ProjectService': { color: '#10b981', icon: '📁', label: 'Project' },
+      'CoreService': { color: '#f59e0b', icon: '⚙️', label: 'Core' },
+    };
 
-    services.forEach((svc) => {
+    nodesByLayer[3].forEach((serviceName, idx) => {
+      const serviceConfig = serviceColors[serviceName] || { 
+        color: '#64748b', 
+        icon: '⚙️', 
+        label: serviceName.replace('Service', '') 
+      };
+      
       newNodes.push({
-        id: svc.id,
+        id: serviceName,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 2, y: svc.y },
+        position: { x: START_X + LAYER_GAP * 2, y: START_Y + idx * 200 },
         data: {
           label: (
             <div className={styles.serviceLabel}>
-              <div>{svc.label}</div>
+              <div>{serviceConfig.icon} {serviceConfig.label}</div>
               <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Service</div>
             </div>
           ),
         },
         style: {
-          background: `linear-gradient(135deg, ${svc.color} 0%, ${svc.color}dd 100%)`,
+          background: `linear-gradient(135deg, ${serviceConfig.color} 0%, ${serviceConfig.color}dd 100%)`,
           color: 'white',
           border: 'none',
           borderRadius: '14px',
@@ -308,419 +396,252 @@ export default function ProjectAnalysis() {
           fontWeight: '700',
           fontSize: '15px',
           textAlign: 'center',
-          boxShadow: `0 6px 20px ${svc.color}50`,
+          boxShadow: `0 6px 20px ${serviceConfig.color}50`,
         },
         sourcePosition: 'right',
         targetPosition: 'left',
       });
     });
 
-    // Соединяем эндпоинты с сервисами (справа)
-    const endpointServiceMapping = [
-      { endpoint: 'registration', service: 'auth-service', color: '#8b5cf6' },
-      { endpoint: 'login', service: 'auth-service', color: '#8b5cf6' },
-      { endpoint: 'refresh', service: 'auth-service', color: '#8b5cf6' },
-      { endpoint: 'get_account', service: 'account-service', color: '#3b82f6' },
-      { endpoint: 'patch_account', service: 'account-service', color: '#3b82f6' },
-      { endpoint: 'get_projects_list', service: 'project-service', color: '#10b981' },
-      { endpoint: 'create_project', service: 'project-service', color: '#10b981' },
-      { endpoint: 'get_project', service: 'project-service', color: '#10b981' },
-      { endpoint: 'patch_project', service: 'project-service', color: '#10b981' },
-      { endpoint: 'delete_project', service: 'project-service', color: '#10b981' },
-      { endpoint: 'homepage', service: 'core-service', color: '#f59e0b' },
-    ];
-
-    endpointServiceMapping.forEach(({ endpoint, service, color }) => {
-      newEdges.push({
-        id: `edge-${endpoint}-${service}`,
-        source: `endpoint-${endpoint}`,
-        target: service,
-        type: 'smoothstep',
-        animated: false,
-        style: { 
-          stroke: color, 
-          strokeWidth: 2.5,
-        },
-        markerEnd: { 
-          type: MarkerType.ArrowClosed, 
-          color: color, 
-          width: 22, 
-          height: 22 
-        },
-        sourceHandle: 'right',
-        targetHandle: 'left',
-      });
-    });
-
-    // === LAYER 4: Database Manager (по центру между БД) ===
-    newNodes.push({
-      id: 'database-manager',
-      type: 'default',
-      position: { x: START_X + LAYER_GAP * 3, y: START_Y + 400 },
-      data: {
-        label: (
-          <div className={styles.dbManagerLabel}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>🗄️</div>
-            <div>Database</div>
-            <div>Manager</div>
-          </div>
-        ),
-      },
-      style: {
-        background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-        color: 'white',
-        border: '3px solid #0e7490',
-        borderRadius: '16px',
-        padding: '24px 28px',
-        width: 180,
-        fontWeight: '700',
-        fontSize: '15px',
-        textAlign: 'center',
-        boxShadow: '0 6px 20px rgba(6, 182, 212, 0.4)',
-      },
-      sourcePosition: 'right',
-      targetPosition: 'left',
-    });
-
-    // Соединения между сервисами и database manager
-    services.forEach(svc => {
-      newEdges.push({
-        id: `edge-${svc.id}-dbm`,
-        source: svc.id,
-        target: 'database-manager',
-        type: 'smoothstep',
-        animated: false,
-        style: { 
-          stroke: '#06b6d4', 
-          strokeWidth: 2.5,
-        },
-        markerEnd: { 
-          type: MarkerType.ArrowClosed, 
-          color: '#06b6d4', 
-          width: 22, 
-          height: 22 
-        },
-        sourceHandle: 'right',
-        targetHandle: 'left',
-      });
-    });
-
-    // === LAYER 4: Databases (подальше друг от друга) ===
-    const databases = [
-      { id: 'accounts-db', label: '👥 Accounts', icon: '🗃️', y: START_Y + 150 },
-      { id: 'projects-db', label: '📊 Projects', icon: '🗃️', y: START_Y + 650 },
-    ];
-
-    databases.forEach((db) => {
+    // === LAYER 3.5: Service Methods (методы сервисов) ===
+    (nodesByLayer[3.5] || []).forEach((methodName, idx) => {
+      // Определяем к какому сервису относится метод
+      const serviceName = methodName.split('.')[0]; // AuthService, AccountService и т.д.
+      const methodShortName = methodName.split('.')[1]; // login, get_account_by_id и т.д.
+      
+      const serviceConfig = serviceColors[serviceName] || { color: '#64748b' };
+      
       newNodes.push({
-        id: db.id,
+        id: methodName,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 3, y: db.y },
+        position: { x: START_X + LAYER_GAP * 2.5, y: START_Y + idx * 90 },
         data: {
           label: (
-            <div className={styles.dbLabel}>
-              <div style={{ fontSize: '28px', marginBottom: '6px' }}>{db.icon}</div>
-              <div style={{ fontWeight: '700' }}>{db.label}</div>
-              <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '4px' }}>Database</div>
+            <div style={{ fontSize: '11px', fontWeight: '600', textAlign: 'center', color: '#1e293b' }}>
+              <div style={{ opacity: 0.6, marginBottom: '2px', fontSize: '10px' }}>{serviceName.replace('Service', '')}</div>
+              <div style={{ color: serviceConfig.color }}>{methodShortName}</div>
             </div>
           ),
         },
         style: {
-          background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-          color: 'white',
-          border: '3px solid #475569',
-          borderRadius: '20px',
-          padding: '20px 24px',
-          width: 150,
+          background: 'white',
+          border: `2px solid ${serviceConfig.color}`,
+          borderRadius: '10px',
+          padding: '10px 14px',
+          width: 140,
+          fontSize: '11px',
           fontWeight: '600',
-          fontSize: '14px',
-          textAlign: 'center',
-          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.5)',
+          boxShadow: `0 3px 12px ${serviceConfig.color}30`,
         },
         sourcePosition: 'right',
         targetPosition: 'left',
       });
+    });
 
-      // Соединяем database manager с databases (справа)
-      newEdges.push({
-        id: `edge-dbm-${db.id}`,
-        source: 'database-manager',
-        target: db.id,
-        type: 'smoothstep',
-        animated: false,
-        style: { 
-          stroke: '#475569', 
-          strokeWidth: 3,
-        },
-        markerEnd: { 
-          type: MarkerType.ArrowClosed, 
-          color: '#475569', 
-          width: 24, 
-          height: 24 
-        },
-        sourceHandle: 'right',
-        targetHandle: 'left',
+    // === LAYER 4: Database components (динамически из данных) ===
+    nodesByLayer[4].forEach((nodeName, idx) => {
+      const isDatabaseManager = nodeName.startsWith('DatabaseManager');
+      const isAccountDB = nodeName.startsWith('Account.');
+      const isProjectDB = nodeName.startsWith('Project.');
+      
+      let nodeStyle, nodeLabel;
+      
+      if (isDatabaseManager) {
+        nodeStyle = {
+          background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+          color: 'white',
+          border: '3px solid #0e7490',
+          borderRadius: '16px',
+          padding: '18px 22px',
+          width: 160,
+          fontWeight: '700',
+          fontSize: '13px',
+          textAlign: 'center',
+          boxShadow: '0 6px 20px rgba(6, 182, 212, 0.4)',
+        };
+        nodeLabel = (
+          <div className={styles.dbManagerLabel}>
+            <div style={{ fontSize: '20px', marginBottom: '6px' }}>🗄️</div>
+            <div>{nodeName.replace('DatabaseManager.', '')}</div>
+          </div>
+        );
+      } else {
+        const dbColor = isAccountDB ? '#3b82f6' : isProjectDB ? '#10b981' : '#64748b';
+        const dbIcon = isAccountDB ? '👥' : isProjectDB ? '📊' : '🗃️';
+        const dbLabel = nodeName.split('.').pop();
+        
+        nodeStyle = {
+          background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+          color: 'white',
+          border: `3px solid ${dbColor}`,
+          borderRadius: '20px',
+          padding: '16px 20px',
+          width: 140,
+          fontWeight: '600',
+          fontSize: '12px',
+          textAlign: 'center',
+          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.5)',
+        };
+        nodeLabel = (
+          <div className={styles.dbLabel}>
+            <div style={{ fontSize: '24px', marginBottom: '4px' }}>{dbIcon}</div>
+            <div style={{ fontWeight: '700', fontSize: '11px' }}>{dbLabel}</div>
+          </div>
+        );
+      }
+      
+      newNodes.push({
+        id: nodeName,
+        type: 'default',
+        position: { x: START_X + LAYER_GAP * 3, y: START_Y + idx * 120 },
+        data: { label: nodeLabel },
+        style: nodeStyle,
+        sourcePosition: 'right',
+        targetPosition: 'left',
       });
     });
 
-    // === LAYER 5: Broker ===
-    newNodes.push({
-      id: 'broker',
-      type: 'default',
-      position: { x: START_X + LAYER_GAP * 4, y: START_Y + 350 },
-      data: {
-        label: (
-          <div className={styles.brokerLabel}>
-            <div style={{ fontSize: '32px', marginBottom: '8px' }}>📮</div>
-            <div style={{ fontWeight: '700' }}>Message</div>
-            <div style={{ fontWeight: '700' }}>Broker</div>
-            <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '6px' }}>RabbitMQ</div>
-          </div>
-        ),
-      },
-      style: {
-        background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-        color: 'white',
-        border: '4px solid #c2410c',
-        borderRadius: '50%',
-        padding: '28px',
-        width: 160,
-        height: 160,
-        fontWeight: 'bold',
-        fontSize: '14px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 8px 28px rgba(249, 115, 22, 0.5)',
-      },
-      sourcePosition: 'right',
-      targetPosition: 'left',
+    // === LAYER 5: Broker и прочие компоненты ===
+    nodesByLayer[5].forEach((nodeName, idx) => {
+      const isBroker = nodeName.startsWith('Broker');
+      
+      if (isBroker) {
+        newNodes.push({
+          id: nodeName,
+          type: 'default',
+          position: { x: START_X + LAYER_GAP * 4, y: START_Y + idx * 180 + 300 },
+          data: {
+            label: (
+              <div className={styles.brokerLabel}>
+                <div style={{ fontSize: '28px', marginBottom: '6px' }}>📮</div>
+                <div style={{ fontWeight: '700', fontSize: '12px' }}>{nodeName.replace('Broker.', '')}</div>
+              </div>
+            ),
+          },
+          style: {
+            background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+            color: 'white',
+            border: '4px solid #c2410c',
+            borderRadius: '50%',
+            padding: '24px',
+            width: 140,
+            height: 140,
+            fontWeight: 'bold',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 28px rgba(249, 115, 22, 0.5)',
+          },
+          sourcePosition: 'right',
+          targetPosition: 'left',
+        });
+      } else {
+        // Прочие компоненты
+        newNodes.push({
+          id: nodeName,
+          type: 'default',
+          position: { x: START_X + LAYER_GAP * 4, y: START_Y + idx * 100 },
+          data: {
+            label: (
+              <div style={{ fontSize: '12px', fontWeight: '600' }}>
+                {nodeName}
+              </div>
+            ),
+          },
+          style: {
+            background: '#f1f5f9',
+            color: '#1e293b',
+            border: '2px solid #cbd5e1',
+            borderRadius: '10px',
+            padding: '12px 16px',
+            fontSize: '12px',
+            fontWeight: '600',
+          },
+          sourcePosition: 'right',
+          targetPosition: 'left',
+        });
+      }
     });
 
-    // Соединяем database manager с broker (справа)
-    newEdges.push({
-      id: 'edge-dbm-broker',
-      source: 'database-manager',
-      target: 'broker',
-      type: 'smoothstep',
-      animated: true,
-      style: { 
-        stroke: '#f97316', 
-        strokeWidth: 3,
-        strokeDasharray: '8,4',
-      },
-      markerEnd: { 
-        type: MarkerType.ArrowClosed, 
-        color: '#f97316', 
-        width: 26, 
-        height: 26 
-      },
-      sourceHandle: 'right',
-      targetHandle: 'left',
+    // === ДИНАМИЧЕСКИЕ СОЕДИНЕНИЯ ИЗ ARCHITECTURE DATA ===
+    // 1. Main Service -> Endpoints (для всех endpoints)
+    Object.keys(endpoints).forEach((endpointKey) => {
+      const method = endpoints[endpointKey].split(' ')[0];
+      const methodColor = methodColors[method]?.border || '#64748b';
+      
+      newEdges.push({
+        id: `edge-main-${endpointKey}`,
+        source: 'main-service',
+        target: `endpoint-${endpointKey}`,
+        type: 'smoothstep',
+        animated: true,
+        style: { stroke: methodColor, strokeWidth: 2.5 },
+        markerEnd: { 
+          type: MarkerType.ArrowClosed, 
+          color: methodColor, 
+          width: 22, 
+          height: 22 
+        },
+      });
+    });
+
+    // 2. Соединения из ARCHITECTURE данных (parent -> children)
+    architectureData.forEach(({ parent, children }) => {
+      children.forEach(child => {
+        // Убираем префиксы типа 'accounts/', 'datamanager/', 'auth_service/'
+        const cleanChild = child.split('/').pop();
+        
+        // Определяем ID для parent (endpoints имеют префикс 'endpoint-')
+        const parentId = endpoints[parent] ? `endpoint-${parent}` : parent;
+        
+        // Проверяем что оба узла существуют в графе
+        const parentExists = newNodes.some(n => n.id === parentId);
+        const childExists = newNodes.some(n => n.id === cleanChild);
+        
+        if (!parentExists || !childExists) {
+          return; // Пропускаем если узлы не найдены
+        }
+        
+        // Определяем цвет соединения в зависимости от типов узлов
+        let edgeColor = '#94a3b8';
+        const parentType = getNodeType(parent).type;
+        const childType = getNodeType(cleanChild).type;
+        
+        if (parentType === 'endpoint') {
+          // Endpoint -> Service method (цвет метода HTTP)
+          const method = endpoints[parent].split(' ')[0];
+          edgeColor = methodColors[method]?.border || '#64748b';
+        } else if (parentType === 'service' || parentType === 'service-method') {
+          // Service/Method -> что-то (цвет сервиса)
+          const serviceName = parent.split('.')[0];
+          edgeColor = serviceColors[serviceName]?.color || '#64748b';
+        } else if (childType === 'database-manager') {
+          edgeColor = '#06b6d4';
+        } else if (childType === 'broker') {
+          edgeColor = '#f97316';
+        }
+        
+        newEdges.push({
+          id: `edge-${parentId}-${cleanChild}`,
+          source: parentId,
+          target: cleanChild,
+          type: 'smoothstep',
+          animated: false,
+          style: { stroke: edgeColor, strokeWidth: 2 },
+          markerEnd: { 
+            type: MarkerType.ArrowClosed, 
+            color: edgeColor, 
+            width: 20, 
+            height: 20 
+          },
+        });
+      });
     });
 
     setNodes(newNodes);
     setEdges(newEdges);
-    setInitialGraphBuilt(true);
-  }, [endpoints, initialGraphBuilt, setNodes, setEdges]);
-
-  // Поэтапное добавление узлов из ARCHITECTURE данных (в правильных слоях)
-  useEffect(() => {
-    if (!initialGraphBuilt || architectureData.length === 0) return;
-
-    const latestArch = architectureData[architectureData.length - 1];
-    if (!latestArch || !latestArch.parent) return;
-
-    const parent = latestArch.parent;
-    const LAYER_GAP = 380;
-    const START_X = 100;
-    const START_Y = 50;
-
-    // Счетчики для вертикального позиционирования в каждом слое
-    const getNodePosition = (type, index) => {
-      const positions = {
-        'endpoint': { x: START_X + LAYER_GAP, y: START_Y + index * 95 },
-        'service': { x: START_X + LAYER_GAP * 2, y: START_Y + index * 90 },
-        'database': { x: START_X + LAYER_GAP * 3, y: START_Y + 200 + index * 120 },
-        'broker': { x: START_X + LAYER_GAP * 4, y: START_Y + 300 + index * 100 },
-      };
-      return positions[type] || { x: START_X + LAYER_GAP * 2 + 200, y: START_Y + 100 + index * 60 };
-    };
-
-    setNodes((prevNodes) => {
-      const newNodes = [...prevNodes];
-      const newNodeId = `arch-${parent}`;
-      
-      // Проверяем, не существует ли уже такой узел
-      if (newNodes.some(n => n.id === newNodeId)) return prevNodes;
-
-      let nodeX, nodeY, nodeColor, layerType;
-      const archCount = architectureData.length;
-
-      // Пропускаем создание основных сервисов - они уже созданы статично
-      if (parent === 'AuthService' || parent === 'AccountService' || parent === 'ProjectService' || parent === 'CoreService') {
-        return prevNodes;
-      }
-
-      // Пропускаем методы основных сервисов - они не нужны как отдельные узлы
-      if (parent.includes('AuthService.') || parent.includes('AccountService.') || 
-          parent.includes('ProjectService.') || parent.includes('CoreService.')) {
-        return prevNodes;
-      }
-
-      // Определяем позицию и цвет на основе типа узла
-      if (parent.includes('Account.') && !parent.includes('Service')) {
-        // Database layer - Account методы
-        const accountNodes = architectureData.filter(a => a.parent.includes('Account.') && !a.parent.includes('Service')).length;
-        nodeX = START_X + LAYER_GAP * 3 + 200;
-        nodeY = START_Y + 50 + accountNodes * 55;
-        nodeColor = '#3b82f6';
-        layerType = 'db-method';
-      } else if (parent.includes('Project.') && !parent.includes('Service')) {
-        // Database layer - Project методы
-        const projectNodes = architectureData.filter(a => a.parent.includes('Project.') && !a.parent.includes('Service')).length;
-        nodeX = START_X + LAYER_GAP * 3 + 200;
-        nodeY = START_Y + 550 + projectNodes * 55;
-        nodeColor = '#10b981';
-        layerType = 'db-method';
-      } else if (parent.includes('DatabaseManager') || parent.includes('init_db')) {
-        // Database Manager layer
-        const dbmNodes = architectureData.filter(a => a.parent.includes('DatabaseManager') || a.parent.includes('init_db')).length;
-        nodeX = START_X + LAYER_GAP * 3 + 200;
-        nodeY = START_Y + 350 + dbmNodes * 50;
-        nodeColor = '#06b6d4';
-        layerType = 'db-manager';
-      } else if (parent.includes('ConnectionBrokerManager') || parent.includes('Consumer') || parent.includes('Producer')) {
-        // Broker layer
-        const brokerNodes = architectureData.filter(a => 
-          a.parent.includes('ConnectionBrokerManager') || 
-          a.parent.includes('Consumer') || 
-          a.parent.includes('Producer')
-        ).length;
-        nodeX = START_X + LAYER_GAP * 4 + 200;
-        nodeY = START_Y + 250 + brokerNodes * 60;
-        nodeColor = '#f97316';
-        layerType = 'broker-method';
-      } else if (parent.includes('ObjectStorageManager') || parent.includes('AbstractStorage')) {
-        // Storage layer (возле broker)
-        const storageNodes = architectureData.filter(a => 
-          a.parent.includes('ObjectStorage') || 
-          a.parent.includes('AbstractStorage')
-        ).length;
-        nodeX = START_X + LAYER_GAP * 4 + 200;
-        nodeY = START_Y + 100 + storageNodes * 55;
-        nodeColor = '#ec4899';
-        layerType = 'storage';
-      } else if (parent.includes('CoreServer') || parent.includes('TaskManager') || parent.includes('TaskSession') || parent.includes('FrontendStreamService') || parent.includes('AlgorithmConnectionService')) {
-        // Core server layer (возле broker)
-        const coreNodes = architectureData.filter(a => 
-          a.parent.includes('CoreServer') || 
-          a.parent.includes('TaskManager') || 
-          a.parent.includes('TaskSession') ||
-          a.parent.includes('FrontendStreamService') ||
-          a.parent.includes('AlgorithmConnectionService')
-        ).length;
-        nodeX = START_X + LAYER_GAP * 4 + 200;
-        nodeY = START_Y + 500 + coreNodes * 55;
-        nodeColor = '#a855f7';
-        layerType = 'core-server';
-      } else if (parent.includes('load_config') || parent.includes('create_logger')) {
-        // Config/Utils layer (внизу)
-        const utilNodes = architectureData.filter(a => 
-          a.parent.includes('load_config') || 
-          a.parent.includes('create_logger')
-        ).length;
-        nodeX = START_X + LAYER_GAP * 3;
-        nodeY = START_Y + 850 + utilNodes * 50;
-        nodeColor = '#64748b';
-        layerType = 'util';
-      } else {
-        // Остальные узлы - справа
-        nodeX = START_X + LAYER_GAP * 4 + 400;
-        nodeY = START_Y + 100 + (archCount % 10) * 70;
-        nodeColor = '#71717a';
-        layerType = 'other';
-      }
-
-      // Создаем узел с анимацией
-      const shortName = parent.split('.').pop() || parent;
-      
-      newNodes.push({
-        id: newNodeId,
-        type: 'default',
-        position: { x: nodeX, y: nodeY },
-        data: {
-          label: (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: '600', fontSize: '10px', lineHeight: '1.3' }}>
-                {shortName}
-              </div>
-              {latestArch.children && latestArch.children.length > 0 && (
-                <div style={{ fontSize: '8px', opacity: 0.7, marginTop: '3px' }}>
-                  {latestArch.children.length} deps
-                </div>
-              )}
-            </div>
-          ),
-        },
-        style: {
-          background: `linear-gradient(135deg, ${nodeColor} 0%, ${nodeColor}dd 100%)`,
-          color: 'white',
-          border: `2px solid ${nodeColor}`,
-          borderRadius: '8px',
-          padding: '10px 12px',
-          fontSize: '10px',
-          fontWeight: '600',
-          boxShadow: `0 3px 12px ${nodeColor}50`,
-          animation: 'fadeInScale 0.4s ease-out',
-          minWidth: '110px',
-        },
-        sourcePosition: 'right',
-        targetPosition: 'left',
-      });
-
-      return newNodes;
-    });
-
-    // Добавляем связи между узлами
-    if (latestArch.children && latestArch.children.length > 0) {
-      setEdges((prevEdges) => {
-        const newEdges = [...prevEdges];
-        const parentId = `arch-${parent}`;
-
-        latestArch.children.forEach((child) => {
-          const childId = `arch-${child}`;
-          const edgeId = `edge-${parentId}-${childId}`;
-          
-          // Проверяем, не существует ли уже такое ребро
-          if (newEdges.some(e => e.id === edgeId)) return;
-
-          newEdges.push({
-            id: edgeId,
-            source: parentId,
-            target: childId,
-            type: 'smoothstep',
-            animated: false,
-            style: { 
-              stroke: '#94a3b8', 
-              strokeWidth: 1,
-              opacity: 0.25,
-            },
-            markerEnd: { 
-              type: MarkerType.ArrowClosed, 
-              color: '#94a3b8', 
-              width: 12, 
-              height: 12 
-            },
-            sourceHandle: 'right',
-            targetHandle: 'left',
-          });
-        });
-
-        return newEdges;
-      });
-    }
-  }, [architectureData, initialGraphBuilt, setNodes, setEdges]);
+  }, [endpoints, architectureData, setNodes, setEdges]);
 
   const onNodeClick = useCallback((event, node) => {
     setSelectedNode(node);
