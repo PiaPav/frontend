@@ -140,6 +140,75 @@
   flex: 1;
   position: relative;
   background: #fafbfc;
+  /* GPU ускорение */
+  transform: translateZ(0);
+  will-change: transform;
+  /* Курсор видимый по умолчанию */
+  cursor: default !important;
+}
+
+/* Черный курсор для всех элементов ReactFlow */
+.flowWrapper * {
+  cursor: inherit;
+}
+
+/* ReactFlow курсор видимый везде */
+.flowWrapper :global(.react-flow) {
+  cursor: default !important;
+}
+
+.flowWrapper :global(.react-flow__renderer) {
+  cursor: default !important;
+}
+
+.flowWrapper :global(.react-flow__viewport) {
+  cursor: grab !important;
+}
+
+.flowWrapper :global(.react-flow__pane) {
+  cursor: grab !important;
+}
+
+.flowWrapper :global(.react-flow__pane):active,
+.flowWrapper :global(.react-flow__viewport):active {
+  cursor: grabbing !important;
+}
+
+.flowWrapper :global(.react-flow__selectionpane) {
+  cursor: grab !important;
+}
+
+.flowWrapper :global(.react-flow__node) {
+  cursor: pointer !important;
+  /* GPU ускорение для узлов */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+.flowWrapper :global(.react-flow__edge) {
+  cursor: pointer !important;
+}
+
+.flowWrapper :global(.react-flow__edge-path) {
+  cursor: pointer !important;
+}
+
+.flowWrapper :global(.react-flow__controls) {
+  cursor: default !important;
+}
+
+.flowWrapper :global(.react-flow__controls button) {
+  cursor: pointer !important;
+}
+
+.flowWrapper :global(.react-flow__background) {
+  cursor: grab !important;
+}
+
+/* Отключаем анимацию при взаимодействии для производительности */
+.flowWrapper :global(.react-flow__node.dragging) {
+  transition: none !important;
 }
 
 /* Loading State */

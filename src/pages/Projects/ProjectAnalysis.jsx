@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Controls,
@@ -139,6 +139,7 @@ export default function ProjectAnalysis() {
   const [endpoints, setEndpoints] = useState({});
   const [architectureData, setArchitectureData] = useState([]);
   const [currentMessageId, setCurrentMessageId] = useState(0);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   // Обработка входящих сообщений
   const handleServerMessage = useCallback((message) => {
@@ -161,58 +162,65 @@ export default function ProjectAnalysis() {
     simulateServerStream(handleServerMessage);
   }, [handleServerMessage]);
 
-  // Построение динамического графа из данных Граф.txt
+  // Построение динамического графа из данных Граф.txt (с оптимизацией)
   useEffect(() => {
-    // Ждем пока появятся endpoints, но строим граф каждый раз когда приходят новые данные
+    // Ждем пока появятся endpoints
     if (Object.keys(endpoints).length === 0) return;
 
-    const newNodes = [];
-    const newEdges = [];
+    // Debounce - обновляем граф раз в 600ms вместо каждого сообщения
+    const debounceTimer = setTimeout(() => {
+      const newNodes = [];
+      const newEdges = [];
 
-    // Конфигурация слоев
-    const LAYER_GAP = 380;
-    const START_X = 100;
-    const START_Y = 50;
-    const NODE_HEIGHT = 80; // Средняя высота узла для расчета позиций
+      // Конфигурация слоев
+      const LAYER_GAP = 380;
+      const START_X = 100;
+      const START_Y = 50;
+      const NODE_HEIGHT = 80; // Средняя высота узла для расчета позиций
 
-    console.log('🔄 Перестраиваем граф. Architecture данных:', architectureData.length);
+      console.log('🔄 Перестраиваем граф. Architecture данных:', architectureData.length);
 
-    // === ФУНКЦИЯ ОПРЕДЕЛЕНИЯ ТИПА УЗЛА ===
-    const getNodeType = (nodeName) => {
-      // HTTP Endpoints (из endpoints)
-      if (endpoints[nodeName]) {
-        return { type: 'endpoint', layer: 2 };
-      }
-      
-      // Services (точно соответствуют AuthService, AccountService, ProjectService, CoreService)
-      const serviceNames = ['AuthService', 'AccountService', 'ProjectService', 'CoreService'];
-      if (serviceNames.includes(nodeName)) {
-        return { type: 'service', layer: 3 };
-      }
-      
-      // Service methods (AuthService.login, AccountService.get_account_by_id и т.д.)
-      if (nodeName.includes('Service.')) {
-        return { type: 'service-method', layer: 3.5 }; // Промежуточный слой между сервисами и БД
-      }
-      
-      // Database methods (Account.*, Project.*)
-      if (nodeName.startsWith('Account.') || nodeName.startsWith('Project.')) {
-        return { type: 'database-method', layer: 4 };
-      }
-      
-      // DatabaseManager
-      if (nodeName.startsWith('DatabaseManager.') || nodeName === 'DatabaseManager') {
-        return { type: 'database-manager', layer: 4 };
-      }
-      
-      // Broker
-      if (nodeName.startsWith('Broker.') || nodeName === 'Broker') {
-        return { type: 'broker', layer: 5 };
-      }
-      
-      // Остальное - прочие компоненты (вероятно вспомогательные функции)
-      return { type: 'other', layer: 5 };
-    };
+      // === ФУНКЦИЯ ОПРЕДЕЛЕНИЯ ТИПА УЗЛА (мемоизация) ===
+      const nodeTypeCache = new Map();
+      const getNodeType = (nodeName) => {
+        if (nodeTypeCache.has(nodeName)) {
+          return nodeTypeCache.get(nodeName);
+        }
+        
+        let result;
+        
+        // HTTP Endpoints (из endpoints)
+        if (endpoints[nodeName]) {
+          result = { type: 'endpoint', layer: 2 };
+        }
+        // Services (точно соответствуют AuthService, AccountService, ProjectService, CoreService)
+        else if (['AuthService', 'AccountService', 'ProjectService', 'CoreService'].includes(nodeName)) {
+          result = { type: 'service', layer: 3 };
+        }
+        // Service methods (AuthService.login, AccountService.get_account_by_id и т.д.)
+        else if (nodeName.includes('Service.')) {
+          result = { type: 'service-method', layer: 3.5 };
+        }
+        // Database methods (Account.*, Project.*)
+        else if (nodeName.startsWith('Account.') || nodeName.startsWith('Project.')) {
+          result = { type: 'database-method', layer: 4 };
+        }
+        // DatabaseManager
+        else if (nodeName.startsWith('DatabaseManager.') || nodeName === 'DatabaseManager') {
+          result = { type: 'database-manager', layer: 4 };
+        }
+        // Broker
+        else if (nodeName.startsWith('Broker.') || nodeName === 'Broker') {
+          result = { type: 'broker', layer: 5 };
+        }
+        // Остальное - прочие компоненты
+        else {
+          result = { type: 'other', layer: 5 };
+        }
+        
+        nodeTypeCache.set(nodeName, result);
+        return result;
+      };
 
     // === СБОР ВСЕХ УНИКАЛЬНЫХ УЗЛОВ ИЗ ARCHITECTURE DATA ===
     const allNodes = new Set();
@@ -681,7 +689,7 @@ export default function ProjectAnalysis() {
         source: 'main-service',
         target: `endpoint-${endpointKey}`,
         type: 'smoothstep',
-        animated: true,
+        animated: false, // Отключаем анимацию для производительности
         style: { stroke: methodColor, strokeWidth: 2.5 },
         markerEnd: { 
           type: MarkerType.ArrowClosed, 
@@ -745,8 +753,14 @@ export default function ProjectAnalysis() {
       });
     });
 
-    setNodes(newNodes);
-    setEdges(newEdges);
+      setNodes(newNodes);
+      setEdges(newEdges);
+      if (isFirstLoad && newNodes.length > 0) {
+        setIsFirstLoad(false);
+      }
+    }, 600); // Обновляем граф раз в 600ms
+
+    return () => clearTimeout(debounceTimer);
   }, [endpoints, architectureData, setNodes, setEdges]);
 
   const onNodeClick = useCallback((event, node) => {
@@ -828,11 +842,29 @@ export default function ProjectAnalysis() {
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
-            fitView
+            fitView={isFirstLoad}
             fitViewOptions={{ padding: 0.15, maxZoom: 0.9 }}
-            minZoom={0.3}
-            maxZoom={1.5}
+            minZoom={0.1}
+            maxZoom={2}
+            defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
             proOptions={{ hideAttribution: true }}
+            defaultEdgeOptions={{
+              animated: false, // Отключаем анимацию для производительности
+            }}
+            nodesDraggable={true}
+            nodesConnectable={false}
+            elementsSelectable={true}
+            panOnDrag={true}
+            panOnScroll={true}
+            zoomOnScroll={true}
+            zoomOnPinch={true}
+            zoomOnDoubleClick={false}
+            selectionOnDrag={false}
+            panActivationKeyCode={null}
+            preventScrolling={true}
+            attributionPosition="bottom-right"
+            nodeOrigin={[0.5, 0.5]}
+            selectNodesOnDrag={false}
           >
             <Background color="#f0f0f0" gap={20} size={1} />
             <Controls className={styles.controls} />
