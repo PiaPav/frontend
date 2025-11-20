@@ -224,12 +224,81 @@ export default function ProjectAnalysis() {
 
     // === СБОР ВСЕХ УНИКАЛЬНЫХ УЗЛОВ ИЗ ARCHITECTURE DATA ===
     const allNodes = new Set();
+    
+    // Фильтр для неинформативных данных (системные функции, встроенные методы)
+    const isInformativeNode = (nodeName) => {
+      // Список паттернов для исключения неинформативных узлов
+      const excludePatterns = [
+        /^__\w+__$/,           // __init__, __str__, __name__ и т.д.
+        /^super$/,             // super()
+        /^self\./,             // self.method
+        /^items$/,             // dict.items()
+        /^keys$/,              // dict.keys()
+        /^values$/,            // dict.values()
+        /^append$/,            // list.append()
+        /^extend$/,            // list.extend()
+        /^update$/,            // dict.update()
+        /^get$/,               // dict.get()
+        /^pop$/,               // list/dict.pop()
+        /^remove$/,            // list.remove()
+        /^clear$/,             // list.clear()
+        /^copy$/,              // copy()
+        /^str$/,               // str()
+        /^int$/,               // int()
+        /^bool$/,              // bool()
+        /^list$/,              // list()
+        /^dict$/,              // dict()
+        /^len$/,               // len()
+        /^print$/,             // print()
+        /^range$/,             // range()
+        /^enumerate$/,         // enumerate()
+        /^zip$/,               // zip()
+        /^map$/,               // map()
+        /^filter$/,            // filter()
+        /^sorted$/,            // sorted()
+        /^reversed$/,          // reversed()
+        /^any$/,               // any()
+        /^all$/,               // all()
+        /^sum$/,               // sum()
+        /^min$/,               // min()
+        /^max$/,               // max()
+        /^abs$/,               // abs()
+        /^round$/,             // round()
+        /^type$/,              // type()
+        /^isinstance$/,        // isinstance()
+        /^hasattr$/,           // hasattr()
+        /^getattr$/,           // getattr()
+        /^setattr$/,           // setattr()
+        /^delattr$/,           // delattr()
+        /^format$/,            // format()
+        /^join$/,              // str.join()
+        /^split$/,             // str.split()
+        /^strip$/,             // str.strip()
+        /^replace$/,           // str.replace()
+        /^lower$/,             // str.lower()
+        /^upper$/,             // str.upper()
+        /^encode$/,            // str.encode()
+        /^decode$/,            // str.decode()
+      ];
+      
+      // Проверяем каждый паттерн
+      return !excludePatterns.some(pattern => pattern.test(nodeName));
+    };
+    
     architectureData.forEach(({ parent, children }) => {
-      allNodes.add(parent);
+      // Добавляем parent только если он информативен
+      if (isInformativeNode(parent)) {
+        allNodes.add(parent);
+      }
+      
       children.forEach(child => {
         // Убираем префиксы типа 'accounts/', 'datamanager/' и т.д.
         const cleanChild = child.split('/').pop();
-        allNodes.add(cleanChild);
+        
+        // Добавляем child только если он информативен
+        if (isInformativeNode(cleanChild)) {
+          allNodes.add(cleanChild);
+        }
       });
     });
 
@@ -551,7 +620,7 @@ export default function ProjectAnalysis() {
       newNodes.push({
         id: nodeName,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 3, y: START_Y + idx * 120 },
+        position: { x: START_X + LAYER_GAP * 3, y: START_Y + idx * 150 }, // Увеличено с 120 до 150
         data: { label: nodeLabel },
         style: nodeStyle,
         sourcePosition: 'right',
@@ -559,16 +628,22 @@ export default function ProjectAnalysis() {
       });
     });
 
-    // === LAYER 5: Broker и прочие компоненты ===
+    // === LAYER 5: Broker и прочие компоненты (шахматный порядок) ===
     nodesByLayer[5].forEach((nodeName, idx) => {
       const isBroker = nodeName.startsWith('Broker');
+      
+      // Шахматный порядок: чередуем колонки
+      const column = Math.floor(idx / 8); // 8 элементов в колонке
+      const row = idx % 8; // Позиция в колонке
+      const xPosition = START_X + LAYER_GAP * 4 + column * 200; // Дополнительные колонки справа
+      const yPosition = START_Y + row * 110; // Вертикальное расстояние
       
       if (isBroker) {
         const brokerMethod = nodeName.replace('Broker.', '');
         newNodes.push({
           id: nodeName,
           type: 'default',
-          position: { x: START_X + LAYER_GAP * 4, y: START_Y + idx * 180 + 300 },
+          position: { x: xPosition, y: yPosition + 300 },
           data: {
             label: (
               <div className={styles.brokerLabel}>
@@ -640,7 +715,7 @@ export default function ProjectAnalysis() {
         newNodes.push({
           id: nodeName,
           type: 'default',
-          position: { x: START_X + LAYER_GAP * 4, y: START_Y + idx * 100 },
+          position: { x: xPosition, y: yPosition },
           data: {
             label: (
               <div style={{ textAlign: 'center' }}>
