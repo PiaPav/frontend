@@ -132,6 +132,7 @@ export default function ProjectAnalysis() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [hoveredNode, setHoveredNode] = useState(null);
   
   // Данные с сервера
   const [status, setStatus] = useState('START');
@@ -173,7 +174,7 @@ export default function ProjectAnalysis() {
       const newEdges = [];
 
       // Конфигурация слоев
-      const LAYER_GAP = 380;
+      const LAYER_GAP = 420; // Увеличено для равных расстояний
       const START_X = 100;
       const START_Y = 50;
       const NODE_HEIGHT = 80; // Средняя высота узла для расчета позиций
@@ -229,25 +230,18 @@ export default function ProjectAnalysis() {
     const isInformativeNode = (nodeName) => {
       // Список паттернов для исключения неинформативных узлов
       const excludePatterns = [
+        // Python магические методы и встроенные функции
         /^__\w+__$/,           // __init__, __str__, __name__ и т.д.
         /^super$/,             // super()
         /^self\./,             // self.method
-        /^items$/,             // dict.items()
-        /^keys$/,              // dict.keys()
-        /^values$/,            // dict.values()
-        /^append$/,            // list.append()
-        /^extend$/,            // list.extend()
-        /^update$/,            // dict.update()
-        /^get$/,               // dict.get()
-        /^pop$/,               // list/dict.pop()
-        /^remove$/,            // list.remove()
-        /^clear$/,             // list.clear()
-        /^copy$/,              // copy()
         /^str$/,               // str()
         /^int$/,               // int()
         /^bool$/,              // bool()
+        /^float$/,             // float()
         /^list$/,              // list()
         /^dict$/,              // dict()
+        /^tuple$/,             // tuple()
+        /^set$/,               // set()
         /^len$/,               // len()
         /^print$/,             // print()
         /^range$/,             // range()
@@ -266,19 +260,113 @@ export default function ProjectAnalysis() {
         /^round$/,             // round()
         /^type$/,              // type()
         /^isinstance$/,        // isinstance()
+        /^issubclass$/,        // issubclass()
+        /^callable$/,          // callable()
         /^hasattr$/,           // hasattr()
         /^getattr$/,           // getattr()
         /^setattr$/,           // setattr()
         /^delattr$/,           // delattr()
+        
+        // Методы коллекций
+        /^items$/,             // dict.items()
+        /^keys$/,              // dict.keys()
+        /^values$/,            // dict.values()
+        /^append$/,            // list.append()
+        /^extend$/,            // list.extend()
+        /^insert$/,            // list.insert()
+        /^update$/,            // dict.update()
+        /^get$/,               // dict.get()
+        /^pop$/,               // list/dict.pop()
+        /^remove$/,            // list.remove()
+        /^clear$/,             // list.clear()
+        /^copy$/,              // copy()
+        /^index$/,             // list.index()
+        /^count$/,             // list.count()
+        /^sort$/,              // list.sort()
+        /^reverse$/,           // list.reverse()
+        
+        // Методы строк
         /^format$/,            // format()
         /^join$/,              // str.join()
         /^split$/,             // str.split()
         /^strip$/,             // str.strip()
+        /^lstrip$/,            // str.lstrip()
+        /^rstrip$/,            // str.rstrip()
         /^replace$/,           // str.replace()
         /^lower$/,             // str.lower()
         /^upper$/,             // str.upper()
+        /^capitalize$/,        // str.capitalize()
+        /^title$/,             // str.title()
+        /^startswith$/,        // str.startswith()
+        /^endswith$/,          // str.endswith()
+        /^find$/,              // str.find()
+        /^rfind$/,             // str.rfind()
         /^encode$/,            // str.encode()
         /^decode$/,            // str.decode()
+        
+        // SQLAlchemy и ORM методы
+        /^select$/,            // select()
+        /^where$/,             // where()
+        /^order_by$/,          // order_by()
+        /^group_by$/,          // group_by()
+        /^having$/,            // having()
+        /^limit$/,             // limit()
+        /^offset$/,            // offset()
+        /^join$/,              // join()
+        /^outerjoin$/,         // outerjoin()
+        /^subquery$/,          // subquery()
+        /^alias$/,             // alias()
+        /^scalar$/,            // scalar()
+        /^scalar_one$/,        // scalar_one()
+        /^scalar_one_or_none$/,// scalar_one_or_none()
+        /^all$/,               // all()
+        /^first$/,             // first()
+        /^one$/,               // one()
+        /^one_or_none$/,       // one_or_none()
+        /^execute$/,           // execute()
+        /^fetchall$/,          // fetchall()
+        /^fetchone$/,          // fetchone()
+        /^fetchmany$/,         // fetchmany()
+        /^commit$/,            // commit()
+        /^rollback$/,          // rollback()
+        /^flush$/,             // flush()
+        /^refresh$/,           // refresh()
+        /^expire$/,            // expire()
+        /^expunge$/,           // expunge()
+        /^merge$/,             // merge()
+        /^add$/,               // add()
+        /^delete$/,            // delete()
+        /^query$/,             // query()
+        
+        // FastAPI и Pydantic
+        /^model_dump$/,        // model_dump()
+        /^model_validate$/,    // model_validate()
+        /^dict$/,              // dict()
+        /^json$/,              // json()
+        /^parse_obj$/,         // parse_obj()
+        /^parse_raw$/,         // parse_raw()
+        /^schema$/,            // schema()
+        /^fields$/,            // fields()
+        
+        // HTTP и роутинг (низкоуровневые)
+        /^router\.\w+$/,      // router.get, router.post и т.д.
+        /^status_code$/,       // status_code
+        /^headers$/,           // headers
+        /^cookies$/,           // cookies
+        /^params$/,            // params
+        /^body$/,              // body
+        
+        // Логирование базовое
+        /^log\.debug$/,        // log.debug()
+        /^log\.warning$/,      // log.warning()
+        
+        // Общие служебные
+        /^ValueError$/,        // ValueError
+        /^TypeError$/,         // TypeError
+        /^KeyError$/,          // KeyError
+        /^AttributeError$/,    // AttributeError
+        /^IndexError$/,        // IndexError
+        /^RuntimeError$/,      // RuntimeError
       ];
       
       // Проверяем каждый паттерн
@@ -387,7 +475,7 @@ export default function ProjectAnalysis() {
       newNodes.push({
         id: `endpoint-${key}`,
         type: 'default',
-        position: { x: START_X + LAYER_GAP, y: START_Y + idx * 95 },
+        position: { x: START_X + LAYER_GAP, y: START_Y + idx * 120 },
         data: {
           label: (
             <div className={styles.endpointCard}>
@@ -502,7 +590,7 @@ export default function ProjectAnalysis() {
       newNodes.push({
         id: methodName,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 2.5, y: START_Y + idx * 90 },
+        position: { x: START_X + LAYER_GAP * 2.4, y: START_Y + idx * 110 },
         data: {
           label: (
             <div style={{ textAlign: 'center' }}>
@@ -620,7 +708,7 @@ export default function ProjectAnalysis() {
       newNodes.push({
         id: nodeName,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 3, y: START_Y + idx * 150 }, // Увеличено с 120 до 150
+        position: { x: START_X + LAYER_GAP * 3.2, y: START_Y + idx * 180 },
         data: { label: nodeLabel },
         style: nodeStyle,
         sourcePosition: 'right',
@@ -628,15 +716,36 @@ export default function ProjectAnalysis() {
       });
     });
 
-    // === LAYER 5: Broker и прочие компоненты (шахматный порядок) ===
-    nodesByLayer[5].forEach((nodeName, idx) => {
+    // === LAYER 5: Broker и прочие компоненты (компактное расположение) ===
+    // Фильтруем Util компоненты
+    const filteredLayer5 = nodesByLayer[5].filter(nodeName => {
+      const isBroker = nodeName.startsWith('Broker');
+      if (isBroker) return true;
+      
+      // Определяем тип
+      let componentType = 'Util';
+      if (nodeName.includes('Exception') || nodeName.includes('Error')) {
+        componentType = 'Exception';
+      } else if (nodeName.startsWith('log.')) {
+        componentType = 'Logger';
+      } else if (nodeName.includes('session') || nodeName.includes('Session')) {
+        componentType = 'Session';
+      } else if (nodeName.includes('Depends') || nodeName.includes('router')) {
+        componentType = 'FastAPI';
+      }
+      
+      // Исключаем Util
+      return componentType !== 'Util';
+    });
+    
+    filteredLayer5.forEach((nodeName, idx) => {
       const isBroker = nodeName.startsWith('Broker');
       
-      // Шахматный порядок: чередуем колонки
-      const column = Math.floor(idx / 8); // 8 элементов в колонке
-      const row = idx % 8; // Позиция в колонке
-      const xPosition = START_X + LAYER_GAP * 4 + column * 200; // Дополнительные колонки справа
-      const yPosition = START_Y + row * 110; // Вертикальное расстояние
+      // Компактное расположение
+      const column = Math.floor(idx / 10); // 10 элементов в колонке
+      const row = idx % 10; // Позиция в колонке
+      const xPosition = START_X + LAYER_GAP * 4 + column * 180;
+      const yPosition = START_Y + row * 100; // Увеличено с 85 до 100 для лучшей видимости
       
       if (isBroker) {
         const brokerMethod = nodeName.replace('Broker.', '');
@@ -754,8 +863,13 @@ export default function ProjectAnalysis() {
     });
 
     // === ДИНАМИЧЕСКИЕ СОЕДИНЕНИЯ ИЗ ARCHITECTURE DATA ===
-    // 1. Main Service -> Endpoints (для всех endpoints)
+    // 1. Main Service -> Endpoints (только если endpoint существует)
     Object.keys(endpoints).forEach((endpointKey) => {
+      const endpointId = `endpoint-${endpointKey}`;
+      // Проверяем что endpoint существует в графе
+      const endpointExists = newNodes.some(n => n.id === endpointId);
+      if (!endpointExists) return;
+      
       const method = endpoints[endpointKey].split(' ')[0];
       const methodColor = methodColors[method]?.border || '#64748b';
       
@@ -838,6 +952,59 @@ export default function ProjectAnalysis() {
     return () => clearTimeout(debounceTimer);
   }, [endpoints, architectureData, setNodes, setEdges]);
 
+  // Обработчик наведения на узел - подсвечиваем исходящие стрелки
+  const onNodeMouseEnter = useCallback((event, node) => {
+    setHoveredNode(node.id);
+    
+    // Обновляем стрелки: делаем ярче те, которые исходят из этого узла
+    setEdges((eds) => 
+      eds.map((edge) => {
+        if (edge.source === node.id) {
+          // Подсвечиваем исходящие стрелки
+          return {
+            ...edge,
+            style: { 
+              ...edge.style, 
+              strokeWidth: 4, 
+              opacity: 1,
+              filter: 'drop-shadow(0 0 8px currentColor)'
+            },
+            animated: true,
+            zIndex: 1000
+          };
+        } else {
+          // Делаем остальные стрелки полупрозрачными
+          return {
+            ...edge,
+            style: { 
+              ...edge.style, 
+              opacity: 0.15
+            },
+            animated: false
+          };
+        }
+      })
+    );
+  }, [setEdges]);
+
+  const onNodeMouseLeave = useCallback(() => {
+    setHoveredNode(null);
+    
+    // Возвращаем стрелкам исходный вид
+    setEdges((eds) => 
+      eds.map((edge) => ({
+        ...edge,
+        style: { 
+          stroke: edge.style.stroke, 
+          strokeWidth: edge.id.includes('edge-main-') ? 2.5 : 2,
+          opacity: 1,
+          filter: 'none'
+        },
+        animated: false
+      }))
+    );
+  }, [setEdges]);
+
   const onNodeClick = useCallback((event, node) => {
     setSelectedNode(node);
   }, []);
@@ -916,6 +1083,8 @@ export default function ProjectAnalysis() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
+            onNodeMouseEnter={onNodeMouseEnter}
+            onNodeMouseLeave={onNodeMouseLeave}
             onPaneClick={onPaneClick}
             fitView={isFirstLoad}
             fitViewOptions={{ padding: 0.15, maxZoom: 0.9 }}
