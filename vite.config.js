@@ -8,6 +8,22 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'reactflow-vendor': ['reactflow'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     proxy: {
@@ -17,5 +33,8 @@ export default defineConfig({
         secure: false,
       }
     }
-  }
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', 'reactflow'],
+  },
 })

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   MiniMap,
@@ -13,6 +13,18 @@ import 'reactflow/dist/style.css';
 import styles from './ProjectViewArchitecture.module.css';
 import graphData from '../../data/graph42.json';
 
+// Memoized node content component for better performance
+const NodeContent = memo(({ serviceName, methodCount }) => (
+  <div className={styles.nodeContent}>
+    <div className={styles.nodeName}>{serviceName}</div>
+    <div className={styles.nodeInfo}>
+      {methodCount} method{methodCount !== 1 ? 's' : ''}
+    </div>
+  </div>
+));
+
+NodeContent.displayName = 'NodeContent';
+
 export default function ProjectViewArchitecture() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -24,6 +36,7 @@ export default function ProjectViewArchitecture() {
   const [endpoints, setEndpoints] = useState({});
   const [architecture, setArchitecture] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [hoveredNode, setHoveredNode] = useState(null);
   
   const [streamStatus, setStreamStatus] = useState('connecting');
   const [progress, setProgress] = useState({ total: 0, current: 0 });
@@ -98,8 +111,9 @@ export default function ProjectViewArchitecture() {
     const nodeMap = new Map();
     
     // Layout configuration
-    const LAYER_WIDTH = 350;
+    const LAYER_WIDTH = 450; // Increased for better horizontal spacing
     const NODE_HEIGHT = 100;
+    const VERTICAL_SPACING = 120; // Increased spacing between nodes vertically for better margin
     const START_X = 100;
     const START_Y = 100;
 
@@ -167,7 +181,7 @@ export default function ProjectViewArchitecture() {
       services.forEach((serviceName, index) => {
         const service = serviceMap.get(serviceName);
         const x = START_X + layer * LAYER_WIDTH;
-        const y = START_Y + index * (NODE_HEIGHT + 60);
+        const y = START_Y + index * (NODE_HEIGHT + VERTICAL_SPACING);
         
         const nodeIdStr = `service_${serviceName}`;
         
@@ -177,12 +191,10 @@ export default function ProjectViewArchitecture() {
           position: { x, y },
           data: { 
             label: (
-              <div className={styles.nodeContent}>
-                <div className={styles.nodeName}>{serviceName}</div>
-                <div className={styles.nodeInfo}>
-                  {service.methods.length} method{service.methods.length !== 1 ? 's' : ''}
-                </div>
-              </div>
+              <NodeContent 
+                serviceName={serviceName} 
+                methodCount={service.methods.length}
+              />
             ),
             serviceName,
             methodCount: service.methods.length,
@@ -192,7 +204,7 @@ export default function ProjectViewArchitecture() {
             border: 'none',
             borderRadius: '12px',
             padding: '16px 20px',
-            minWidth: '200px',
+            minWidth: '240px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           },
         };
@@ -223,9 +235,12 @@ export default function ProjectViewArchitecture() {
           target: targetId,
           type: 'smoothstep',
           animated: false,
+          className: 'custom-edge',
+          pathOptions: { offset: 20, borderRadius: 10 },
           style: { 
             stroke: '#A0A0A0', 
             strokeWidth: 2,
+            strokeOpacity: 1,
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
@@ -240,6 +255,30 @@ export default function ProjectViewArchitecture() {
     setNodes(newNodes);
     setEdges(newEdges);
   }, [architecture]);
+
+  // Update edge styles based on hovered node
+  const styledEdges = useMemo(() => {
+    if (!hoveredNode || edges.length === 0) return edges;
+
+    return edges.map(edge => {
+      const isConnected = edge.source === hoveredNode || edge.target === hoveredNode;
+      return {
+        ...edge,
+        animated: isConnected,
+        style: {
+          stroke: isConnected ? '#5A6FD6' : '#A0A0A0',
+          strokeWidth: isConnected ? 3 : 2,
+          strokeOpacity: isConnected ? 1 : 0.3,
+        },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: isConnected ? '#5A6FD6' : '#A0A0A0',
+          width: 20,
+          height: 20,
+        },
+      };
+    });
+  }, [edges, hoveredNode]);
 
   // Service colors inspired by the design
   const getServiceColor = (serviceName) => {
@@ -260,6 +299,15 @@ export default function ProjectViewArchitecture() {
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
+  }, []);
+
+  // Handle node hover for edge highlighting
+  const onNodeMouseEnter = useCallback((event, node) => {
+    setHoveredNode(node.id);
+  }, []);
+
+  const onNodeMouseLeave = useCallback(() => {
+    setHoveredNode(null);
   }, []);
 
   return (
@@ -323,16 +371,31 @@ export default function ProjectViewArchitecture() {
           <div className={styles.flowWrapper}>
             <ReactFlow
               nodes={nodes}
-              edges={edges}
+              edges={styledEdges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onNodeClick={onNodeClick}
               onPaneClick={onPaneClick}
+              onNodeMouseEnter={onNodeMouseEnter}
+              onNodeMouseLeave={onNodeMouseLeave}
               fitView
               fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
               minZoom={0.1}
               maxZoom={2}
               proOptions={{ hideAttribution: true }}
+              elementsSelectable={true}
+              nodesConnectable={false}
+              nodesDraggable={true}
+              zoomOnScroll={true}
+              panOnScroll={false}
+              preventScrolling={true}
+              zoomOnDoubleClick={false}
+              selectNodesOnDrag={false}
+              connectionLineType="smoothstep"
+              defaultEdgeOptions={{
+                type: 'smoothstep',
+                pathOptions: { offset: 20, borderRadius: 10 }
+              }}
             >
               <Background color="#E0E0E0" gap={20} size={1} />
               <Controls className={styles.controls} />
