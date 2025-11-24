@@ -12,7 +12,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import styles from './ProjectViewStream.module.css';
-import graphData from '../../data/graph42.json';
+import { projectsAPI } from '../../services/api';
 
 export default function ProjectViewStream() {
   const { id } = useParams();
@@ -32,26 +32,41 @@ export default function ProjectViewStream() {
   const [streamStatus, setStreamStatus] = useState('connecting'); // connecting, streaming, done
   const [progress, setProgress] = useState({ total: 0, current: 0 });
 
-  // Load saved graph data sequentially (requirements -> endpoints -> architecture)
+  // Load project data from backend
   useEffect(() => {
     let cancelled = false;
     const loadSequential = async () => {
       try {
         setStreamStatus('streaming');
 
+        if (!id) {
+          setStreamStatus('error');
+          console.error('No project ID provided');
+          return;
+        }
+
+        // GET /v1/project/{id}
+        const res = await projectsAPI.getById(id);
+        const arch = res.architecture || {};
+
+        const reqs = arch.requirements || [];
+        const eps = arch.endpoints || {};
+        const archParts = arch.data || arch.architecture || arch.parts || [];
+
+        setProgress({ total: reqs.length + Object.keys(eps).length + archParts.length, current: 0 });
+
         // 1) Requirements
         await new Promise((r) => setTimeout(r, 300));
         if (cancelled) return;
-        setRequirements(graphData.requirements || []);
-        setProgress({ total: (graphData.requirements?.length || 0) + (Object.keys(graphData.endpoints || {}).length) + (graphData.architecture?.length || 0), current: graphData.requirements?.length || 0 });
+        setRequirements(reqs);
+        setProgress((p) => ({ ...p, current: (p.current || 0) + reqs.length }));
 
         // 2) Endpoints
         await new Promise((r) => setTimeout(r, 400));
         if (cancelled) return;
-        setEndpoints(graphData.endpoints || {});
+        setEndpoints(eps);
 
         // 3) Architecture - add parts one by one to emulate streaming
-        const archParts = graphData.architecture || [];
         for (let i = 0; i < archParts.length; i++) {
           await new Promise((r) => setTimeout(r, 150));
           if (cancelled) return;

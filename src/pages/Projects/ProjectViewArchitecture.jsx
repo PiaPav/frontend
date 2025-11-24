@@ -11,7 +11,8 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import styles from './ProjectViewArchitecture.module.css';
-import graphData from '../../data/graph42.json';
+import { projectsAPI } from '../../services/api';
+import { getGRPCClient } from '../../services/grpcClient';
 
 // Memoized node content component for better performance
 const NodeContent = memo(({ serviceName, methodCount }) => (
@@ -41,46 +42,67 @@ export default function ProjectViewArchitecture() {
   const [streamStatus, setStreamStatus] = useState('connecting');
   const [progress, setProgress] = useState({ total: 0, current: 0 });
 
-  // Load graph data sequentially (simulating streaming)
+  // Load project data from backend
   useEffect(() => {
     let cancelled = false;
-    const loadSequential = async () => {
+
+    const fetchProject = async () => {
       try {
-        setStreamStatus('streaming');
+        setStreamStatus('loading');
+
+        if (!id) {
+          setStreamStatus('error');
+          console.error('No project ID provided');
+          return;
+        }
+
+        // GET /v1/project/{id}
+        const res = await projectsAPI.getById(id);
+        // API shape: { id, name, description, picture_url, architecture }
+        const arch = res.architecture || {};
+
+        const reqs = arch.requirements || [];
+        const eps = arch.endpoints || {};
+        const archParts = arch.data || arch.architecture || arch.parts || [];
+
+        setProgress({ total: reqs.length + Object.keys(eps).length + archParts.length, current: 0 });
 
         // 1) Requirements
-        await new Promise((r) => setTimeout(r, 300));
-        if (cancelled) return;
-        setRequirements(graphData.requirements || []);
-        setProgress({ 
-          total: (graphData.requirements?.length || 0) + 
-                 (Object.keys(graphData.endpoints || {}).length) + 
-                 (graphData.architecture?.length || 0), 
-          current: graphData.requirements?.length || 0 
-        });
+        setRequirements(reqs);
+        setProgress((p) => ({ ...p, current: (p.current || 0) + reqs.length }));
 
         // 2) Endpoints
-        await new Promise((r) => setTimeout(r, 400));
-        if (cancelled) return;
-        setEndpoints(graphData.endpoints || {});
+        setEndpoints(eps);
 
-        // 3) Architecture - add parts one by one
-        const archParts = graphData.architecture || [];
+        // 3) Architecture - insert parts sequentially to preserve animation
         for (let i = 0; i < archParts.length; i++) {
-          await new Promise((r) => setTimeout(r, 100));
           if (cancelled) return;
+          // small delay to mimic streaming
+          await new Promise((r) => setTimeout(r, 80));
           setArchitecture((prev) => [...prev, archParts[i]]);
           setProgress((prev) => ({ ...prev, current: (prev.current || 0) + 1 }));
         }
 
         setStreamStatus('done');
+
+        // Optional: If you want to stream incremental updates from backend via gRPC,
+        // you can uncomment the code below (requires grpc-web setup and generated stubs):
+        // const grpc = getGRPCClient();
+        // grpc.connectToStream(userId, Number(id), {
+        //   onRequirements: (r) => setRequirements(r.requirements || r),
+        //   onEndpoints: (e) => setEndpoints(e.endpoints || e),
+        //   onArchitecture: (part) => setArchitecture((prev) => [...prev, part]),
+        //   onDone: () => setStreamStatus('done'),
+        //   onError: () => setStreamStatus('error')
+        // });
+
       } catch (err) {
-        console.error('Load error', err);
+        console.error('Project load error', err);
         setStreamStatus('error');
       }
     };
 
-    loadSequential();
+    fetchProject();
 
     return () => { cancelled = true; };
   }, [id]);

@@ -9,7 +9,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import styles from './ProjectViewLayered.module.css';
-import graphData from '../../data/graph42.json';
+import { projectsAPI } from '../../services/api';
 
 export default function ProjectViewLayered() {
   const { id } = useParams();

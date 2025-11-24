@@ -5,33 +5,8 @@ import { projectsAPI } from '../../services/api';
 import styles from './Projects.module.css';
 
 export default function ProjectsList() {
-  // Демо-проекты для визуализации
-  const demoProjects = [
-    {
-      id: 'demo-1',
-      name: 'E-Commerce Platform',
-      description: 'Микросервисная архитектура интернет-магазина с FastAPI, PostgreSQL и RabbitMQ',
-      picture_url: null,
-      hasV2View: true, // Новый вид с папками
-    },
-    {
-      id: 'demo-2',
-      name: 'Social Network API',
-      description: 'REST API для социальной сети с Django, Redis кэшированием и Celery для фоновых задач',
-      picture_url: null,
-      hasV2View: false,
-    },
-    {
-      id: 'demo-3',
-      name: 'ML Pipeline Service',
-      description: 'Сервис машинного обучения с Flask, TensorFlow и MongoDB для хранения моделей',
-      picture_url: null,
-      hasV2View: false,
-    },
-  ];
-
-  const [projects, setProjects] = useState(demoProjects); // Используем демо-данные
-  const [loading, setLoading] = useState(false); // Отключаем загрузку для демо
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
   const { user, logout } = useAuth();
@@ -39,19 +14,21 @@ export default function ProjectsList() {
 
   // Загрузка проектов при монтировании компонента
   useEffect(() => {
-    // Временно отключаем загрузку с API для демо
-    // loadProjects();
+    loadProjects();
   }, []);
 
   async function loadProjects() {
     try {
       setLoading(true);
-      const data = await projectsAPI.getAll();
-      setProjects(data);
+      const response = await projectsAPI.getAll();
+      // API возвращает { total: number, data: [...] }
+      const projectsList = response.data || response || [];
+      setProjects(projectsList);
       setError('');
     } catch (err) {
       console.error('Ошибка загрузки проектов:', err);
       setError('Не удалось загрузить проекты');
+      setProjects([]);
     } finally {
       setLoading(false);
     }

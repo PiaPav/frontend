@@ -76,7 +76,7 @@ export const authAPI = {
 //для будущего
 export const projectsAPI = {
   getAll: async () => {
-    const response = await api.get('/project/');
+    const response = await api.get('/project');
     return response.data;
   },
 
@@ -88,26 +88,40 @@ export const projectsAPI = {
   create: async (projectData) => {
     // Создаём FormData для отправки файла
     const formData = new FormData();
-    
-    // Создаём пустой blob для file (обязательное поле в API)
-    const emptyBlob = new Blob(['{}'], { type: 'application/json' });
-    formData.append('file', emptyBlob, 'architecture.json');
 
-    // Отправляем name и description как query параметры
-    const response = await api.post('/project/', formData, {
+    // Append provided file or create a valid empty zip
+    if (projectData.file) {
+      formData.append('file', projectData.file);
+    } else {
+      // Create a minimal but valid ZIP file with an empty file inside
+      // This is a base64 encoded empty ZIP file
+      const emptyZipBase64 = 'UEsDBBQAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABtYWluLnB5AwBQSwECPwAUAAAACAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAbWFpbi5weVBLBQYAAAAAAQABADYAAAAmAAAAAAA=';
+      const binaryString = atob(emptyZipBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const zipBlob = new Blob([bytes], { type: 'application/zip' });
+      const zipFile = new File([zipBlob], 'project.zip', { type: 'application/zip' });
+      formData.append('file', zipFile);
+    }
+
+    // name и description отправляются как query параметры согласно API спецификации
+    const response = await api.post('/project', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
       params: {
         name: projectData.name,
         description: projectData.description,
-      }
+      },
     });
+
     return response.data;
   },
 
   update: async (id, projectData) => {
-    const response = await api.put(`/project/${id}`, projectData);
+    const response = await api.patch(`/project/${id}`, projectData);
     return response.data;
   },
 

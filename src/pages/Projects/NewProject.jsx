@@ -8,6 +8,7 @@ export default function NewProject() {
     name: '',
     description: '',
   });
+  const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -15,6 +16,12 @@ export default function NewProject() {
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setError('');
+  }
+
+  function handleFileChange(e) {
+    const f = e.target.files?.[0] || null;
+    setFile(f);
     setError('');
   }
 
@@ -38,7 +45,9 @@ export default function NewProject() {
 
     try {
       // Отправка на backend
-      const result = await projectsAPI.create(form);
+      const payload = { ...form };
+      if (file) payload.file = file;
+      const result = await projectsAPI.create(payload);
       console.log('Проект создан:', result);
       
       // После успешного создания перейти к списку проектов
@@ -52,9 +61,16 @@ export default function NewProject() {
       if (err.response?.data?.detail) {
         const detail = err.response.data.detail;
         if (typeof detail === 'string') {
-          errorMessage = detail;
+          // Проверка на известную ошибку бекенда
+          if (detail.includes('async for') && detail.includes('UploadFile')) {
+            errorMessage = 'Ошибка обработки файла на сервере. Обратитесь к администратору.';
+          } else {
+            errorMessage = detail;
+          }
         } else if (Array.isArray(detail)) {
-          errorMessage = detail.map(e => e.msg).join(', ');
+          errorMessage = detail.map(e => `${e.loc?.join('.') || 'field'}: ${e.msg}`).join('; ');
+        } else {
+          errorMessage = JSON.stringify(detail);
         }
       } else if (err.message) {
         errorMessage = err.message;
@@ -98,6 +114,19 @@ export default function NewProject() {
               disabled={loading}
               maxLength={500}
             />
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label htmlFor="file">Архитектура / файл</label>
+            <input
+              id="file"
+              name="file"
+              type="file"
+              onChange={handleFileChange}
+              disabled={loading}
+              accept="application/json,application/zip,application/octet-stream"
+            />
+            <small>Можно загрузить JSON с архитектурой или файл (опционально)</small>
           </div>
 
           {/* Ошибка */}
