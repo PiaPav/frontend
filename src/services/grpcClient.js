@@ -42,12 +42,19 @@ class GRPCArchitectureClient {
    */
   async connectToStream(userId, taskId, callbacks) {
     try {
-      console.log(`📡 Connecting to gRPC stream for task ${taskId}...`);
+      console.log(`📡 Подключение к gRPC стриму для task_id=${taskId}, user_id=${userId}...`);
 
-      // TODO: Заменить на реальный gRPC клиент после установки grpc-web
-      // const request = new AlgorithmRequest();
-      // request.setUserId(userId);
-      // request.setTaskId(taskId);
+      // ❗ Прямое подключение через Fetch API в streaming режиме
+      // gRPC требует Envoy proxy для браузера, но мы попробуем напрямую
+      const grpcUrl = `${this.baseUrl}/core.api.FrontendStreamService/RunAlgorithm`;
+      
+      // Создаем protobuf запрос вручную (JSON fallback)
+      const request = {
+        user_id: userId,
+        task_id: taskId
+      };
+
+      console.log('🔄 Отправка запроса:', request);
 
       // const stream = this.client.runAlgorithm(request, {});
 

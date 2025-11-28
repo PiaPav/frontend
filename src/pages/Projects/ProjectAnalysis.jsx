@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Controls,
@@ -9,121 +9,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import styles from './ProjectAnalysis.module.css';
-
-// Симуляция потока данных с сервера (имитация реального gRPC)
-const simulateServerStream = async (onMessage) => {
-  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-  
-  // 1. REQUIREMENTS (response_id: 1)
-  await delay(300);
-  onMessage({
-    task_id: 42,
-    response_id: 1,
-    status: 'REQUIREMENTS',
-    graph_requirements: {
-      total: 15,
-      requirements: [
-        'aio-pika', 'asyncpg', 'bcrypt', 'boto3', 'fastapi',
-        'grpcio', 'grpcio-tools', 'pika', 'protobuf', 'pyjwt',
-        'python-dotenv', 'python-multipart', 'pyyaml', 'sqlalchemy', 'uvicorn'
-      ]
-    }
-  });
-
-  // 2. ENDPOINTS (response_id: 2)
-  await delay(400);
-  onMessage({
-    task_id: 42,
-    response_id: 2,
-    status: 'ENDPOINTS',
-    graph_endpoints: {
-      total: 11,
-      endpoints: {
-        'registration': 'POST /v1/auth/registration',
-        'login': 'POST /v1/auth/login',
-        'refresh': 'POST /v1/auth/refresh',
-        'get_account': 'GET /v1/account',
-        'patch_account': 'PATCH /v1/account',
-        'get_projects_list': 'GET /v1/project',
-        'get_project': 'GET /v1/project/{project_id}',
-        'create_project': 'POST /v1/project',
-        'patch_project': 'PATCH /v1/project/{project_id}',
-        'delete_project': 'DELETE /v1/project/{project_id}',
-        'homepage': 'GET /v1/home',
-      }
-    }
-  });
-
-  // 3-87. ARCHITECTURE (response_id: 3-86, поэтапно с задержками)
-  const architectureMessages = [
-    { parent: 'Account.create_account', children: ['datamanager/DatabaseManager.session', 'accounts/Account', 'accounts/session.add'] },
-    { parent: 'Account.get_account_by_id', children: ['datamanager/DatabaseManager.session', 'accounts/session.get', 'accounts/log.error', 'accounts/DataBaseEntityNotExists'] },
-    { parent: 'Account.get_account_by_login', children: ['datamanager/DatabaseManager.session', 'accounts/session.execute', 'accounts/where', 'accounts/select', 'accounts/result.scalar_one_or_none'] },
-    { parent: 'Account.is_login_exists', children: ['datamanager/DatabaseManager.session', 'accounts/session.execute', 'accounts/where', 'accounts/select', 'accounts/result.scalar_one_or_none'] },
-    { parent: 'Account.patch_account_by_id', children: ['datamanager/DatabaseManager.session', 'accounts/Account.get_account_by_id', 'accounts/items', 'accounts/patch_data.model_dump', 'accounts/setattr', 'accounts/session.flush'] },
-    { parent: 'DatabaseManager.__init__', children: ['datamanager/create_async_engine', 'datamanager/async_sessionmaker'] },
-    { parent: 'DatabaseManager.init_models', children: ['datamanager/self.engine.begin', 'datamanager/Base.metadata.tables.get', 'datamanager/conn.run_sync', 'datamanager/ValueError'] },
-    { parent: 'DatabaseManager.session', children: ['datamanager/self.session_factory', 'datamanager/session.commit', 'datamanager/session.rollback', 'datamanager/DatabaseManager.close'] },
-    { parent: 'DatabaseManager.close', children: ['datamanager/self.engine.dispose'] },
-    { parent: 'init_db', children: ['datamanager/DatabaseManager.init_models'] },
-    { parent: 'Project.create_project', children: ['datamanager/DatabaseManager.session', 'projects/Project', 'projects/session.add'] },
-    { parent: 'Project.get_project_by_id', children: ['datamanager/DatabaseManager.session', 'projects/session.get', 'projects/log.error', 'projects/DataBaseEntityNotExists'] },
-    { parent: 'Project.patch_project_by_id', children: ['datamanager/DatabaseManager.session', 'projects/Project.get_project_by_id', 'projects/items', 'projects/patch_data.model_dump', 'projects/setattr', 'projects/session.flush'] },
-    { parent: 'Project.get_project_list_by_account_id', children: ['datamanager/DatabaseManager.session', 'projects/where', 'projects/select', 'projects/session.execute', 'projects/all', 'projects/result.scalars', 'projects/len'] },
-    { parent: 'Project.delete_project', children: ['datamanager/DatabaseManager.session', 'projects/Project.get_project_by_id', 'projects/session.delete'] },
-    { parent: 'get_account', children: ['account_endpoints/Depends', 'auth_service/AuthService.verify_token', 'account_service/AccountService.get_account_by_id', 'account_endpoints/log.info', 'account_endpoints/router.get'] },
-    { parent: 'patch_account', children: ['account_endpoints/Depends', 'auth_service/AuthService.verify_token', 'account_service/AccountService.patch_account_by_id', 'account_endpoints/log.info', 'account_endpoints/router.patch'] },
-    { parent: 'login', children: ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.login', 'auth_endpoints/router.post'] },
-    { parent: 'refresh', children: ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.refresh', 'auth_endpoints/router.post'] },
-    { parent: 'registration', children: ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.registration', 'auth_endpoints/router.post'] },
-    { parent: 'homepage', children: ['core_endpoints/Depends', 'auth_service/AuthService.verify_token', 'core_service/CoreService.get_homepage', 'core_endpoints/log.info', 'core_endpoints/router.get'] },
-    { parent: 'get_project', children: ['project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.get_project_by_id', 'project_endpoints/log.info', 'project_endpoints/router.get'] },
-    { parent: 'create_project', children: ['project_endpoints/File', 'project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.create_project', 'project_endpoints/ProjectCreateData', 'project_endpoints/router.post'] },
-    { parent: 'patch_project', children: ['project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.update_project', 'project_endpoints/router.patch'] },
-    { parent: 'delete_project', children: ['project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.delete_project', 'project_endpoints/router.delete'] },
-    { parent: 'get_projects_list', children: ['project_endpoints/Depends', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.get_projects_by_account_id', 'project_endpoints/router.get'] },
-    { parent: 'AuthService.registration', children: ['auth_service/AuthService.hash_password', 'accounts/Account.is_login_exists', 'accounts/Account.create_account', 'auth_service/AccountCreateData', 'auth_service/AccountData.model_validate'] },
-    { parent: 'AuthService.verify_token', children: ['auth_service/AuthService.check_access_token', 'auth_service/log.error', 'auth_service/HTTPException'] },
-    { parent: 'AuthService.check_access_token', children: ['auth_service/AuthService.decode_token', 'auth_service/datetime.now', 'auth_service/HTTPException'] },
-    { parent: 'AuthService.login', children: ['accounts/Account.get_account_by_login', 'auth_service/AuthService.verify_password', 'auth_service/AccountData', 'auth_service/AuthService.encode_to_token', 'auth_service/AuthResponseData'] },
-    { parent: 'AuthService.refresh', children: ['auth_service/AuthService.decode_token', 'auth_service/datetime.now', 'accounts/Account.get_account_by_id', 'auth_service/AccountData', 'auth_service/AuthService.encode_to_token', 'auth_service/AuthResponseData'] },
-    { parent: 'AuthService.encode_to_token', children: ['auth_service/datetime.now', 'auth_service/timedelta', 'auth_service/data.model_dump', 'auth_service/start_date.isoformat', 'auth_service/end_date.isoformat', 'auth_service/JWT.encode'] },
-    { parent: 'AuthService.decode_token', children: ['auth_service/JWT.decode', 'auth_service/AccountEncodeData', 'auth_service/datetime.fromisoformat'] },
-    { parent: 'AuthService.hash_password', children: ['auth_service/bcrypt.gensalt', 'auth_service/bcrypt.hashpw', 'auth_service/password.encode', 'auth_service/hashed.decode'] },
-    { parent: 'AuthService.verify_password', children: ['auth_service/bcrypt.checkpw', 'auth_service/password.encode', 'auth_service/hashed_password.encode', 'auth_service/log.error', 'auth_service/HTTPException'] },
-    { parent: 'AccountService.get_account_by_id', children: ['accounts/Account.get_account_by_id', 'account_service/AccountFullData.model_validate', 'account_service/log.error', 'account_service/HTTPException'] },
-    { parent: 'AccountService.patch_account_by_id', children: ['accounts/Account.patch_account_by_id', 'account_service/AccountFullData.model_validate', 'account_service/log.error', 'account_service/HTTPException'] },
-    { parent: 'CoreService.get_homepage', children: ['accounts/Account.get_account_by_id', 'core_service/AccountData.model_validate', 'projects/Project.get_project_list_by_account_id', 'core_service/ProjectDataLite.model_validate', 'core_service/ProjectListDataLite', 'core_service/HomePageData'] },
-    { parent: 'ProjectService.get_project_by_id', children: ['projects/Project.get_project_by_id', 'project_service/ArchitectureModel', 'project_service/ProjectData', 'project_service/log.error', 'project_service/HTTPException'] },
-    { parent: 'ProjectService.create_project', children: ['projects/Project.create_project', 'project_service/ArchitectureModel', 'project_service/ProjectData'] },
-    { parent: 'ProjectService.update_project', children: ['projects/Project.patch_project_by_id', 'project_service/ArchitectureModel', 'project_service/ProjectData', 'project_service/log.error', 'project_service/HTTPException'] },
-    { parent: 'ProjectService.delete_project', children: ['projects/Project.delete_project', 'project_service/log.error', 'project_service/HTTPException'] },
-    { parent: 'ProjectService.get_projects_by_account_id', children: ['projects/Project.get_project_list_by_account_id', 'project_service/ProjectDataLite.model_validate', 'project_service/ProjectListDataLite'] },
-    { parent: 'ConnectionBrokerManager.__init__', children: [] },
-    { parent: 'ConnectionBrokerManager.connect', children: ['manager/aio_pika.connect_robust', 'manager/self.connection.channel', 'manager/self.channel.declare_exchange', 'manager/log.info', 'manager/ConnectionBrokerManager._create_queue', 'manager/ConnectionBrokerManager._bind_exchange_as_queue'] },
-    { parent: 'ConnectionBrokerManager.close', children: ['manager/self.connection.close', 'manager/log.info'] },
-  ];
-
-  let responseId = 3;
-  for (const arch of architectureMessages) {
-    await delay(150 + Math.random() * 100); // 150-250ms задержка между сообщениями
-    onMessage({
-      task_id: 42,
-      response_id: responseId++,
-      status: 'ARHITECTURE',
-      graph_architecture: arch
-    });
-  }
-
-  // Final DONE message
-  await delay(400);
-  onMessage({
-    task_id: 42,
-    response_id: responseId,
-    status: 'DONE',
-    graph_architecture: {}
-  });
-};
+import { projectsAPI } from '../../services/api';
 
 export default function ProjectAnalysis() {
   const { id } = useParams();
@@ -134,39 +20,129 @@ export default function ProjectAnalysis() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [hoveredNode, setHoveredNode] = useState(null);
   
-  // Данные с сервера
-  const [status, setStatus] = useState('START');
+  // Данные проекта с сервера
+  const [project, setProject] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [requirements, setRequirements] = useState([]);
   const [endpoints, setEndpoints] = useState({});
   const [architectureData, setArchitectureData] = useState([]);
-  const [currentMessageId, setCurrentMessageId] = useState(0);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
 
-  // Обработка входящих сообщений
-  const handleServerMessage = useCallback((message) => {
-    setCurrentMessageId(message.response_id);
-    setStatus(message.status);
+  // Автосохранение архитектуры при выходе со страницы
+  useEffect(() => {
+    const saveArchitecture = async () => {
+      // Сохраняем только если есть данные для сохранения
+      if (!project || !architectureData || architectureData.length === 0) return;
+      
+      try {
+        console.log('💾 Сохранение архитектуры проекта...');
+        
+        // Преобразуем массив architectureData обратно в объект
+        const dataObject = {};
+        architectureData.forEach(item => {
+          dataObject[item.parent] = item.children;
+        });
+        
+        await projectsAPI.update(project.id, {
+          architecture: {
+            requirements: requirements,
+            endpoints: endpoints,
+            data: dataObject
+          }
+        });
+        
+        console.log('✅ Архитектура сохранена в БД');
+      } catch (err) {
+        console.error('❌ Ошибка сохранения архитектуры:', err);
+      }
+    };
 
-    if (message.status === 'REQUIREMENTS') {
-      setRequirements(message.graph_requirements.requirements);
-    } 
-    else if (message.status === 'ENDPOINTS') {
-      setEndpoints(message.graph_endpoints.endpoints);
-    } 
-    else if (message.status === 'ARHITECTURE' && message.graph_architecture.parent) {
-      setArchitectureData(prev => [...prev, message.graph_architecture]);
+    // Сохраняем при размонтировании компонента (уход со страницы)
+    return () => {
+      saveArchitecture();
+    };
+  }, [project, requirements, endpoints, architectureData]);
+
+  // Загрузка данных проекта с сервера
+  useEffect(() => {
+    const loadProject = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('🔍 Загрузка проекта ID:', id);
+        const projectData = await projectsAPI.getById(id);
+        console.log('✅ Получены данные проекта:', projectData);
+        
+        setProject(projectData);
+        
+        // Извлекаем данные из architecture
+        if (projectData.architecture) {
+          const arch = projectData.architecture;
+          console.log('� Architecture данные:', arch);
+          
+          // Requirements
+          if (arch.requirements && Array.isArray(arch.requirements)) {
+            setRequirements(arch.requirements);
+            console.log('✓ Requirements:', arch.requirements.length);
+          }
+          
+          // Endpoints - могут быть массивом объектов или объектом
+          if (arch.endpoints) {
+            let endpointsObj = {};
+            
+            if (Array.isArray(arch.endpoints)) {
+              // Если массив объектов: [{key1: value1}, {key2: value2}]
+              arch.endpoints.forEach(endpoint => {
+                Object.entries(endpoint).forEach(([key, value]) => {
+                  endpointsObj[key] = value;
+                });
+              });
+            } else if (typeof arch.endpoints === 'object') {
+              // Если уже объект: {key1: value1, key2: value2}
+              endpointsObj = arch.endpoints;
+            }
+            
+            setEndpoints(endpointsObj);
+            console.log('✓ Endpoints:', Object.keys(endpointsObj).length);
+          }
+          
+          // Architecture data - преобразуем из объекта в массив
+          if (arch.data && typeof arch.data === 'object') {
+            const archArray = Object.entries(arch.data).map(([parent, children]) => ({
+              parent,
+              children: Array.isArray(children) ? children : []
+            }));
+            setArchitectureData(archArray);
+            console.log('✓ Architecture data:', archArray.length, 'связей');
+          }
+        } else {
+          console.warn('⚠️ Нет данных architecture в проекте');
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        console.error('❌ Ошибка загрузки проекта:', err);
+        console.error('Детали ошибки:', err.response?.data);
+        setError(err.response?.data?.detail || err.message || 'Не удалось загрузить проект');
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      loadProject();
     }
-  }, []);
+  }, [id]);
 
-  // Запуск симуляции при монтировании
+  // Построение динамического графа из данных с сервера
   useEffect(() => {
-    simulateServerStream(handleServerMessage);
-  }, [handleServerMessage]);
-
-  // Построение динамического графа из данных Граф.txt (с оптимизацией)
-  useEffect(() => {
-    // Ждем пока появятся endpoints
-    if (Object.keys(endpoints).length === 0) return;
+    // Проверяем что данные загружены и не пустые
+    if (!project) return;
+    if (!endpoints || Object.keys(endpoints).length === 0) {
+      console.log('⏳ Endpoints пока пусты, ожидание данных...');
+      return;
+    }
 
     // Debounce - обновляем граф раз в 600ms вместо каждого сообщения
     const debounceTimer = setTimeout(() => {
@@ -1013,16 +989,112 @@ export default function ProjectAnalysis() {
     setSelectedNode(null);
   }, []);
 
-  const getStatusLabel = () => {
-    switch (status) {
-      case 'START': return '🔄 Инициализация...';
-      case 'REQUIREMENTS': return '📦 Анализ зависимостей...';
-      case 'ENDPOINTS': return '🔗 Обнаружение API эндпоинтов...';
-      case 'ARHITECTURE': return '🏗️ Построение архитектуры...';
-      case 'DONE': return '✅ Анализ завершен';
-      default: return 'Ожидание...';
-    }
-  };
+  // Отображение статуса загрузки или ошибки
+  if (loading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.controlBar}>
+          <button onClick={() => navigate('/projects')} className={styles.backBtn}>
+            ← Назад
+          </button>
+          <div className={styles.titleContainer}>
+            <h1 className={styles.title}>Анализ проекта #{id}</h1>
+          </div>
+        </div>
+        <div className={styles.flowWrapper}>
+          <div className={styles.loadingState}>
+            <div className={styles.spinner} />
+            <p>Загрузка проекта...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.controlBar}>
+          <button onClick={() => navigate('/projects')} className={styles.backBtn}>
+            ← Назад
+          </button>
+          <div className={styles.titleContainer}>
+            <h1 className={styles.title}>Анализ проекта #{id}</h1>
+          </div>
+        </div>
+        <div className={styles.flowWrapper}>
+          <div className={styles.loadingState}>
+            <p style={{ color: '#ef4444' }}>⚠️ {error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              style={{ 
+                marginTop: '20px', 
+                padding: '10px 20px', 
+                background: '#3b82f6', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              Попробовать снова
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Проверка наличия данных архитектуры
+  const hasArchitectureData = project?.architecture && (
+    (project.architecture.requirements && project.architecture.requirements.length > 0) ||
+    (project.architecture.endpoints && Object.keys(project.architecture.endpoints).length > 0) ||
+    (project.architecture.data && Object.keys(project.architecture.data).length > 0)
+  );
+
+  if (!loading && !hasArchitectureData) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.controlBar}>
+          <button onClick={() => navigate('/projects')} className={styles.backBtn}>
+            ← Назад
+          </button>
+          <div className={styles.titleContainer}>
+            <h1 className={styles.title}>{project?.name || `Проект #${id}`}</h1>
+            {project?.description && (
+              <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>
+                {project.description}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className={styles.flowWrapper}>
+          <div className={styles.loadingState}>
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>📊</div>
+            <p style={{ fontSize: '18px', marginBottom: '10px' }}>Архитектура проекта пока не проанализирована</p>
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '30px', maxWidth: '400px', textAlign: 'center' }}>
+              Для создания графа зависимостей необходимо выполнить анализ исходного кода проекта
+            </p>
+            <button 
+              onClick={() => navigate('/projects')} 
+              style={{ 
+                padding: '12px 24px', 
+                background: '#3b82f6', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: '600'
+              }}
+            >
+              Вернуться к проектам
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -1041,8 +1113,12 @@ export default function ProjectAnalysis() {
           ← Назад
         </button>
         <div className={styles.titleContainer}>
-          <h1 className={styles.title}>Анализ проекта #{id}</h1>
-          <div className={styles.statusBadge}>{getStatusLabel()}</div>
+          <h1 className={styles.title}>{project?.name || `Проект #${id}`}</h1>
+          {project?.description && (
+            <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>
+              {project.description}
+            </p>
+          )}
         </div>
       </div>
 
@@ -1067,10 +1143,6 @@ export default function ProjectAnalysis() {
               <span className={styles.infoValue}>{architectureData.length}</span>
             </div>
           )}
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>📨 Сообщений:</span>
-            <span className={styles.infoValue}>{currentMessageId}</span>
-          </div>
         </div>
       )}
 
@@ -1116,7 +1188,7 @@ export default function ProjectAnalysis() {
         ) : (
           <div className={styles.loadingState}>
             <div className={styles.spinner} />
-            <p>Ожидание данных с сервера...</p>
+            <p>Построение графа архитектуры...</p>
           </div>
         )}
       </div>
