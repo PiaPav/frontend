@@ -61,9 +61,17 @@ export default function ProjectViewArchitecture() {
         // API shape: { id, name, description, picture_url, architecture }
         const arch = res.architecture || {};
 
+        console.log('🔍 Full response:', res);
+        console.log('🏗️ Architecture object:', arch);
+        console.log('📊 Architecture.data:', arch.data);
+
         const reqs = arch.requirements || [];
         const eps = arch.endpoints || {};
         const archParts = arch.data || arch.architecture || arch.parts || [];
+        
+        console.log('📦 Requirements:', reqs);
+        console.log('🌐 Endpoints:', eps);
+        console.log('🔗 Architecture parts:', archParts);
 
         setProgress({ total: reqs.length + Object.keys(eps).length + archParts.length, current: 0 });
 
@@ -111,15 +119,25 @@ export default function ProjectViewArchitecture() {
   const endpointsByService = useMemo(() => {
     const grouped = {};
     Object.entries(endpoints).forEach(([route, handler]) => {
-      const [serviceName] = handler.split('.');
-      // Skip Health endpoints
-      if (serviceName === 'Health') return;
+      // Parse handler: "file/ClassName.method_name" or just "ClassName.method_name"
+      const parts = handler.split('/');
+      const lastPart = parts[parts.length - 1];
+      const className = lastPart.split('.')[0];
       
-      if (!serviceName) return;
-      if (!grouped[serviceName]) {
-        grouped[serviceName] = [];
+      // Skip Health endpoints, main, and database-related
+      if (className === 'Health' || 
+          className === 'main' || 
+          className === 'DataManager' || 
+          className === 'DatabaseManager' ||
+          lastPart.includes('database')) {
+        return;
       }
-      grouped[serviceName].push({ route, handler });
+      
+      if (!className) return;
+      if (!grouped[className]) {
+        grouped[className] = [];
+      }
+      grouped[className].push({ route, handler });
     });
     return grouped;
   }, [endpoints]);
@@ -142,32 +160,65 @@ export default function ProjectViewArchitecture() {
     // Group architecture by service classes
     const serviceMap = new Map();
     
+    console.log('🏗️ Building graph from architecture:', architecture);
+    
     architecture.forEach((arch) => {
-      const [serviceName, methodName] = arch.parent.split('.');
+      console.log('📍 Processing architecture item:', arch);
       
-      // Skip Health service
-      if (serviceName === 'Health') return;
+      // Parse parent: "file/ClassName.method_name" or just "ClassName.method_name"
+      const parts = arch.parent.split('/');
+      const lastPart = parts[parts.length - 1];
+      const [className, methodName] = lastPart.split('.');
       
-      if (!serviceName) return;
+      console.log(`   Parent: ${arch.parent} → Class: ${className}, Method: ${methodName}`);
       
-      if (!serviceMap.has(serviceName)) {
-        serviceMap.set(serviceName, {
+      // Skip specific classes
+      if (className === 'Health' || 
+          className === 'main' || 
+          className === 'DataManager' || 
+          className === 'DatabaseManager' ||
+          lastPart.includes('_main_') ||
+          lastPart.includes('database')) {
+        console.log(`   ❌ Skipped: ${className}`);
+        return;
+      }
+      
+      if (!className) {
+        console.log('   ❌ No className');
+        return;
+      }
+      
+      console.log(`   ✅ Added to service: ${className}`);
+      
+      if (!serviceMap.has(className)) {
+        serviceMap.set(className, {
           methods: [],
           dependencies: new Set()
         });
       }
       
-      const service = serviceMap.get(serviceName);
-      service.methods.push({ method: methodName || arch.parent, children: arch.children });
+      const service = serviceMap.get(className);
+      service.methods.push({ method: methodName || lastPart, children: arch.children });
       
       // Track dependencies
       arch.children.forEach(child => {
-        const depService = child.split('/')[0];
-        if (depService && depService !== serviceName) {
-          service.dependencies.add(depService);
+        const childParts = child.split('/');
+        const childLastPart = childParts[childParts.length - 1];
+        const depClass = childLastPart.split('.')[0];
+        
+        // Skip database and main dependencies
+        if (depClass && depClass !== className && 
+            depClass !== 'DataManager' && 
+            depClass !== 'DatabaseManager' &&
+            depClass !== 'main' &&
+            !childLastPart.includes('database')) {
+          service.dependencies.add(depClass);
+          console.log(`      → Dependency: ${depClass}`);
         }
       });
     });
+    
+    console.log('📊 Final serviceMap:', Array.from(serviceMap.entries()));
 
     // Determine layers for left-to-right layout
     const layers = new Map();
