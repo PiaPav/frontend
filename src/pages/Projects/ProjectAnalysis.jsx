@@ -64,34 +64,34 @@ export default function ProjectAnalysis() {
     };
   }, [project, requirements, endpoints, architectureData]);
 
-  // Загрузка данных проекта с сервера
+  // Загрузка данных проекта с сервера с polling
   useEffect(() => {
+    let pollInterval = null;
+    
     const loadProject = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        if (isFirstLoad) {
+          setLoading(true);
+          setError(null);
+        }
         
-        console.log('🔍 Загрузка проекта ID:', id);
         const projectData = await projectsAPI.getById(id);
-        console.log('✅ Получены данные проекта:', projectData);
-        
         setProject(projectData);
         
         // Извлекаем данные из architecture
         if (projectData.architecture) {
           const arch = projectData.architecture;
-          console.log('� Architecture данные:', arch);
           
           // Requirements
           if (arch.requirements && Array.isArray(arch.requirements)) {
-            setRequirements(arch.requirements);
-            console.log('✓ Requirements:', arch.requirements.length);
+            if (requirements.length !== arch.requirements.length) {
+              setRequirements(arch.requirements);
+            }
           }
           
           // Endpoints - могут быть массивом объектов или объектом
+          let endpointsObj = {};
           if (arch.endpoints) {
-            let endpointsObj = {};
-            
             if (Array.isArray(arch.endpoints)) {
               // Если массив объектов: [{key1: value1}, {key2: value2}]
               arch.endpoints.forEach(endpoint => {
@@ -104,8 +104,9 @@ export default function ProjectAnalysis() {
               endpointsObj = arch.endpoints;
             }
             
-            setEndpoints(endpointsObj);
-            console.log('✓ Endpoints:', Object.keys(endpointsObj).length);
+            if (Object.keys(endpoints).length !== Object.keys(endpointsObj).length) {
+              setEndpoints(endpointsObj);
+            }
           }
           
           // Architecture data - преобразуем из объекта в массив
@@ -114,26 +115,52 @@ export default function ProjectAnalysis() {
               parent,
               children: Array.isArray(children) ? children : []
             }));
-            setArchitectureData(archArray);
-            console.log('✓ Architecture data:', archArray.length, 'связей');
+            
+            if (architectureData.length !== archArray.length) {
+              setArchitectureData(archArray);
+            }
           }
-        } else {
-          console.warn('⚠️ Нет данных architecture в проекте');
+          
+          // Останавливаем polling когда данные полностью загружены (примерно 87 элементов архитектуры)
+          const archCount = arch.data ? Object.keys(arch.data).length : 0;
+          if (archCount >= 80 && arch.requirements?.length > 0) {
+            if (pollInterval) {
+              clearInterval(pollInterval);
+              pollInterval = null;
+            }
+          }
         }
         
-        setLoading(false);
+        if (isFirstLoad) {
+          setLoading(false);
+          setIsFirstLoad(false);
+        }
       } catch (err) {
         console.error('❌ Ошибка загрузки проекта:', err);
-        console.error('Детали ошибки:', err.response?.data);
         setError(err.response?.data?.detail || err.message || 'Не удалось загрузить проект');
-        setLoading(false);
+        if (isFirstLoad) {
+          setLoading(false);
+          setIsFirstLoad(false);
+        }
       }
     };
 
     if (id) {
+      // Первая загрузка
       loadProject();
+      
+      // Polling каждые 2 секунды
+      pollInterval = setInterval(() => {
+        loadProject();
+      }, 2000);
     }
-  }, [id]);
+    
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [id, requirements.length, endpoints, architectureData.length, isFirstLoad]);
 
   // Построение динамического графа из данных с сервера
   useEffect(() => {
@@ -1070,26 +1097,23 @@ export default function ProjectAnalysis() {
         </div>
         <div className={styles.flowWrapper}>
           <div className={styles.loadingState}>
-            <div style={{ fontSize: '48px', marginBottom: '20px' }}>📊</div>
-            <p style={{ fontSize: '18px', marginBottom: '10px' }}>Архитектура проекта пока не проанализирована</p>
+            <div className={styles.loadingSpinner}></div>
+            <h2>Анализ архитектуры проекта...</h2>
             <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '30px', maxWidth: '400px', textAlign: 'center' }}>
-              Для создания графа зависимостей необходимо выполнить анализ исходного кода проекта
+              Пожалуйста, подождите. Это может занять несколько минут.
             </p>
-            <button 
-              onClick={() => navigate('/projects')} 
-              style={{ 
-                padding: '12px 24px', 
-                background: '#3b82f6', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: '600'
-              }}
-            >
-              Вернуться к проектам
-            </button>
+            <div className={styles.progressBar} style={{ width: '400px', height: '8px', background: 'rgba(90, 111, 214, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div 
+                className={styles.progressFill}
+                style={{ 
+                  height: '100%', 
+                  background: 'linear-gradient(90deg, #5A6FD6 0%, #6B8FE8 100%)', 
+                  borderRadius: '4px',
+                  transition: 'width 0.3s ease',
+                  width: '30%'
+                }}
+              ></div>
+            </div>
           </div>
         </div>
       </div>

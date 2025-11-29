@@ -42,14 +42,13 @@ export default function ProjectViewArchitecture() {
   const [streamStatus, setStreamStatus] = useState('connecting');
   const [progress, setProgress] = useState({ total: 0, current: 0 });
 
-  // Load project data from backend
+  // Load project data from backend with polling for real-time updates
   useEffect(() => {
     let cancelled = false;
+    let pollInterval = null;
 
     const fetchProject = async () => {
       try {
-        setStreamStatus('loading');
-
         if (!id) {
           setStreamStatus('error');
           console.error('No project ID provided');
@@ -58,62 +57,109 @@ export default function ProjectViewArchitecture() {
 
         // GET /v1/project/{id}
         const res = await projectsAPI.getById(id);
-        // API shape: { id, name, description, picture_url, architecture }
+        console.log('📦 Получен ответ от API:', JSON.stringify(res, null, 2));
+        
         const arch = res.architecture || {};
-
-        console.log('🔍 Full response:', res);
-        console.log('🏗️ Architecture object:', arch);
-        console.log('📊 Architecture.data:', arch.data);
+        console.log('🏗️ Architecture данные:', JSON.stringify(arch, null, 2));
 
         const reqs = arch.requirements || [];
         const eps = arch.endpoints || {};
-        const archParts = arch.data || arch.architecture || arch.parts || [];
         
-        console.log('📦 Requirements:', reqs);
-        console.log('🌐 Endpoints:', eps);
-        console.log('🔗 Architecture parts:', archParts);
-
-        setProgress({ total: reqs.length + Object.keys(eps).length + archParts.length, current: 0 });
-
-        // 1) Requirements
-        setRequirements(reqs);
-        setProgress((p) => ({ ...p, current: (p.current || 0) + reqs.length }));
-
-        // 2) Endpoints
-        setEndpoints(eps);
-
-        // 3) Architecture - insert parts sequentially to preserve animation
-        for (let i = 0; i < archParts.length; i++) {
-          if (cancelled) return;
-          // small delay to mimic streaming
-          await new Promise((r) => setTimeout(r, 80));
-          setArchitecture((prev) => [...prev, archParts[i]]);
-          setProgress((prev) => ({ ...prev, current: (prev.current || 0) + 1 }));
+        // Handle different possible formats for architecture data
+        let archData = arch.data;
+        if (!archData) {
+          // Try to extract from dict format: {"parent_name": ["child1", "child2"]}
+          archData = {};
+          Object.entries(arch).forEach(([key, value]) => {
+            if (key !== 'requirements' && key !== 'endpoints' && Array.isArray(value)) {
+              archData[key] = value;
+            }
+          });
+        }
+        
+        // Convert dict to array format: [{parent: "name", children: []}]
+        let archParts = [];
+        if (typeof archData === 'object' && !Array.isArray(archData)) {
+          archParts = Object.entries(archData).map(([parent, children]) => ({
+            parent,
+            children: Array.isArray(children) ? children : []
+          }));
+        } else if (Array.isArray(archData)) {
+          archParts = archData;
         }
 
-        setStreamStatus('done');
+        // Update requirements if changed
+        if (reqs.length > 0 && requirements.length !== reqs.length) {
+          setRequirements(reqs);
+        }
 
-        // Optional: If you want to stream incremental updates from backend via gRPC,
-        // you can uncomment the code below (requires grpc-web setup and generated stubs):
-        // const grpc = getGRPCClient();
-        // grpc.connectToStream(userId, Number(id), {
-        //   onRequirements: (r) => setRequirements(r.requirements || r),
-        //   onEndpoints: (e) => setEndpoints(e.endpoints || e),
-        //   onArchitecture: (part) => setArchitecture((prev) => [...prev, part]),
-        //   onDone: () => setStreamStatus('done'),
-        //   onError: () => setStreamStatus('error')
-        // });
+        // Update endpoints if changed
+        const epsCount = Object.keys(eps).length;
+        if (epsCount > 0 && Object.keys(endpoints).length !== epsCount) {
+          setEndpoints(eps);
+        }
+
+        // Update architecture incrementally - show data as soon as it arrives
+        if (archParts.length > 0) {
+          const currentCount = architecture.length;
+          const newParts = archParts.slice(currentCount);
+          
+          if (newParts.length > 0) {
+            setStreamStatus('streaming');
+            // Add new parts immediately without animation delay for faster rendering
+            setArchitecture((prev) => [...prev, ...newParts]);
+          }
+
+          // Check if analysis is complete (assuming ~87 architecture items based on example)
+          if (archParts.length >= 80) {
+            setStreamStatus('done');
+            if (pollInterval) {
+              clearInterval(pollInterval);
+              pollInterval = null;
+            }
+          }
+        }
+        
+        // Start rendering as soon as ANY data arrives
+        if (reqs.length > 0 || epsCount > 0 || archParts.length > 0) {
+          setStreamStatus('streaming');
+        } else {
+          // No data yet - keep polling
+          setStreamStatus('connecting');
+        }
+
+        setProgress({
+          total: reqs.length + epsCount + archParts.length,
+          current: reqs.length + epsCount + architecture.length
+        });
 
       } catch (err) {
         console.error('Project load error', err);
         setStreamStatus('error');
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
       }
     };
 
+    // Initial fetch
     fetchProject();
 
-    return () => { cancelled = true; };
-  }, [id]);
+    // Poll every 2 seconds for updates
+    pollInterval = setInterval(() => {
+      if (!cancelled) {
+        fetchProject();
+      }
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [id, requirements.length, endpoints, architecture.length]);
 
   // Group endpoints by service/class
   const endpointsByService = useMemo(() => {
@@ -160,17 +206,11 @@ export default function ProjectViewArchitecture() {
     // Group architecture by service classes
     const serviceMap = new Map();
     
-    console.log('🏗️ Building graph from architecture:', architecture);
-    
     architecture.forEach((arch) => {
-      console.log('📍 Processing architecture item:', arch);
-      
       // Parse parent: "file/ClassName.method_name" or just "ClassName.method_name"
       const parts = arch.parent.split('/');
       const lastPart = parts[parts.length - 1];
       const [className, methodName] = lastPart.split('.');
-      
-      console.log(`   Parent: ${arch.parent} → Class: ${className}, Method: ${methodName}`);
       
       // Skip specific classes
       if (className === 'Health' || 
@@ -179,16 +219,10 @@ export default function ProjectViewArchitecture() {
           className === 'DatabaseManager' ||
           lastPart.includes('_main_') ||
           lastPart.includes('database')) {
-        console.log(`   ❌ Skipped: ${className}`);
         return;
       }
       
-      if (!className) {
-        console.log('   ❌ No className');
-        return;
-      }
-      
-      console.log(`   ✅ Added to service: ${className}`);
+      if (!className) return;
       
       if (!serviceMap.has(className)) {
         serviceMap.set(className, {
@@ -213,12 +247,9 @@ export default function ProjectViewArchitecture() {
             depClass !== 'main' &&
             !childLastPart.includes('database')) {
           service.dependencies.add(depClass);
-          console.log(`      → Dependency: ${depClass}`);
         }
       });
     });
-    
-    console.log('📊 Final serviceMap:', Array.from(serviceMap.entries()));
 
     // Determine layers for left-to-right layout
     const layers = new Map();
@@ -441,8 +472,25 @@ export default function ProjectViewArchitecture() {
 
         {/* Graph Visualization */}
         <main className={styles.mainContent}>
-          <div className={styles.flowWrapper}>
-            <ReactFlow
+          {/* Loading State - show only when NO data at all */}
+          {streamStatus === 'connecting' && nodes.length === 0 && requirements.length === 0 && Object.keys(endpoints).length === 0 && (
+            <div className={styles.loadingContainer}>
+              <div className={styles.loadingSpinner}></div>
+              <h2>Анализ архитектуры проекта...</h2>
+              <p>Пожалуйста, подождите. Данные загружаются...</p>
+              <div className={styles.progressBar}>
+                <div 
+                  className={styles.progressFill} 
+                  style={{ width: `${progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* Graph Visualization - show as soon as we have data */}
+          {(requirements.length > 0 || Object.keys(endpoints).length > 0 || nodes.length > 0) && (
+            <div className={styles.flowWrapper}>
+              <ReactFlow
               nodes={nodes}
               edges={styledEdges}
               onNodesChange={onNodesChange}
@@ -541,7 +589,8 @@ export default function ProjectViewArchitecture() {
                 </div>
               </Panel>
             </ReactFlow>
-          </div>
+            </div>
+          )}
         </main>
       </div>
 

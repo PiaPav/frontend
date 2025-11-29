@@ -50,8 +50,12 @@ export default function NewProject() {
       const result = await projectsAPI.create(payload);
       console.log('Проект создан:', result);
       
-      // После успешного создания перейти к списку проектов
-      navigate('/projects');
+      // После успешного создания перейти к просмотру архитектуры проекта
+      if (result.id) {
+        navigate(`/projects/${result.id}/architecture`);
+      } else {
+        navigate('/projects');
+      }
     } catch (err) {
       console.error('Ошибка создания проекта:', err);
       
