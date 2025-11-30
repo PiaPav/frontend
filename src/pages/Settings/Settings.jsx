@@ -175,10 +175,6 @@ export default function Settings() {
               <span className={styles.label}>Имя:</span>
               <span className={styles.value}>{accountData?.name || user?.name || '—'}</span>
             </div>
-            <div className={styles.infoItem}>
-              <span className={styles.label}>ID:</span>
-              <span className={styles.value}>{accountData?.id || user?.id || '—'}</span>
-            </div>
           </div>
         </div>
 
