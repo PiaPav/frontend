@@ -64,8 +64,88 @@ export default function ProjectAnalysis() {
     };
   }, [project, requirements, endpoints, architectureData]);
 
-  // Загрузка данных проекта с сервера с polling
+  // Симуляция gRPC стрима с моковыми данными (пока бэкенд сломан)
   useEffect(() => {
+    let cancelled = false;
+    
+    const _simulateStream = async () => {
+      setLoading(true);
+      setError(null);
+      
+      const mockData = {
+        name: `Project #${id}`,
+        description: 'Architecture Analysis',
+        architecture: {
+          requirements: [
+            'aio-pika', 'asyncpg', 'bcrypt', 'boto3', 'fastapi',
+            'grpcio', 'grpcio-tools', 'pika', 'protobuf', 'pyjwt',
+            'python-dotenv', 'python-multipart', 'pyyaml', 'sqlalchemy', 'uvicorn'
+          ],
+          endpoints: {
+            'registration': 'POST /v1/auth/registration',
+            'refresh': 'POST /v1/auth/refresh',
+            'patch_project': 'PATCH /v1/project/{project_id}',
+            'patch_account': 'PATCH /v1/account',
+            'login': 'POST /v1/auth/login',
+            'homepage': 'GET /v1/home',
+            'get_project': 'GET /v1/project/{project_id}',
+            'get_projects_list': 'GET /v1/project',
+            'get_account': 'GET /v1/account',
+            'delete_project': 'DELETE /v1/project/{project_id}',
+            'create_project': 'POST /v1/project',
+          },
+          data: {
+            'Account.create_account': ['datamanager/DatabaseManager.session', 'accounts/Account', 'accounts/session.add'],
+            'Account.get_account_by_id': ['datamanager/DatabaseManager.session', 'accounts/session.get', 'accounts/log.error', 'accounts/DataBaseEntityNotExists'],
+            'Project.create_project': ['datamanager/DatabaseManager.session', 'projects/Project', 'projects/session.add'],
+            'Project.get_project_by_id': ['datamanager/DatabaseManager.session', 'projects/session.get', 'projects/log.error', 'projects/DataBaseEntityNotExists'],
+            'get_account': ['account_endpoints/Depends', 'account_endpoints/log.info', 'auth_service/AuthService.verify_token', 'account_service/AccountService.get_account_by_id', 'account_endpoints/router.get'],
+            'patch_account': ['account_endpoints/Depends', 'account_endpoints/log.info', 'auth_service/AuthService.verify_token', 'account_service/AccountService.patch_account_by_id', 'account_endpoints/router.patch'],
+            'login': ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.login', 'auth_endpoints/router.post'],
+            'refresh': ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.refresh', 'auth_endpoints/router.post'],
+            'registration': ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.registration', 'auth_endpoints/router.post'],
+            'get_project': ['project_endpoints/Depends', 'project_endpoints/log.info', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.get_project_by_id', 'project_endpoints/router.get'],
+            'create_project': ['project_endpoints/File', 'project_endpoints/Depends', 'project_endpoints/log.info', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.create_project', 'project_endpoints/router.post'],
+            'delete_project': ['project_endpoints/Depends', 'project_endpoints/log.info', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.delete_project', 'project_endpoints/router.delete'],
+            'get_projects_list': ['project_endpoints/Depends', 'project_endpoints/log.info', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.get_projects_by_account_id', 'project_endpoints/router.get'],
+            'AuthService.registration': ['accounts/Account.is_login_exists', 'accounts/Account.create_account', 'auth_service/AccountData.model_validate'],
+            'AuthService.login': ['accounts/Account.get_account_by_login', 'auth_service/AccountData', 'auth_service/AuthResponseData'],
+            'AccountService.get_account_by_id': ['accounts/Account.get_account_by_id', 'account_service/AccountFullData.model_validate'],
+            'ProjectService.get_project_by_id': ['projects/Project.get_project_by_id', 'project_service/ProjectData'],
+            'ProjectService.create_project': ['projects/Project.create_project', 'project_service/ProjectData'],
+            'ProjectService.delete_project': ['projects/Project.delete_project'],
+            'ProjectService.get_projects_by_account_id': ['projects/Project.get_project_list_by_account_id', 'project_service/ProjectListDataLite'],
+          }
+        }
+      };
+      
+      await new Promise(r => setTimeout(r, 800));
+      if (cancelled) return;
+      
+      setProject(mockData);
+      
+      // Также устанавливаем данные напрямую для построения графа
+      setRequirements(mockData.architecture.requirements);
+      setEndpoints(mockData.architecture.endpoints);
+      
+      const archArray = Object.entries(mockData.architecture.data).map(([parent, children]) => ({
+        parent,
+        children: Array.isArray(children) ? children : []
+      }));
+      setArchitectureData(archArray);
+      setLoading(false);
+      setIsFirstLoad(false);
+    };
+    
+    _simulateStream();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // Загрузка данных проекта с сервера с polling (СТАРЫЙ КОД - ЗАКОММЕНТИРОВАН)
+  /*useEffect(() => {
     let pollInterval = null;
     
     const loadProject = async () => {
@@ -161,6 +241,7 @@ export default function ProjectAnalysis() {
       }
     };
   }, [id, requirements.length, endpoints, architectureData.length, isFirstLoad]);
+  */
 
   // Построение динамического графа из данных с сервера
   useEffect(() => {
@@ -213,13 +294,9 @@ export default function ProjectAnalysis() {
         else if (nodeName.startsWith('DatabaseManager.') || nodeName === 'DatabaseManager') {
           result = { type: 'database-manager', layer: 4 };
         }
-        // Broker
-        else if (nodeName.startsWith('Broker.') || nodeName === 'Broker') {
-          result = { type: 'broker', layer: 5 };
-        }
-        // Остальное - прочие компоненты
+        // Broker и остальное - исключаем из отображения
         else {
-          result = { type: 'other', layer: 5 };
+          result = { type: 'excluded', layer: null };
         }
         
         nodeTypeCache.set(nodeName, result);
@@ -395,20 +472,17 @@ export default function ProjectAnalysis() {
 
     // === ГРУППИРОВКА УЗЛОВ ПО СЛОЯМ ===
     const nodesByLayer = {
-      1: ['main-service'], // Main Service всегда один
       2: [], // Endpoints
       3: [], // Services (AuthService, AccountService, ProjectService, CoreService)
       3.5: [], // Service methods (AuthService.login, AccountService.get_account_by_id)
       4: [], // Database components
-      5: [], // Broker и прочее
     };
 
     allNodes.forEach(nodeName => {
       const { layer } = getNodeType(nodeName);
-      if (!nodesByLayer[layer]) {
-        nodesByLayer[layer] = [];
+      if (layer !== null && nodesByLayer[layer]) {
+        nodesByLayer[layer].push(nodeName);
       }
-      nodesByLayer[layer].push(nodeName);
     });
 
     // Добавляем endpoints в слой 2 (берем только из endpoints, не из architectureData)
@@ -416,40 +490,10 @@ export default function ProjectAnalysis() {
 
     // Отладка: выводим количество узлов на каждом слое
     console.log('📊 Узлы по слоям:', {
-      'Layer 1 (Main)': nodesByLayer[1].length,
       'Layer 2 (Endpoints)': nodesByLayer[2].length,
       'Layer 3 (Services)': nodesByLayer[3].length,
       'Layer 3.5 (Service Methods)': (nodesByLayer[3.5] || []).length,
       'Layer 4 (Database)': nodesByLayer[4].length,
-      'Layer 5 (Broker & Other)': nodesByLayer[5].length,
-    });
-
-    // === LAYER 1: Main Service ===
-    newNodes.push({
-      id: 'main-service',
-      type: 'default',
-      position: { x: START_X, y: START_Y + 300 },
-      data: {
-        label: (
-          <div className={styles.nodeLabel}>
-            <div className={styles.nodeTitle}>🚀 Main Service</div>
-            <div style={{ fontSize: '11px', opacity: 0.9, marginTop: '4px' }}>FastAPI</div>
-          </div>
-        ),
-      },
-      style: {
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        border: 'none',
-        borderRadius: '16px',
-        padding: '24px 28px',
-        width: 200,
-        fontWeight: 'bold',
-        fontSize: '16px',
-        boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
-      },
-      sourcePosition: 'right',
-      targetPosition: 'left',
     });
 
     // === LAYER 2: API Endpoints (динамически из данных) ===
@@ -478,7 +522,7 @@ export default function ProjectAnalysis() {
       newNodes.push({
         id: `endpoint-${key}`,
         type: 'default',
-        position: { x: START_X + LAYER_GAP, y: START_Y + idx * 120 },
+        position: { x: START_X, y: START_Y + idx * 120 },
         data: {
           label: (
             <div className={styles.endpointCard}>
@@ -503,27 +547,6 @@ export default function ProjectAnalysis() {
         },
         sourcePosition: 'right',
         targetPosition: 'left',
-      });
-
-      // Соединяем Main Service с эндпоинтами (справа)
-      newEdges.push({
-        id: `edge-main-${key}`,
-        source: 'main-service',
-        target: `endpoint-${key}`,
-        type: 'smoothstep',
-        animated: true,
-        style: { 
-          stroke: color.border, 
-          strokeWidth: 2.5,
-        },
-        markerEnd: { 
-          type: MarkerType.ArrowClosed, 
-          color: color.border, 
-          width: 22, 
-          height: 22 
-        },
-        sourceHandle: 'right',
-        targetHandle: 'left',
       });
     });
 
@@ -632,267 +655,196 @@ export default function ProjectAnalysis() {
       });
     });
 
-    // === LAYER 4: Database components (динамически из данных) ===
-    nodesByLayer[4].forEach((nodeName, idx) => {
-      const isDatabaseManager = nodeName.startsWith('DatabaseManager');
-      const isAccountDB = nodeName.startsWith('Account.');
-      const isProjectDB = nodeName.startsWith('Project.');
-      
-      let nodeStyle, nodeLabel;
-      
-      if (isDatabaseManager) {
-        nodeStyle = {
-          background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-          color: 'white',
-          border: '3px solid #0e7490',
-          borderRadius: '16px',
-          padding: '18px 22px',
-          width: 160,
-          fontWeight: '700',
-          fontSize: '13px',
-          textAlign: 'center',
-          boxShadow: '0 6px 20px rgba(6, 182, 212, 0.4)',
-        };
-        const methodName = nodeName.replace('DatabaseManager.', '');
-        nodeLabel = (
-          <div className={styles.dbManagerLabel}>
-            <div style={{ 
-              fontSize: '8px', 
-              fontWeight: '700', 
-              background: 'rgba(255,255,255,0.2)',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              marginBottom: '6px'
-            }}>
-              DATABASE MANAGER
-            </div>
-            <div style={{ fontSize: '18px', marginBottom: '4px' }}>🗄️</div>
-            <div style={{ fontSize: '12px' }}>{methodName}</div>
-          </div>
-        );
+    // === LAYER 4: Database components (группировка по классам) ===
+    // Группируем узлы по классам
+    const dbGroups = {
+      'DatabaseManager': [],
+      'Account': [],
+      'Project': [],
+      'Other': []
+    };
+    
+    nodesByLayer[4].forEach(nodeName => {
+      if (nodeName.startsWith('DatabaseManager')) {
+        dbGroups['DatabaseManager'].push(nodeName);
+      } else if (nodeName.startsWith('Account.')) {
+        dbGroups['Account'].push(nodeName);
+      } else if (nodeName.startsWith('Project.')) {
+        dbGroups['Project'].push(nodeName);
       } else {
-        const dbColor = isAccountDB ? '#3b82f6' : isProjectDB ? '#10b981' : '#64748b';
-        const dbIcon = isAccountDB ? '👥' : isProjectDB ? '📊' : '🗃️';
-        const dbType = isAccountDB ? 'ACCOUNT DB' : isProjectDB ? 'PROJECT DB' : 'DATABASE';
-        const dbLabel = nodeName.split('.').pop();
-        
-        nodeStyle = {
-          background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-          color: 'white',
-          border: `3px solid ${dbColor}`,
-          borderRadius: '20px',
-          padding: '16px 20px',
-          width: 140,
-          fontWeight: '600',
-          fontSize: '12px',
-          textAlign: 'center',
-          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.5)',
-        };
-        nodeLabel = (
-          <div className={styles.dbLabel}>
-            <div style={{ 
-              fontSize: '7px', 
-              fontWeight: '700', 
-              background: `${dbColor}30`,
-              color: dbColor,
-              padding: '2px 6px',
-              borderRadius: '4px',
-              marginBottom: '6px',
-              letterSpacing: '0.5px'
-            }}>
-              {dbType}
-            </div>
-            <div style={{ fontSize: '20px', marginBottom: '4px' }}>{dbIcon}</div>
-            <div style={{ fontWeight: '700', fontSize: '10px' }}>{dbLabel}</div>
-          </div>
-        );
+        dbGroups['Other'].push(nodeName);
       }
+    });
+
+    // Конфигурация для каждой группы
+    const groupConfigs = {
+      'DatabaseManager': { 
+        color: '#06b6d4', 
+        icon: '🗄️', 
+        label: 'DATABASE MANAGER',
+        borderColor: '#0891b2',
+        bgGradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)'
+      },
+      'Account': { 
+        color: '#3b82f6', 
+        icon: '👥', 
+        label: 'ACCOUNT DB',
+        borderColor: '#2563eb',
+        bgGradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+      },
+      'Project': { 
+        color: '#10b981', 
+        icon: '📊', 
+        label: 'PROJECT DB',
+        borderColor: '#059669',
+        bgGradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+      },
+      'Other': { 
+        color: '#64748b', 
+        icon: '🗃️', 
+        label: 'DATABASE',
+        borderColor: '#475569',
+        bgGradient: 'linear-gradient(135deg, #64748b 0%, #475569 100%)'
+      }
+    };
+
+    let currentY = START_Y;
+    const groupSpacing = 140; // Увеличенный отступ между группами
+    
+    Object.entries(dbGroups).forEach(([groupName, nodes]) => {
+      if (nodes.length === 0) return;
       
+      const config = groupConfigs[groupName];
+      const groupHeight = nodes.length * 70 + 20; // Высота группы
+      
+      // Создаем фоновый прямоугольник для группы
       newNodes.push({
-        id: nodeName,
+        id: `group-bg-${groupName}`,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 3.2, y: START_Y + idx * 180 },
-        data: { label: nodeLabel },
-        style: nodeStyle,
+        position: { x: START_X + LAYER_GAP * 3.2 - 20, y: currentY - 10 },
+        data: { label: '' },
+        style: {
+          background: `${config.color}08`,
+          border: `2px dashed ${config.color}40`,
+          borderRadius: '16px',
+          padding: '0',
+          width: 220,
+          height: groupHeight + 100,
+          pointerEvents: 'none',
+          zIndex: -1,
+        },
+        draggable: false,
+        selectable: false,
+      });
+      
+      // Создаем групповой узел-заголовок
+      newNodes.push({
+        id: `group-${groupName}`,
+        type: 'default',
+        position: { x: START_X + LAYER_GAP * 3.2, y: currentY },
+        data: {
+          label: (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '24px', marginBottom: '8px' }}>{config.icon}</div>
+              <div style={{ 
+                fontSize: '9px', 
+                fontWeight: '800',
+                letterSpacing: '1px',
+                textTransform: 'uppercase'
+              }}>
+                {config.label}
+              </div>
+              <div style={{
+                fontSize: '8px',
+                fontWeight: '600',
+                marginTop: '6px',
+                opacity: 0.9,
+                background: 'rgba(255,255,255,0.2)',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                display: 'inline-block'
+              }}>
+                {nodes.length} {nodes.length === 1 ? 'метод' : 'методов'}
+              </div>
+            </div>
+          ),
+        },
+        style: {
+          background: config.bgGradient,
+          color: 'white',
+          border: `3px solid ${config.borderColor}`,
+          borderRadius: '14px',
+          padding: '20px 24px',
+          width: 180,
+          fontWeight: '700',
+          fontSize: '11px',
+          boxShadow: `0 8px 24px ${config.color}50, inset 0 1px 0 rgba(255,255,255,0.3)`,
+        },
         sourcePosition: 'right',
         targetPosition: 'left',
       });
-    });
-
-    // === LAYER 5: Broker и прочие компоненты (компактное расположение) ===
-    // Фильтруем Util компоненты
-    const filteredLayer5 = nodesByLayer[5].filter(nodeName => {
-      const isBroker = nodeName.startsWith('Broker');
-      if (isBroker) return true;
       
-      // Определяем тип
-      let componentType = 'Util';
-      if (nodeName.includes('Exception') || nodeName.includes('Error')) {
-        componentType = 'Exception';
-      } else if (nodeName.startsWith('log.')) {
-        componentType = 'Logger';
-      } else if (nodeName.includes('session') || nodeName.includes('Session')) {
-        componentType = 'Session';
-      } else if (nodeName.includes('Depends') || nodeName.includes('router')) {
-        componentType = 'FastAPI';
-      }
+      currentY += 90;
       
-      // Исключаем Util
-      return componentType !== 'Util';
-    });
-    
-    filteredLayer5.forEach((nodeName, idx) => {
-      const isBroker = nodeName.startsWith('Broker');
-      
-      // Компактное расположение
-      const column = Math.floor(idx / 10); // 10 элементов в колонке
-      const row = idx % 10; // Позиция в колонке
-      const xPosition = START_X + LAYER_GAP * 4 + column * 180;
-      const yPosition = START_Y + row * 100; // Увеличено с 85 до 100 для лучшей видимости
-      
-      if (isBroker) {
-        const brokerMethod = nodeName.replace('Broker.', '');
-        newNodes.push({
-          id: nodeName,
-          type: 'default',
-          position: { x: xPosition, y: yPosition + 300 },
-          data: {
-            label: (
-              <div className={styles.brokerLabel}>
-                <div style={{ 
-                  fontSize: '7px', 
-                  fontWeight: '700', 
-                  background: 'rgba(255,255,255,0.25)',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  marginBottom: '6px',
-                  letterSpacing: '0.5px'
-                }}>
-                  MESSAGE BROKER
-                </div>
-                <div style={{ fontSize: '24px', marginBottom: '4px' }}>📮</div>
-                <div style={{ fontWeight: '700', fontSize: '11px' }}>{brokerMethod}</div>
-              </div>
-            ),
-          },
-          style: {
-            background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-            color: 'white',
-            border: '4px solid #c2410c',
-            borderRadius: '50%',
-            padding: '24px',
-            width: 140,
-            height: 140,
-            fontWeight: 'bold',
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 28px rgba(249, 115, 22, 0.5)',
-          },
-          sourcePosition: 'right',
-          targetPosition: 'left',
-        });
-      } else {
-        // Прочие компоненты - определяем тип по имени
-        let componentType = 'Util';
-        let componentColor = '#64748b';
-        let componentBg = '#f1f5f9';
-        let componentIcon = '⚙️';
-        
-        if (nodeName.includes('Exception') || nodeName.includes('Error')) {
-          componentType = 'Exception';
-          componentColor = '#dc2626';
-          componentBg = '#fef2f2';
-          componentIcon = '⚠️';
-        } else if (nodeName.startsWith('log.')) {
-          componentType = 'Logger';
-          componentColor = '#7c3aed';
-          componentBg = '#faf5ff';
-          componentIcon = '📝';
-        } else if (nodeName.includes('session') || nodeName.includes('Session')) {
-          componentType = 'Session';
-          componentColor = '#0891b2';
-          componentBg = '#ecfeff';
-          componentIcon = '🔗';
-        } else if (nodeName.includes('Depends') || nodeName.includes('router')) {
-          componentType = 'FastAPI';
-          componentColor = '#059669';
-          componentBg = '#f0fdf4';
-          componentIcon = '🚀';
-        }
-        
-        const shortName = nodeName.split('.').pop();
+      // Создаем дочерние узлы для методов
+      nodes.forEach((nodeName, idx) => {
+        const methodName = nodeName.split('.').pop();
         
         newNodes.push({
           id: nodeName,
           type: 'default',
-          position: { x: xPosition, y: yPosition },
+          position: { x: START_X + LAYER_GAP * 3.2 + 10, y: currentY + idx * 70 },
           data: {
             label: (
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                padding: '2px'
+              }}>
+                <div style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: config.color,
+                  flexShrink: 0
+                }}></div>
                 <div style={{ 
-                  fontSize: '9px', 
-                  fontWeight: '700', 
-                  color: componentColor,
-                  background: componentBg,
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  marginBottom: '6px',
-                  display: 'inline-block',
-                  border: `1px solid ${componentColor}40`
+                  fontSize: '11px', 
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  textAlign: 'left',
+                  lineHeight: '1.3'
                 }}>
-                  {componentIcon} {componentType}
-                </div>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#1e293b' }}>
-                  {shortName}
+                  {methodName}
                 </div>
               </div>
             ),
           },
           style: {
-            background: 'white',
-            border: `2px solid ${componentColor}`,
+            background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+            color: '#1e293b',
+            border: `2px solid ${config.color}`,
             borderRadius: '10px',
             padding: '10px 14px',
+            width: 160,
             fontSize: '11px',
             fontWeight: '600',
-            boxShadow: `0 3px 12px ${componentColor}30`,
+            boxShadow: `0 4px 12px ${config.color}20, inset 0 1px 0 rgba(255,255,255,0.8)`,
+            transition: 'all 0.2s ease',
           },
           sourcePosition: 'right',
           targetPosition: 'left',
         });
-      }
+      });
+      
+      currentY += nodes.length * 70 + groupSpacing;
     });
+
+    // === LAYER 5: Удалено - не отображаем служебные компоненты ===
 
     // === ДИНАМИЧЕСКИЕ СОЕДИНЕНИЯ ИЗ ARCHITECTURE DATA ===
-    // 1. Main Service -> Endpoints (только если endpoint существует)
-    Object.keys(endpoints).forEach((endpointKey) => {
-      const endpointId = `endpoint-${endpointKey}`;
-      // Проверяем что endpoint существует в графе
-      const endpointExists = newNodes.some(n => n.id === endpointId);
-      if (!endpointExists) return;
-      
-      const method = endpoints[endpointKey].split(' ')[0];
-      const methodColor = methodColors[method]?.border || '#64748b';
-      
-      newEdges.push({
-        id: `edge-main-${endpointKey}`,
-        source: 'main-service',
-        target: `endpoint-${endpointKey}`,
-        type: 'smoothstep',
-        animated: false, // Отключаем анимацию для производительности
-        style: { stroke: methodColor, strokeWidth: 2.5 },
-        markerEnd: { 
-          type: MarkerType.ArrowClosed, 
-          color: methodColor, 
-          width: 22, 
-          height: 22 
-        },
-      });
-    });
-
-    // 2. Соединения из ARCHITECTURE данных (parent -> children)
+    // Соединения из ARCHITECTURE данных (parent -> children)
     architectureData.forEach(({ parent, children }) => {
       children.forEach(child => {
         // Убираем префиксы типа 'accounts/', 'datamanager/', 'auth_service/'
@@ -1122,15 +1074,6 @@ export default function ProjectAnalysis() {
 
   return (
     <div className={styles.container}>
-      {/* Layer Header with Labels */}
-      <div className={styles.layerHeader}>
-        <div className={styles.layerLabel} style={{ left: '100px' }}>Главный сервис</div>
-        <div className={styles.layerLabel} style={{ left: '380px' }}>API endpoints</div>
-        <div className={styles.layerLabel} style={{ left: '660px' }}>Сервисы</div>
-        <div className={styles.layerLabel} style={{ left: '940px' }}>Базы данных</div>
-        <div className={styles.layerLabel} style={{ left: '1220px' }}>Брокер сообщений</div>
-      </div>
-
       {/* Control Bar */}
       <div className={styles.controlBar}>
         <button onClick={() => navigate('/projects')} className={styles.backBtn}>
