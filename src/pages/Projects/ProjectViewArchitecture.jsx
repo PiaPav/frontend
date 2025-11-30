@@ -12,7 +12,6 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import styles from './ProjectViewArchitecture.module.css';
 import { projectsAPI } from '../../services/api';
-import { getGRPCClient } from '../../services/grpcClient';
 
 // Memoized node content component for better performance
 const NodeContent = memo(({ serviceName, methodCount }) => (
@@ -40,116 +39,106 @@ export default function ProjectViewArchitecture() {
   const [hoveredNode, setHoveredNode] = useState(null);
   
   const [streamStatus, setStreamStatus] = useState('connecting');
-  const [progress, setProgress] = useState({ total: 0, current: 0 });
+  const [progress, setProgress] = useState({ total: 100, current: 0 });
+  
+  // Для инкрементального построения графа
+  const [serviceMap, setServiceMap] = useState(new Map());
 
-  // Load project data from backend with polling for real-time updates
+  // Загрузка данных из БД с polling
   useEffect(() => {
+    if (!id) {
+      setStreamStatus('error');
+      console.error('No project ID provided');
+      return;
+    }
+
     let cancelled = false;
     let pollInterval = null;
+    
+    setStreamStatus('loading');
+    console.log('🔄 Запуск polling данных проекта из БД...');
 
-    const fetchProject = async () => {
+    const fetchProjectData = async () => {
       try {
-        if (!id) {
-          setStreamStatus('error');
-          console.error('No project ID provided');
-          return;
-        }
+        if (cancelled) return;
 
-        // GET /v1/project/{id}
         const res = await projectsAPI.getById(id);
         console.log('📦 Получен ответ от API:', JSON.stringify(res, null, 2));
         
         const arch = res.architecture || {};
-        console.log('🏗️ Architecture данные:', JSON.stringify(arch, null, 2));
+
+        // Проверяем есть ли данные
+        if (!arch.requirements && !arch.endpoints && !arch.data) {
+          console.log('⏳ Данные еще не готовы, ждём...');
+          return;
+        }
 
         const reqs = arch.requirements || [];
         const eps = arch.endpoints || {};
+        const archData = arch.data || {};
         
-        // Handle different possible formats for architecture data
-        let archData = arch.data;
-        if (!archData) {
-          // Try to extract from dict format: {"parent_name": ["child1", "child2"]}
-          archData = {};
-          Object.entries(arch).forEach(([key, value]) => {
-            if (key !== 'requirements' && key !== 'endpoints' && Array.isArray(value)) {
-              archData[key] = value;
-            }
-          });
+        console.log(`📊 Найдено: ${reqs.length} requirements, ${Object.keys(eps).length} endpoints, ${Object.keys(archData).length} architecture items`);
+
+        // Обновляем requirements
+        if (reqs.length > 0 && requirements.length === 0) {
+          console.log('📦 Загружаем requirements');
+          setRequirements(reqs);
+          setStreamStatus('streaming');
+          setProgress({ total: 100, current: 5 });
         }
-        
-        // Convert dict to array format: [{parent: "name", children: []}]
-        let archParts = [];
-        if (typeof archData === 'object' && !Array.isArray(archData)) {
-          archParts = Object.entries(archData).map(([parent, children]) => ({
+
+        // Обновляем endpoints
+        if (Object.keys(eps).length > 0 && Object.keys(endpoints).length === 0) {
+          console.log('🌐 Загружаем endpoints');
+          setEndpoints(eps);
+          setProgress(p => ({ ...p, current: 10 }));
+        }
+
+        // Обновляем архитектуру инкрементально
+        if (Object.keys(archData).length > 0) {
+          const archParts = Object.entries(archData).map(([parent, children]) => ({
             parent,
             children: Array.isArray(children) ? children : []
           }));
-        } else if (Array.isArray(archData)) {
-          archParts = archData;
-        }
-
-        // Update requirements if changed
-        if (reqs.length > 0 && requirements.length !== reqs.length) {
-          setRequirements(reqs);
-        }
-
-        // Update endpoints if changed
-        const epsCount = Object.keys(eps).length;
-        if (epsCount > 0 && Object.keys(endpoints).length !== epsCount) {
-          setEndpoints(eps);
-        }
-
-        // Update architecture incrementally - show data as soon as it arrives
-        if (archParts.length > 0) {
-          const currentCount = architecture.length;
-          const newParts = archParts.slice(currentCount);
           
+          // Добавляем только новые части
+          const newParts = archParts.slice(architecture.length);
           if (newParts.length > 0) {
-            setStreamStatus('streaming');
-            // Add new parts immediately without animation delay for faster rendering
-            setArchitecture((prev) => [...prev, ...newParts]);
+            console.log(`🏗️ Добавляем ${newParts.length} новых частей архитектуры (всего будет ${archParts.length})`);
+            setArchitecture(archParts);
+            
+            const progressPercent = Math.min(95, 10 + Math.floor((archParts.length / Object.keys(archData).length) * 85));
+            setProgress({ total: 100, current: progressPercent });
           }
-
-          // Check if analysis is complete (assuming ~87 architecture items based on example)
-          if (archParts.length >= 80) {
+          
+          // Если все данные загружены - останавливаем polling
+          if (archParts.length === Object.keys(archData).length && reqs.length > 0 && Object.keys(eps).length > 0) {
+            console.log('✅ Все данные загружены!');
             setStreamStatus('done');
+            setProgress({ total: 100, current: 100 });
+            
             if (pollInterval) {
               clearInterval(pollInterval);
               pollInterval = null;
             }
           }
         }
-        
-        // Start rendering as soon as ANY data arrives
-        if (reqs.length > 0 || epsCount > 0 || archParts.length > 0) {
-          setStreamStatus('streaming');
-        } else {
-          // No data yet - keep polling
-          setStreamStatus('connecting');
-        }
-
-        setProgress({
-          total: reqs.length + epsCount + archParts.length,
-          current: reqs.length + epsCount + architecture.length
-        });
 
       } catch (err) {
-        console.error('Project load error', err);
-        setStreamStatus('error');
-        if (pollInterval) {
-          clearInterval(pollInterval);
-          pollInterval = null;
+        console.error('❌ Ошибка загрузки данных проекта:', err);
+        if (!cancelled) {
+          setStreamStatus('error');
         }
       }
     };
 
-    // Initial fetch
-    fetchProject();
+    // Первая загрузка сразу
+    fetchProjectData();
 
-    // Poll every 2 seconds for updates
+    // Затем polling каждые 2 секунды
     pollInterval = setInterval(() => {
-      if (!cancelled) {
-        fetchProject();
+      if (!cancelled && streamStatus !== 'done') {
+        fetchProjectData();
       }
     }, 2000);
 
@@ -159,7 +148,7 @@ export default function ProjectViewArchitecture() {
         clearInterval(pollInterval);
       }
     };
-  }, [id, requirements.length, endpoints, architecture.length]);
+  }, [id]);
 
   // Group endpoints by service/class
   const endpointsByService = useMemo(() => {
@@ -188,54 +177,45 @@ export default function ProjectViewArchitecture() {
     return grouped;
   }, [endpoints]);
 
-  // Build graph from architecture data
+  // Build graph incrementally from architecture data
   useEffect(() => {
     if (architecture.length === 0) return;
 
-    const newNodes = [];
-    const newEdges = [];
-    const nodeMap = new Map();
+    // Обрабатываем только последний элемент (новый)
+    const lastArch = architecture[architecture.length - 1];
     
-    // Layout configuration
-    const LAYER_WIDTH = 450; // Increased for better horizontal spacing
-    const NODE_HEIGHT = 100;
-    const VERTICAL_SPACING = 120; // Increased spacing between nodes vertically for better margin
-    const START_X = 100;
-    const START_Y = 100;
-
-    // Group architecture by service classes
-    const serviceMap = new Map();
+    const parts = lastArch.parent.split('/');
+    const lastPart = parts[parts.length - 1];
+    const [className, methodName] = lastPart.split('.');
     
-    architecture.forEach((arch) => {
-      // Parse parent: "file/ClassName.method_name" or just "ClassName.method_name"
-      const parts = arch.parent.split('/');
-      const lastPart = parts[parts.length - 1];
-      const [className, methodName] = lastPart.split('.');
+    // Skip specific classes
+    if (className === 'Health' || 
+        className === 'main' || 
+        className === 'DataManager' || 
+        className === 'DatabaseManager' ||
+        lastPart.includes('_main_') ||
+        lastPart.includes('database')) {
+      return;
+    }
+    
+    if (!className) return;
+    
+    // Обновляем serviceMap инкрементально
+    setServiceMap(prevServiceMap => {
+      const newServiceMap = new Map(prevServiceMap);
       
-      // Skip specific classes
-      if (className === 'Health' || 
-          className === 'main' || 
-          className === 'DataManager' || 
-          className === 'DatabaseManager' ||
-          lastPart.includes('_main_') ||
-          lastPart.includes('database')) {
-        return;
-      }
-      
-      if (!className) return;
-      
-      if (!serviceMap.has(className)) {
-        serviceMap.set(className, {
+      if (!newServiceMap.has(className)) {
+        newServiceMap.set(className, {
           methods: [],
           dependencies: new Set()
         });
       }
       
-      const service = serviceMap.get(className);
-      service.methods.push({ method: methodName || lastPart, children: arch.children });
+      const service = newServiceMap.get(className);
+      service.methods.push({ method: methodName || lastPart, children: lastArch.children });
       
       // Track dependencies
-      arch.children.forEach(child => {
+      lastArch.children.forEach(child => {
         const childParts = child.split('/');
         const childLastPart = childParts[childParts.length - 1];
         const depClass = childLastPart.split('.')[0];
@@ -249,7 +229,24 @@ export default function ProjectViewArchitecture() {
           service.dependencies.add(depClass);
         }
       });
+      
+      return newServiceMap;
     });
+  }, [architecture]);
+  
+  // Отдельный useEffect для перестроения графа когда serviceMap обновляется
+  useEffect(() => {
+    if (serviceMap.size === 0) return;
+    
+    const newNodes = [];
+    const newEdges = [];
+    const nodeMap = new Map();
+    
+    const LAYER_WIDTH = 450;
+    const NODE_HEIGHT = 100;
+    const VERTICAL_SPACING = 120;
+    const START_X = 100;
+    const START_Y = 100;
 
     // Determine layers for left-to-right layout
     const layers = new Map();
@@ -280,7 +277,6 @@ export default function ProjectViewArchitecture() {
     });
 
     // Create nodes for each service
-    let nodeId = 0;
     layerGroups.forEach((services, layer) => {
       services.forEach((serviceName, index) => {
         const service = serviceMap.get(serviceName);
@@ -315,7 +311,6 @@ export default function ProjectViewArchitecture() {
 
         newNodes.push(node);
         nodeMap.set(serviceName, nodeIdStr);
-        nodeId++;
       });
     });
 
@@ -358,7 +353,7 @@ export default function ProjectViewArchitecture() {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [architecture]);
+  }, [serviceMap]);
 
   // Update edge styles based on hovered node
   const styledEdges = useMemo(() => {
@@ -424,9 +419,11 @@ export default function ProjectViewArchitecture() {
         <div className={styles.projectInfo}>
           <h1>Project #{id} - Architecture Visualization</h1>
           <div className={styles.statusBadge}>
+            {streamStatus === 'loading' && '🔄 Initializing...'}
             {streamStatus === 'streaming' && '🔄 Receiving data...'}
             {streamStatus === 'done' && '✅ Complete'}
             {streamStatus === 'connecting' && '⏳ Connecting...'}
+            {streamStatus === 'error' && '❌ Error'}
           </div>
         </div>
         <div className={styles.stats}>
@@ -472,8 +469,8 @@ export default function ProjectViewArchitecture() {
 
         {/* Graph Visualization */}
         <main className={styles.mainContent}>
-          {/* Loading State - show only when NO data at all */}
-          {streamStatus === 'connecting' && nodes.length === 0 && requirements.length === 0 && Object.keys(endpoints).length === 0 && (
+          {/* Loading State - show when loading or connecting without data */}
+          {(streamStatus === 'connecting' || streamStatus === 'loading') && nodes.length === 0 && requirements.length === 0 && Object.keys(endpoints).length === 0 && (
             <div className={styles.loadingContainer}>
               <div className={styles.loadingSpinner}></div>
               <h2>Анализ архитектуры проекта...</h2>

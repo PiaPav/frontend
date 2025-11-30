@@ -116,6 +116,8 @@ class GRPCArchitectureClient {
    * Удалите эту функцию после настройки реального gRPC клиента
    */
   async _simulateStream(callbacks) {
+    console.log('🎭 Запуск симуляции gRPC стрима...');
+    
     // Полные данные из Граф.txt
     const mockData = {
       requirements: {
@@ -235,26 +237,43 @@ class GRPCArchitectureClient {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // 2. Отправка Requirements
-    console.log('✅ Received REQUIREMENTS');
-    callbacks.onRequirements?.(mockData.requirements);
+    console.log('✅ Sending REQUIREMENTS:', mockData.requirements);
+    if (callbacks.onRequirements) {
+      callbacks.onRequirements(mockData.requirements);
+    } else {
+      console.warn('⚠️ onRequirements callback is not defined!');
+    }
     await new Promise(resolve => setTimeout(resolve, 800));
 
     // 3. Отправка Endpoints
-    console.log('✅ Received ENDPOINTS');
-    callbacks.onEndpoints?.(mockData.endpoints);
+    console.log('✅ Sending ENDPOINTS:', mockData.endpoints);
+    if (callbacks.onEndpoints) {
+      callbacks.onEndpoints(mockData.endpoints);
+    } else {
+      console.warn('⚠️ onEndpoints callback is not defined!');
+    }
     await new Promise(resolve => setTimeout(resolve, 500));
 
     // 4. Отправка Architecture по частям (как в реальном стриме)
+    console.log(`✅ Starting ARCHITECTURE stream (${mockData.architecture.length} parts)...`);
     for (let i = 0; i < mockData.architecture.length; i++) {
       await new Promise(resolve => setTimeout(resolve, 150));
-      console.log(`✅ Received ARCHITECTURE part ${i + 1}/${mockData.architecture.length}`);
-      callbacks.onArchitecture?.(mockData.architecture[i]);
+      console.log(`✅ Sending ARCHITECTURE part ${i + 1}/${mockData.architecture.length}:`, mockData.architecture[i]);
+      if (callbacks.onArchitecture) {
+        callbacks.onArchitecture(mockData.architecture[i]);
+      } else {
+        console.warn('⚠️ onArchitecture callback is not defined!');
+      }
     }
 
     // 5. Завершение
     await new Promise(resolve => setTimeout(resolve, 300));
-    console.log('✅ Stream DONE');
-    callbacks.onDone?.();
+    console.log('✅ Stream DONE - calling onDone callback');
+    if (callbacks.onDone) {
+      callbacks.onDone();
+    } else {
+      console.warn('⚠️ onDone callback is not defined!');
+    }
   }
 
   /**
