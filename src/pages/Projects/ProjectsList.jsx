@@ -83,6 +83,7 @@ export default function ProjectsList() {
           </button>
           
           <div className={styles.dropdown}>
+            <button onClick={() => navigate('/settings')}>Настройки</button>
             <button onClick={handleLogout}>Выйти</button>
           </div>
         </div>

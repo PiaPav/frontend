@@ -131,4 +131,39 @@ export const projectsAPI = {
   },
 };
 
+// API для работы с аккаунтом
+export const accountAPI = {
+  // Получить данные аккаунта
+  getAccount: async () => {
+    const response = await api.get('/account');
+    return response.data;
+  },
+
+  // Привязать email
+  linkEmail: async (email) => {
+    const response = await api.post('/account/email', null, {
+      params: { email }
+    });
+    return response.data;
+  },
+
+  // Отвязать email
+  unlinkEmail: async () => {
+    const response = await api.delete('/account/email');
+    return response.data;
+  },
+
+  // Верифицировать email
+  verifyEmail: async (email, verifyType, verificationCode) => {
+    const response = await api.post('/account/verification_email', null, {
+      params: {
+        email,
+        verify_type: verifyType, // 'LINK' или 'UNLINK'
+        verification_code: verificationCode
+      }
+    });
+    return response.data;
+  },
+};
+
 export default api;
