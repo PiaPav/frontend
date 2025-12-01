@@ -9,6 +9,7 @@ export default function NewProject() {
     description: '',
   });
   const [file, setFile] = useState(null);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -21,7 +22,14 @@ export default function NewProject() {
 
   function handleFileChange(e) {
     const f = e.target.files?.[0] || null;
-    setFile(f);
+    const LIMIT = 50 * 1024 * 1024; // 50 MB
+    if (f && f.size > LIMIT) {
+      // Keep the file selection but show premium modal
+      setFile(f);
+      setShowPremiumModal(true);
+    } else {
+      setFile(f);
+    }
     setError('');
   }
 
@@ -44,6 +52,13 @@ export default function NewProject() {
     }
 
     try {
+      const LIMIT = 50 * 1024 * 1024; // 50 MB
+      if (file && file.size > LIMIT) {
+        // Prevent submit and show premium modal
+        setShowPremiumModal(true);
+        setLoading(false);
+        return;
+      }
       // Отправка на backend
       const payload = { ...form };
       if (file) payload.file = file;
@@ -159,6 +174,35 @@ export default function NewProject() {
           </div>
         </form>
       </div>
+
+      {showPremiumModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowPremiumModal(false)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <button className={styles.modalClose} onClick={() => setShowPremiumModal(false)}>×</button>
+            <div className={styles.modalHeader}>
+              <h2>Требуется Premium</h2>
+              <div className={styles.warningBanner}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span>Файл превышает 50 МБ. Купить Premium для загрузки больших проектов.</span>
+              </div>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button className={styles.modalPrimaryBtn} onClick={() => { navigate('/pricing'); }}>
+                Купить Premium
+              </button>
+              <button className={styles.modalSecondaryBtn} onClick={() => { setFile(null); setShowPremiumModal(false); }}>
+                Продолжить без файла
+              </button>
+              <button className={styles.modalCancelBtn} onClick={() => setShowPremiumModal(false)}>
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
