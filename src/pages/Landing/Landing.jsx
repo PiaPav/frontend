@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import styles from './Landing.module.css';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import logoImage from '../../assets/img/logo/deep-learning.png';
 
 export default function Landing() {
     const [activeFaq, setActiveFaq] = useState(null);
+    const [showTrialModal, setShowTrialModal] = useState(false);
+    const navigate = useNavigate();
 
     const howItWorksSteps = [
         {
@@ -15,7 +17,7 @@ export default function Landing() {
         {
             icon: '🔍',
             title: 'Автоматический анализ',
-            description: 'Наш AI парсит зависимости, эндпоинты и строит граф вызовов в реальном времени'
+            description: 'Система парсит зависимости, эндпоинты и строит граф вызовов в реальном времени'
         },
         {
             icon: '📊',
@@ -87,10 +89,13 @@ export default function Landing() {
                     </p>
                     
                     <div className={styles.ctaButtons}>
-                        <Link to="/register" className={styles.primaryBtn}>
+                        <button 
+                            className={styles.primaryBtn}
+                            onClick={() => setShowTrialModal(true)}
+                        >
                             <span>Попробовать бесплатно</span>
                             <span className={styles.arrow}>→</span>
-                        </Link>
+                        </button>
                         <button 
                             className={styles.secondaryBtn}
                             onClick={() => scrollToSection('how-it-works')}
@@ -228,6 +233,51 @@ export default function Landing() {
                     </p>
                 </div>
             </footer>
+
+            {/* Trial Modal */}
+            {showTrialModal && (
+                <div className={styles.modalOverlay} onClick={() => setShowTrialModal(false)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                        <button 
+                            className={styles.modalClose}
+                            onClick={() => setShowTrialModal(false)}
+                        >
+                            ×
+                        </button>
+                        
+                        <div className={styles.modalHeader}>
+                            <h2>Пробная версия</h2>
+                            <div className={styles.warningBanner}>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                    <path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                                <span>Без регистрации можно создать только один проект</span>
+                            </div>
+                        </div>
+
+                        <div className={styles.modalActions}>
+                            <button 
+                                className={styles.modalPrimaryBtn}
+                                onClick={() => {
+                                    setShowTrialModal(false);
+                                    navigate('/projects/new');
+                                }}
+                            >
+                                Создать проект
+                            </button>
+                            <button 
+                                className={styles.modalSecondaryBtn}
+                                onClick={() => {
+                                    setShowTrialModal(false);
+                                    navigate('/register');
+                                }}
+                            >
+                                Зарегистрироваться
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
