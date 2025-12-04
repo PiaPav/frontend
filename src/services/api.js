@@ -129,6 +129,33 @@ export const projectsAPI = {
     const response = await api.delete(`/project/${id}`);
     return response.data;
   },
+
+  // SSE подключение для real-time обновлений архитектуры
+  // Используется вместо polling для получения данных через gRPC
+  streamArchitecture: (projectId, onMessage, onError) => {
+    const token = localStorage.getItem('access_token');
+    const eventSource = new EventSource(
+      `${API_BASE_URL}/project/${projectId}/stream?token=${token}`
+    );
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        onMessage(data);
+      } catch (err) {
+        console.error('Ошибка парсинга SSE данных:', err);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE ошибка:', error);
+      eventSource.close();
+      if (onError) onError(error);
+    };
+
+    // Возвращаем функцию для закрытия соединения
+    return () => eventSource.close();
+  },
 };
 
 // API для работы с аккаунтом

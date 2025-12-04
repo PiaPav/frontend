@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { projectsAPI } from '../../services/api';
+import { DEMO_PROJECT } from '../../data/demoProject';
 import styles from './Projects.module.css';
 
 export default function ProjectsList() {
@@ -23,12 +24,15 @@ export default function ProjectsList() {
       const response = await projectsAPI.getAll();
       // API возвращает { total: number, data: [...] }
       const projectsList = response.data || response || [];
-      setProjects(projectsList);
+      
+      // Всегда добавляем демо-проект первым
+      setProjects([DEMO_PROJECT, ...projectsList]);
       setError('');
     } catch (err) {
       console.error('Ошибка загрузки проектов:', err);
       setError('Не удалось загрузить проекты');
-      setProjects([]);
+      // Даже при ошибке показываем демо-проект
+      setProjects([DEMO_PROJECT]);
     } finally {
       setLoading(false);
     }
@@ -96,7 +100,7 @@ export default function ProjectsList() {
           </div>
         )}
 
-        {projects.length === 0 && !error ? (
+        {projects.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
             padding: '100px 20px',
@@ -104,13 +108,15 @@ export default function ProjectsList() {
             borderRadius: '20px',
             color: '#666'
           }}>
-            <h2 style={{ marginBottom: '10px', color: '#1a1a1a' }}>У вас пока нет проектов</h2>
-            <p>Создайте свой первый проект!</p>
+            <h2 style={{ marginBottom: '10px', color: '#1a1a1a' }}>Загрузка...</h2>
           </div>
         ) : (
           <div className={styles.projectsGrid}>
             {projects.map((project) => (
-              <div key={project.id} className={styles.projectCard}>
+              <div 
+                key={project.id} 
+                className={`${styles.projectCard} ${project.id === 'demo' ? styles.demoCard : ''}`}
+              >
                 <div className={styles.projectImage}>
                   {project.picture_url ? (
                     <img src={project.picture_url} alt={project.name} />

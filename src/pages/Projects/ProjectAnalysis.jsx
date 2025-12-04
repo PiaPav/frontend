@@ -10,6 +10,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import styles from './ProjectAnalysis.module.css';
 import { projectsAPI } from '../../services/api';
+import { DEMO_PROJECT } from '../../data/demoProject';
 
 export default function ProjectAnalysis() {
   const { id } = useParams();
@@ -28,12 +29,13 @@ export default function ProjectAnalysis() {
   const [endpoints, setEndpoints] = useState({});
   const [architectureData, setArchitectureData] = useState([]);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [isDemoProject, setIsDemoProject] = useState(false);
 
-  // Автосохранение архитектуры при выходе со страницы
+  // Автосохранение архитектуры при выходе со страницы (только для НЕ-демо проектов)
   useEffect(() => {
     const saveArchitecture = async () => {
-      // Сохраняем только если есть данные для сохранения
-      if (!project || !architectureData || architectureData.length === 0) return;
+      // Не сохраняем демо-проект
+      if (isDemoProject || !project || !architectureData || architectureData.length === 0) return;
       
       try {
         console.log('💾 Сохранение архитектуры проекта...');
@@ -62,92 +64,54 @@ export default function ProjectAnalysis() {
     return () => {
       saveArchitecture();
     };
-  }, [project, requirements, endpoints, architectureData]);
+  }, [project, requirements, endpoints, architectureData, isDemoProject]);
 
-  // Симуляция gRPC стрима с моковыми данными (пока бэкенд сломан)
+  // Загрузка проекта: демо = моковые данные, обычный = бекенд с polling
   useEffect(() => {
     let cancelled = false;
+    let pollInterval = null;
     
-    const _simulateStream = async () => {
-      setLoading(true);
-      setError(null);
-      
-      const mockData = {
-        name: `Project #${id}`,
-        description: 'Architecture Analysis',
-        architecture: {
-          requirements: [
-            'aio-pika', 'asyncpg', 'bcrypt', 'boto3', 'fastapi',
-            'grpcio', 'grpcio-tools', 'pika', 'protobuf', 'pyjwt',
-            'python-dotenv', 'python-multipart', 'pyyaml', 'sqlalchemy', 'uvicorn'
-          ],
-          endpoints: {
-            'registration': 'POST /v1/auth/registration',
-            'refresh': 'POST /v1/auth/refresh',
-            'patch_project': 'PATCH /v1/project/{project_id}',
-            'patch_account': 'PATCH /v1/account',
-            'login': 'POST /v1/auth/login',
-            'homepage': 'GET /v1/home',
-            'get_project': 'GET /v1/project/{project_id}',
-            'get_projects_list': 'GET /v1/project',
-            'get_account': 'GET /v1/account',
-            'delete_project': 'DELETE /v1/project/{project_id}',
-            'create_project': 'POST /v1/project',
-          },
-          data: {
-            'Account.create_account': ['datamanager/DatabaseManager.session', 'accounts/Account', 'accounts/session.add'],
-            'Account.get_account_by_id': ['datamanager/DatabaseManager.session', 'accounts/session.get', 'accounts/log.error', 'accounts/DataBaseEntityNotExists'],
-            'Project.create_project': ['datamanager/DatabaseManager.session', 'projects/Project', 'projects/session.add'],
-            'Project.get_project_by_id': ['datamanager/DatabaseManager.session', 'projects/session.get', 'projects/log.error', 'projects/DataBaseEntityNotExists'],
-            'get_account': ['account_endpoints/Depends', 'account_endpoints/log.info', 'auth_service/AuthService.verify_token', 'account_service/AccountService.get_account_by_id', 'account_endpoints/router.get'],
-            'patch_account': ['account_endpoints/Depends', 'account_endpoints/log.info', 'auth_service/AuthService.verify_token', 'account_service/AccountService.patch_account_by_id', 'account_endpoints/router.patch'],
-            'login': ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.login', 'auth_endpoints/router.post'],
-            'refresh': ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.refresh', 'auth_endpoints/router.post'],
-            'registration': ['auth_endpoints/Depends', 'auth_endpoints/log.info', 'auth_service/AuthService.registration', 'auth_endpoints/router.post'],
-            'get_project': ['project_endpoints/Depends', 'project_endpoints/log.info', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.get_project_by_id', 'project_endpoints/router.get'],
-            'create_project': ['project_endpoints/File', 'project_endpoints/Depends', 'project_endpoints/log.info', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.create_project', 'project_endpoints/router.post'],
-            'delete_project': ['project_endpoints/Depends', 'project_endpoints/log.info', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.delete_project', 'project_endpoints/router.delete'],
-            'get_projects_list': ['project_endpoints/Depends', 'project_endpoints/log.info', 'auth_service/AuthService.verify_token', 'project_service/ProjectService.get_projects_by_account_id', 'project_endpoints/router.get'],
-            'AuthService.registration': ['accounts/Account.is_login_exists', 'accounts/Account.create_account', 'auth_service/AccountData.model_validate'],
-            'AuthService.login': ['accounts/Account.get_account_by_login', 'auth_service/AccountData', 'auth_service/AuthResponseData'],
-            'AccountService.get_account_by_id': ['accounts/Account.get_account_by_id', 'account_service/AccountFullData.model_validate'],
-            'ProjectService.get_project_by_id': ['projects/Project.get_project_by_id', 'project_service/ProjectData'],
-            'ProjectService.create_project': ['projects/Project.create_project', 'project_service/ProjectData'],
-            'ProjectService.delete_project': ['projects/Project.delete_project'],
-            'ProjectService.get_projects_by_account_id': ['projects/Project.get_project_list_by_account_id', 'project_service/ProjectListDataLite'],
-          }
+    // Демо-проект: загружаем моковые данные один раз
+    if (id === 'demo') {
+      const loadDemo = async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          setIsDemoProject(true);
+          
+          console.log('📦 Загрузка ДЕМО проекта с моковыми данными');
+          
+          await new Promise(r => setTimeout(r, 500));
+          if (cancelled) return;
+          
+          setProject(DEMO_PROJECT);
+          setRequirements(DEMO_PROJECT.architecture.requirements);
+          setEndpoints(DEMO_PROJECT.architecture.endpoints);
+          
+          const archArray = Object.entries(DEMO_PROJECT.architecture.data).map(([parent, children]) => ({
+            parent,
+            children: Array.isArray(children) ? children : []
+          }));
+          setArchitectureData(archArray);
+          
+          setLoading(false);
+          setIsFirstLoad(false);
+        } catch (err) {
+          if (cancelled) return;
+          console.error('❌ Ошибка загрузки демо:', err);
+          setError('Ошибка загрузки демо-проекта');
+          setLoading(false);
         }
       };
       
-      await new Promise(r => setTimeout(r, 800));
-      if (cancelled) return;
+      loadDemo();
       
-      setProject(mockData);
-      
-      // Также устанавливаем данные напрямую для построения графа
-      setRequirements(mockData.architecture.requirements);
-      setEndpoints(mockData.architecture.endpoints);
-      
-      const archArray = Object.entries(mockData.architecture.data).map(([parent, children]) => ({
-        parent,
-        children: Array.isArray(children) ? children : []
-      }));
-      setArchitectureData(archArray);
-      setLoading(false);
-      setIsFirstLoad(false);
-    };
+      return () => {
+        cancelled = true;
+      };
+    }
     
-    _simulateStream();
-    
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
-
-  // Загрузка данных проекта с сервера с polling (СТАРЫЙ КОД - ЗАКОММЕНТИРОВАН)
-  /*useEffect(() => {
-    let pollInterval = null;
-    
+    // Обычный проект: polling с бекенда (данные приходят через gRPC)
     const loadProject = async () => {
       try {
         if (isFirstLoad) {
@@ -155,10 +119,15 @@ export default function ProjectAnalysis() {
           setError(null);
         }
         
+        setIsDemoProject(false);
+        console.log('🌐 Загрузка проекта с бекенда (polling), ID:', id);
+        
         const projectData = await projectsAPI.getById(id);
+        if (cancelled) return;
+        
         setProject(projectData);
         
-        // Извлекаем данные из architecture
+        // Извлекаем данные из architecture (они накапливаются через gRPC)
         if (projectData.architecture) {
           const arch = projectData.architecture;
           
@@ -169,18 +138,16 @@ export default function ProjectAnalysis() {
             }
           }
           
-          // Endpoints - могут быть массивом объектов или объектом
+          // Endpoints
           let endpointsObj = {};
           if (arch.endpoints) {
             if (Array.isArray(arch.endpoints)) {
-              // Если массив объектов: [{key1: value1}, {key2: value2}]
               arch.endpoints.forEach(endpoint => {
                 Object.entries(endpoint).forEach(([key, value]) => {
                   endpointsObj[key] = value;
                 });
               });
             } else if (typeof arch.endpoints === 'object') {
-              // Если уже объект: {key1: value1, key2: value2}
               endpointsObj = arch.endpoints;
             }
             
@@ -189,7 +156,7 @@ export default function ProjectAnalysis() {
             }
           }
           
-          // Architecture data - преобразуем из объекта в массив
+          // Architecture data
           if (arch.data && typeof arch.data === 'object') {
             const archArray = Object.entries(arch.data).map(([parent, children]) => ({
               parent,
@@ -201,9 +168,10 @@ export default function ProjectAnalysis() {
             }
           }
           
-          // Останавливаем polling когда данные полностью загружены (примерно 87 элементов архитектуры)
+          // Останавливаем polling когда данные полностью загружены
           const archCount = arch.data ? Object.keys(arch.data).length : 0;
           if (archCount >= 80 && arch.requirements?.length > 0) {
+            console.log('✅ Данные полностью загружены, останавливаем polling');
             if (pollInterval) {
               clearInterval(pollInterval);
               pollInterval = null;
@@ -216,6 +184,7 @@ export default function ProjectAnalysis() {
           setIsFirstLoad(false);
         }
       } catch (err) {
+        if (cancelled) return;
         console.error('❌ Ошибка загрузки проекта:', err);
         setError(err.response?.data?.detail || err.message || 'Не удалось загрузить проект');
         if (isFirstLoad) {
@@ -224,24 +193,22 @@ export default function ProjectAnalysis() {
         }
       }
     };
-
-    if (id) {
-      // Первая загрузка
+    
+    // Первая загрузка
+    loadProject();
+    
+    // Polling каждые 2 секунды для получения обновлений через gRPC
+    pollInterval = setInterval(() => {
       loadProject();
-      
-      // Polling каждые 2 секунды
-      pollInterval = setInterval(() => {
-        loadProject();
-      }, 2000);
-    }
+    }, 2000);
     
     return () => {
+      cancelled = true;
       if (pollInterval) {
         clearInterval(pollInterval);
       }
     };
   }, [id, requirements.length, endpoints, architectureData.length, isFirstLoad]);
-  */
 
   // Построение динамического графа из данных с сервера
   useEffect(() => {
@@ -1039,7 +1006,23 @@ export default function ProjectAnalysis() {
             ← Назад
           </button>
           <div className={styles.titleContainer}>
-            <h1 className={styles.title}>{project?.name || `Проект #${id}`}</h1>
+            <h1 className={styles.title}>
+              {project?.name || `Проект #${id}`}
+              {isDemoProject && (
+                <span style={{
+                  marginLeft: '12px',
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: 'white',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.4)'
+                }}>
+                  🎮 DEMO
+                </span>
+              )}
+            </h1>
             {project?.description && (
               <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>
                 {project.description}
@@ -1080,7 +1063,23 @@ export default function ProjectAnalysis() {
           ← Назад
         </button>
         <div className={styles.titleContainer}>
-          <h1 className={styles.title}>{project?.name || `Проект #${id}`}</h1>
+          <h1 className={styles.title}>
+            {project?.name || `Проект #${id}`}
+            {isDemoProject && (
+              <span style={{
+                marginLeft: '12px',
+                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: '0 2px 8px rgba(102, 126, 234, 0.4)'
+              }}>
+                🎮 DEMO
+              </span>
+            )}
+          </h1>
           {project?.description && (
             <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>
               {project.description}
