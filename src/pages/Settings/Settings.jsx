@@ -20,6 +20,7 @@ export default function Settings() {
   const [showVerification, setShowVerification] = useState(false);
   const [verifyType, setVerifyType] = useState('LINK'); // 'LINK' или 'UNLINK'
   const [successMessage, setSuccessMessage] = useState('');
+  const [emailJustLinked, setEmailJustLinked] = useState(false);
 
   useEffect(() => {
     loadAccountData();
@@ -66,7 +67,7 @@ export default function Settings() {
       } else if (errorData?.type === 'EMAIL_ALREADY_EXISTS') {
         setError('Email уже занят');
       } else if (errorData?.type === 'EMAIL_SEND_CRASH') {
-        setError('Ошибка отправки письма. Попробуйте позже');
+        setError('Сервис временно недоступен. Проводятся технические работы. Пожалуйста, попробуйте позже.');
       } else {
         setError(errorData?.message || 'Ошибка привязки email');
       }
@@ -97,7 +98,7 @@ export default function Settings() {
       if (errorData?.type === 'EMAIL_DONT_LINKED') {
         setError('Email не привязан к аккаунту');
       } else if (errorData?.type === 'EMAIL_SEND_CRASH') {
-        setError('Ошибка отправки письма. Попробуйте позже');
+        setError('Сервис временно недоступен. Проводятся технические работы. Пожалуйста, попробуйте позже.');
       } else {
         setError(errorData?.message || 'Ошибка отвязки email');
       }
@@ -131,6 +132,11 @@ export default function Settings() {
       setShowVerification(false);
       setEmail('');
       setVerificationCode('');
+      
+      // Устанавливаем флаг, что email только что был привязан
+      if (verifyType === 'LINK') {
+        setEmailJustLinked(true);
+      }
       
       // Перезагружаем данные аккаунта
       await loadAccountData();
@@ -194,7 +200,7 @@ export default function Settings() {
                 )}
               </div>
               
-              {!showVerification && (
+              {!showVerification && !emailJustLinked && (
                 <button 
                   className={styles.btnDanger}
                   onClick={handleUnlinkEmail}
