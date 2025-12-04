@@ -12,17 +12,12 @@ export default function Landing() {
         {
             icon: '📤',
             title: 'Загрузите проект',
-            description: 'Просто загрузите архив с вашим кодом или подключите репозиторий'
+            description: 'Просто загрузите архив с вашим кодом'
         },
         {
             icon: '🔍',
-            title: 'Автоматический анализ',
+            title: 'Анализ кода в реальном времени',
             description: 'Система парсит зависимости, эндпоинты и строит граф вызовов в реальном времени'
-        },
-        {
-            icon: '📊',
-            title: 'Визуализация',
-            description: 'Получите интерактивную карту архитектуры с 5 уровнями абстракции'
         },
         {
             icon: '⚡',
@@ -71,17 +66,20 @@ export default function Landing() {
                         <img src={logoImage} alt="PIAPAV logo" />
                         <span>PIAPAV</span>
                     </div>
-                    <nav className={styles.nav}>
-                        <button onClick={() => scrollToSection('how-it-works')}>How it works</button>
+                    <div className={styles.centerNav}>
+                        <button onClick={() => scrollToSection('how-it-works')}>Как это работает</button>
                         <button onClick={() => scrollToSection('faq')}>FAQ</button>
-                        <Link to="/login" className={styles.loginBtn}>Login</Link>
+                    </div>
+                    <nav className={styles.nav}>
+                        <Link to="/login" className={styles.loginBtn}>Вход</Link>
+                        <Link to="/register" className={styles.registerBtn}>Регистрация</Link>
                     </nav>
                 </div>
 
                 <div className={styles.heroContent}>
                     <h1 className={styles.heroTitle}>
                         Визуализируйте архитектуру
-                        <span className={styles.gradient}> в один клик</span>
+                        <span className={styles.gradient}> в один <span className={styles.clickWord}>клик</span></span>
                     </h1>
                     <p className={styles.heroDescription}>
                         Интерактивные диаграммы из вашего кода. PIAPAV анализирует модули, 
@@ -96,27 +94,6 @@ export default function Landing() {
                             <span>Попробовать бесплатно</span>
                             <span className={styles.arrow}>→</span>
                         </button>
-                        <button 
-                            className={styles.secondaryBtn}
-                            onClick={() => scrollToSection('how-it-works')}
-                        >
-                            Как это работает
-                        </button>
-                    </div>
-
-                    <div className={styles.stats}>
-                        <div className={styles.stat}>
-                            <span className={styles.statNumber}>5</span>
-                            <span className={styles.statLabel}>Уровней абстракции</span>
-                        </div>
-                        <div className={styles.stat}>
-                            <span className={styles.statNumber}>Real-time</span>
-                            <span className={styles.statLabel}>Анализ кода</span>
-                        </div>
-                        <div className={styles.stat}>
-                            <span className={styles.statNumber}>100%</span>
-                            <span className={styles.statLabel}>Безопасность</span>
-                        </div>
                     </div>
                 </div>
 
@@ -124,7 +101,7 @@ export default function Landing() {
                     className={styles.scrollBtn}
                     onClick={() => scrollToSection('how-it-works')}
                 >
-                    <span>Scroll down</span>
+                    <span>Прокрутить вниз</span>
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                         <path d="M12 5V19M12 19L19 12M12 19L5 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>

@@ -17,10 +17,11 @@
 
 .header {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     padding: 2rem 0;
     z-index: 10;
+    position: relative;
 }
 
 .logo {
@@ -29,6 +30,8 @@
     gap: 1rem;
     font-size: 1.5rem;
     font-weight: 600;
+    position: absolute;
+    left: 0;
 }
 
 .logo img {
@@ -36,10 +39,33 @@
     height: 40px;
 }
 
+.centerNav {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+
+.centerNav button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0.5rem 1rem;
+}
+
+.centerNav button:hover {
+    transform: translateY(-2px);
+    opacity: 0.8;
+}
+
 .nav {
     display: flex;
     gap: 2rem;
     align-items: center;
+    position: absolute;
+    right: 0;
 }
 
 .nav button {
@@ -50,7 +76,10 @@
     cursor: pointer;
     transition: all 0.3s ease;
     padding: 0.5rem 1rem;
+    display: flex;
+    justify-content: center;
 }
+.nav 
 
 .nav button:hover {
     transform: translateY(-2px);
@@ -68,6 +97,21 @@
 }
 
 .loginBtn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.registerBtn {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    padding: 0.75rem 2rem;
+    border-radius: 25px;
+    text-decoration: none;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.registerBtn:hover {
     background: rgba(255, 255, 255, 0.25);
     transform: translateY(-2px);
 }
@@ -98,6 +142,35 @@
     background-clip: text;
 }
 
+.clickWord {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    cursor: pointer;
+    background: linear-gradient(90deg, #fff, #e0c3fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.clickWord:hover {
+    animation: bounceWord 0.6s ease;
+}
+
+@keyframes bounceWord {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    25% {
+        transform: translateY(-10px);
+    }
+    50% {
+        transform: translateY(0);
+    }
+    75% {
+        transform: translateY(-5px);
+    }
+}
+
 .heroDescription {
     font-size: 1.3rem;
     max-width: 700px;
@@ -116,23 +189,25 @@
 }
 
 .primaryBtn {
-    background: white;
-    color: #667eea;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    color: white;
     padding: 1.2rem 3rem;
     border-radius: 50px;
     font-size: 1.1rem;
     font-weight: 600;
-    text-decoration: none;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     transition: all 0.3s ease;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
 }
 
 .primaryBtn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.6);
     transform: translateY(-3px);
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
 }
 
 .primaryBtn .arrow {
@@ -209,12 +284,7 @@
 /* Section Styles */
 .section {
     padding: 8rem 5%;
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px);
-}
-
-.section:nth-child(even) {
-    background: rgba(255, 255, 255, 0.08);
+    background: transparent;
 }
 
 .sectionContent {
@@ -394,7 +464,7 @@
 .ctaSection {
     padding: 8rem 5%;
     text-align: center;
-    background: rgba(255, 255, 255, 0.05);
+    background: transparent;
 }
 
 .ctaContent h2 {
