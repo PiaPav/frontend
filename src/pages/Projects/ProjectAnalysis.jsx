@@ -10,11 +10,14 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import styles from './ProjectAnalysis.module.css';
 import { projectsAPI } from '../../services/api';
+import grpcClient from '../../services/grpcClient';
 import { DEMO_PROJECT } from '../../data/demoProject';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ProjectAnalysis() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -30,48 +33,14 @@ export default function ProjectAnalysis() {
   const [architectureData, setArchitectureData] = useState([]);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isDemoProject, setIsDemoProject] = useState(false);
+  const [streamComplete, setStreamComplete] = useState(false);
+  const [abortController, setAbortController] = useState(null);
 
-  // Автосохранение архитектуры при выходе со страницы (только для НЕ-демо проектов)
-  useEffect(() => {
-    const saveArchitecture = async () => {
-      // Не сохраняем демо-проект
-      if (isDemoProject || !project || !architectureData || architectureData.length === 0) return;
-      
-      try {
-        console.log('💾 Сохранение архитектуры проекта...');
-        
-        // Преобразуем массив architectureData обратно в объект
-        const dataObject = {};
-        architectureData.forEach(item => {
-          dataObject[item.parent] = item.children;
-        });
-        
-        await projectsAPI.update(project.id, {
-          architecture: {
-            requirements: requirements,
-            endpoints: endpoints,
-            data: dataObject
-          }
-        });
-        
-        console.log('✅ Архитектура сохранена в БД');
-      } catch (err) {
-        console.error('❌ Ошибка сохранения архитектуры:', err);
-      }
-    };
-
-    // Сохраняем при размонтировании компонента (уход со страницы)
-    return () => {
-      saveArchitecture();
-    };
-  }, [project, requirements, endpoints, architectureData, isDemoProject]);
-
-  // Загрузка проекта: демо = моковые данные, обычный = бекенд с polling
+  // Загрузка проекта через REST + gRPC stream
   useEffect(() => {
     let cancelled = false;
-    let pollInterval = null;
     
-    // Демо-проект: загружаем моковые данные один раз
+    // Демо-проект: загружаем моковые данные
     if (id === 'demo') {
       const loadDemo = async () => {
         try {
@@ -79,7 +48,7 @@ export default function ProjectAnalysis() {
           setError(null);
           setIsDemoProject(true);
           
-          console.log('📦 Загрузка ДЕМО проекта с моковыми данными');
+          console.log('📦 Загрузка ДЕМО проекта');
           
           await new Promise(r => setTimeout(r, 500));
           if (cancelled) return;
@@ -93,6 +62,7 @@ export default function ProjectAnalysis() {
             children: Array.isArray(children) ? children : []
           }));
           setArchitectureData(archArray);
+          setStreamComplete(true);
           
           setLoading(false);
           setIsFirstLoad(false);
@@ -111,7 +81,7 @@ export default function ProjectAnalysis() {
       };
     }
     
-    // Обычный проект: polling с бекенда (данные приходят через gRPC)
+    // Реальный проект: REST + gRPC
     const loadProject = async () => {
       try {
         if (isFirstLoad) {
@@ -120,23 +90,20 @@ export default function ProjectAnalysis() {
         }
         
         setIsDemoProject(false);
-        console.log('🌐 Загрузка проекта с бекенда (polling), ID:', id);
+        console.log('🌐 Загрузка проекта через REST, ID:', id);
         
+        // 1. Получаем данные через REST API
         const projectData = await projectsAPI.getById(id);
         if (cancelled) return;
         
         setProject(projectData);
         
-        // Извлекаем данные из architecture (они накапливаются через gRPC)
-        if (projectData.architecture) {
-          const arch = projectData.architecture;
+        // Если архитектура уже есть - показываем её
+        if (projectData.architecture && projectData.architecture.requirements && projectData.architecture.requirements.length > 0) {
+          console.log('✅ Архитектура уже загружена, пропускаем gRPC');
           
-          // Requirements
-          if (arch.requirements && Array.isArray(arch.requirements)) {
-            if (requirements.length !== arch.requirements.length) {
-              setRequirements(arch.requirements);
-            }
-          }
+          const arch = projectData.architecture;
+          setRequirements(arch.requirements || []);
           
           // Endpoints
           let endpointsObj = {};
@@ -150,11 +117,8 @@ export default function ProjectAnalysis() {
             } else if (typeof arch.endpoints === 'object') {
               endpointsObj = arch.endpoints;
             }
-            
-            if (Object.keys(endpoints).length !== Object.keys(endpointsObj).length) {
-              setEndpoints(endpointsObj);
-            }
           }
+          setEndpoints(endpointsObj);
           
           // Architecture data
           if (arch.data && typeof arch.data === 'object') {
@@ -162,53 +126,115 @@ export default function ProjectAnalysis() {
               parent,
               children: Array.isArray(children) ? children : []
             }));
-            
-            if (architectureData.length !== archArray.length) {
-              setArchitectureData(archArray);
-            }
+            setArchitectureData(archArray);
           }
           
-          // Останавливаем polling когда данные полностью загружены
-          const archCount = arch.data ? Object.keys(arch.data).length : 0;
-          if (archCount >= 80 && arch.requirements?.length > 0) {
-            console.log('✅ Данные полностью загружены, останавливаем polling');
-            if (pollInterval) {
-              clearInterval(pollInterval);
-              pollInterval = null;
+          setStreamComplete(true);
+          setLoading(false);
+          setIsFirstLoad(false);
+          return;
+        }
+        
+        // 2. Если архитектуры нет - запускаем gRPC stream
+        setLoading(false);
+        setIsFirstLoad(false);
+        
+        console.log('📡 Запуск gRPC stream для анализа проекта');
+        
+        if (!user || !user.id) {
+          console.error('❌ User ID не найден');
+          setError('Ошибка авторизации. Перезайдите в систему.');
+          return;
+        }
+        
+        const controller = await grpcClient.connectToStream(user.id, parseInt(id), {
+          onStart: () => {
+            console.log('🎬 Анализ начался');
+          },
+          
+          onRequirements: (data) => {
+            console.log('📋 Requirements получены:', data.requirements.length);
+            setRequirements(data.requirements);
+          },
+          
+          onEndpoints: (data) => {
+            console.log('🔗 Endpoints получены:', Object.keys(data.endpoints).length);
+            setEndpoints(data.endpoints);
+          },
+          
+          onArchitecture: (data) => {
+            console.log('🏗️ Architecture часть получена:', data.parent);
+            setArchitectureData(prev => [...prev, {
+              parent: data.parent,
+              children: data.children
+            }]);
+          },
+          
+          onDone: async () => {
+            console.log('✅ gRPC Stream завершён');
+            setStreamComplete(true);
+            
+            // 3. Сохраняем финальную архитектуру через PATCH
+            try {
+              // Используем setTimeout чтобы дождаться обновления всех state
+              setTimeout(async () => {
+                const dataObject = {};
+                architectureData.forEach(item => {
+                  dataObject[item.parent] = item.children;
+                });
+                
+                await projectsAPI.update(parseInt(id), {
+                  architecture: {
+                    requirements: requirements,
+                    endpoints: endpoints,
+                    data: dataObject
+                  }
+                });
+                
+                console.log('💾 Архитектура сохранена в БД');
+              }, 1000);
+            } catch (err) {
+              console.error('❌ Ошибка сохранения архитектуры:', err);
             }
+          },
+          
+          onError: (error) => {
+            console.error('❌ gRPC ошибка:', error);
+            setError('Ошибка получения данных архитектуры. Попробуйте перезагрузить страницу.');
+            setStreamComplete(true);
           }
+        });
+        
+        setAbortController(controller);
+        
+      } catch (err) {
+        if (cancelled) return;
+        console.error('❌ Ошибка загрузки проекта:', err);
+        
+        if (err.response?.status === 401) {
+          // Redirect to login handled by interceptor
+          navigate('/login');
+        } else {
+          setError(err.response?.data?.detail || err.message || 'Не удалось загрузить проект');
         }
         
         if (isFirstLoad) {
           setLoading(false);
           setIsFirstLoad(false);
         }
-      } catch (err) {
-        if (cancelled) return;
-        console.error('❌ Ошибка загрузки проекта:', err);
-        setError(err.response?.data?.detail || err.message || 'Не удалось загрузить проект');
-        if (isFirstLoad) {
-          setLoading(false);
-          setIsFirstLoad(false);
-        }
       }
     };
     
-    // Первая загрузка
     loadProject();
     
-    // Polling каждые 2 секунды для получения обновлений через gRPC
-    pollInterval = setInterval(() => {
-      loadProject();
-    }, 2000);
-    
+    // Cleanup: отменяем stream при размонтировании
     return () => {
       cancelled = true;
-      if (pollInterval) {
-        clearInterval(pollInterval);
+      if (abortController) {
+        abortController.abort();
       }
     };
-  }, [id, requirements.length, endpoints, architectureData.length, isFirstLoad]);
+  }, [id, user]);
 
   // Построение динамического графа из данных с сервера
   useEffect(() => {

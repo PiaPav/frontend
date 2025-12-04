@@ -31,6 +31,12 @@ export default defineConfig({
         target: 'http://78.153.139.47:8000',
         changeOrigin: true,
         secure: false,
+      },
+      '/grpc': {
+        target: 'http://78.153.139.47:8080',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/grpc/, ''),
       }
     }
   },

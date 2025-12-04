@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, accountAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -23,9 +23,24 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
       
-      const userData = { login: credentials.login };
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
+      // Получаем полные данные пользователя с сервера
+      try {
+        const accountData = await accountAPI.getAccount();
+        const userData = {
+          id: accountData.id,
+          login: accountData.login,
+          name: accountData.name,
+          email: accountData.email
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+      } catch (accountError) {
+        console.error('Error fetching account data:', accountError);
+        // Fallback: сохраняем хотя бы логин
+        const userData = { login: credentials.login };
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+      }
       
       return { success: true };
     } catch (error) {
