@@ -6,6 +6,7 @@ import logoImage from '../../assets/img/logo/deep-learning.png';
 export default function Landing() {
     const [activeFaq, setActiveFaq] = useState(null);
     const [showTrialModal, setShowTrialModal] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const navigate = useNavigate();
 
     const howItWorksSteps = [
@@ -66,6 +67,17 @@ export default function Landing() {
                         <img src={logoImage} alt="PIAPAV logo" />
                         <span>PIAPAV</span>
                     </div>
+                    
+                    <button 
+                        className={styles.burgerBtn}
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        aria-label="Menu"
+                    >
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+
                     <div className={styles.centerNav}>
                         <button onClick={() => scrollToSection('how-it-works')}>Как это работает</button>
                         <button onClick={() => scrollToSection('faq')}>FAQ</button>
@@ -74,6 +86,14 @@ export default function Landing() {
                         <Link to="/login" className={styles.loginBtn}>Вход</Link>
                         <Link to="/register" className={styles.registerBtn}>Регистрация</Link>
                     </nav>
+                    
+                    {/* Mobile Menu */}
+                    <div className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ''}`}>
+                        <button onClick={() => { scrollToSection('how-it-works'); setMobileMenuOpen(false); }}>Как это работает</button>
+                        <button onClick={() => { scrollToSection('faq'); setMobileMenuOpen(false); }}>FAQ</button>
+                        <Link to="/login" onClick={() => setMobileMenuOpen(false)}>Вход</Link>
+                        <Link to="/register" onClick={() => setMobileMenuOpen(false)}>Регистрация</Link>
+                    </div>
                 </div>
 
                 <div className={styles.heroContent}>

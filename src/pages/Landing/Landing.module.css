@@ -19,7 +19,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 2rem 0;
+    padding: 1rem 0;
     z-index: 10;
     position: relative;
 }
@@ -37,6 +37,29 @@
 .logo img {
     width: 40px;
     height: 40px;
+}
+
+.burgerBtn {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    z-index: 1001;
+}
+
+.burgerBtn span {
+    width: 25px;
+    height: 3px;
+    background: white;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.mobileMenu {
+    display: none;
 }
 
 .centerNav {
@@ -263,7 +286,7 @@
 /* Scroll Button */
 .scrollBtn {
     position: absolute;
-    bottom: 2rem;
+    bottom: 4rem;
     left: 50%;
     transform: translateX(-50%);
     background: none;
@@ -283,7 +306,7 @@
 
 /* Section Styles */
 .section {
-    padding: 8rem 5%;
+    padding: 4rem 5%;
     background: transparent;
 }
 
@@ -462,7 +485,7 @@
 
 /* CTA Section */
 .ctaSection {
-    padding: 8rem 5%;
+    padding: 4rem 5%;
     text-align: center;
     background: transparent;
 }
@@ -718,11 +741,11 @@
 
 @media (max-width: 768px) {
     .heroTitle {
-        font-size: 3rem;
+        font-size: 2.2rem;
     }
 
     .heroDescription {
-        font-size: 1.1rem;
+        font-size: 1rem;
     }
 
     .ctaButtons {
@@ -749,11 +772,71 @@
     }
 
     .sectionTitle {
-        font-size: 2.5rem;
+        font-size: 2rem;
     }
 
+    .section {
+        padding: 3rem 5%;
+    }
+
+    .ctaSection {
+        padding: 3rem 5%;
+    }
+
+    /* Hide desktop nav, show burger menu */
+    .centerNav,
     .nav {
-        gap: 1rem;
+        display: none;
+    }
+
+    .burgerBtn {
+        display: flex;
+        position: absolute;
+        right: 0;
+    }
+
+    .mobileMenu {
+        display: flex;
+        flex-direction: column;
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 70%;
+        height: 100vh;
+        background: rgba(102, 126, 234, 0.98);
+        backdrop-filter: blur(10px);
+        padding: 5rem 2rem 2rem;
+        gap: 1.5rem;
+        transition: right 0.3s ease;
+        z-index: 1000;
+        box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .mobileMenuOpen {
+        right: 0;
+    }
+
+    .mobileMenu button,
+    .mobileMenu a {
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        color: white;
+        padding: 1rem;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        text-align: center;
+    }
+
+    .mobileMenu button:hover,
+    .mobileMenu a:hover {
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    .scrollBtn {
+        bottom: 2rem;
     }
 
     .footerContent {
