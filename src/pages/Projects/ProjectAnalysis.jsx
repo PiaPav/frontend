@@ -82,6 +82,22 @@ export default function ProjectAnalysis() {
     }
     
     // Реальный проект: REST + gRPC
+    //
+    // ПОТОК РАБОТЫ СОГЛАСНО БЭКЕНД СПЕЦИФИКАЦИИ:
+    // 1. REST: GET /v1/project/{project_id} - получаем метаданные проекта
+    //    - Требует: Authorization: Bearer <JWT> (добавляется автоматически через interceptor)
+    //    - Ответ: {id, name, description, picture_url, architecture:{requirements[], endpoints[], data{}}}
+    //    - Если architecture уже есть - показываем, пропускаем gRPC
+    //
+    // 2. gRPC Stream: /core.api.FrontendStreamService/RunAlgorithm
+    //    - Если архитектуры нет - запускаем анализ через gRPC-Web
+    //    - Запрос: AlgorithmRequest {user_id: int64, task_id: int64}
+    //    - Ответ: серверный стрим GraphPartResponse с порядком:
+    //      START → REQUIREMENTS → ENDPOINTS → ARCHITECTURE (несколько раз) → DONE
+    //    - КРИТИЧЕСКИ ВАЖНО: Stream считается успешным ТОЛЬКО если получен DONE
+    //      Если stream оборвался до DONE - это ошибка, показываем пользователю
+    //
+    // 3. После получения DONE - сохраняем архитектуру через PATCH /v1/project/{id}
     const loadProject = async () => {
       try {
         if (isFirstLoad) {
@@ -203,14 +219,59 @@ export default function ProjectAnalysis() {
             const errorMessage = error.message || 'Ошибка получения данных архитектуры';
             
             // Проверяем конкретные типы ошибок
-            if (errorMessage.includes('500')) {
-              setError('Внутренняя ошибка сервера при анализе проекта. Проверьте логи бэкенда или попробуйте позже.');
+            if (errorMessage.includes('прерван преждевременно')) {
+              setError('⚠️ Анализ не был завершён корректно.\n\n' +
+                'Stream оборвался до получения статуса DONE.\n\n' +
+                'Возможные причины:\n' +
+                '• Ошибка в алгоритме анализа проекта\n' +
+                '• Таймаут обработки (слишком большой проект)\n' +
+                '• Повреждён архив или файлы проекта\n' +
+                '• Недостаточно памяти на сервере\n\n' +
+                'Детали:\n' + errorMessage + '\n\n' +
+                'Проверьте логи Core gRPC сервиса:\n' +
+                'docker logs -f core-service');
+            } else if (errorMessage.includes('500')) {
+              setError('⚠️ Внутренняя ошибка сервера при анализе проекта.\n\n' +
+                'Возможные причины:\n' +
+                '• Проект не найден в БД (task_id не существует)\n' +
+                '• Поле files_url пустое или файл отсутствует в S3\n' +
+                '• Ошибка парсинга кода или распаковки архива\n' +
+                '• Исключение (Exception) в алгоритме RunAlgorithm\n\n' +
+                'Что проверить на бэкенде:\n' +
+                '1. docker logs -f core-service (ищите traceback)\n' +
+                '2. SELECT id, author_id, files_url FROM projects WHERE id=' + id + '\n' +
+                '3. Проверьте, существует ли файл в S3 (ключ из files_url)\n' +
+                '4. docker logs -f envoy (upstream connect error?)\n\n' +
+                'Детали: ' + errorMessage);
             } else if (errorMessage.includes('404')) {
-              setError('Сервис анализа недоступен. Проверьте, что gRPC сервер запущен.');
+              setError('❌ Сервис анализа недоступен (404).\n\n' +
+                'Проверьте конфигурацию Envoy:\n' +
+                '• Роутинг для /core.api.FrontendStreamService/RunAlgorithm\n' +
+                '• Upstream cluster указывает на core-service:50051\n' +
+                '• Core gRPC сервис запущен: docker ps | grep core');
+            } else if (errorMessage.includes('502') || errorMessage.includes('503')) {
+              setError('❌ Сервис анализа временно недоступен (502/503).\n\n' +
+                'Core gRPC сервер недоступен через Envoy.\n\n' +
+                'Проверьте:\n' +
+                '• docker ps (core-service запущен?)\n' +
+                '• docker logs envoy (upstream connect error?)\n' +
+                '• GRPC_HOST в .env алгоритм-сервиса указывает на core-service');
             } else if (errorMessage.includes('Failed to fetch')) {
-              setError('Не удалось подключиться к серверу анализа. Проверьте настройки Envoy и gRPC сервиса.');
+              setError('❌ Не удалось подключиться к серверу анализа.\n\n' +
+                'Проверьте сетевое подключение:\n' +
+                '• Vite proxy: /grpc → http://78.153.139.47:8080\n' +
+                '• Envoy доступен: curl http://78.153.139.47:8080\n' +
+                '• Нет блокировки CORS или firewall');
+            } else if (errorMessage.includes('завершился без данных')) {
+              setError('❌ Stream завершился без получения данных.\n\n' +
+                'Backend не отправил ни одного сообщения.\n\n' +
+                'Возможные причины:\n' +
+                '• Проект не принадлежит user_id=' + user.id + '\n' +
+                '• Проект не найден в БД (task_id=' + id + ')\n' +
+                '• Ошибка перед началом отправки данных\n\n' +
+                'Проверьте логи Core: docker logs -f core-service');
             } else {
-              setError(`${errorMessage}. Попробуйте перезагрузить страницу.`);
+              setError(`❌ Ошибка: ${errorMessage}\n\nПопробуйте перезагрузить страницу или обратитесь к администратору.`);
             }
             setStreamComplete(true);
           }
