@@ -200,7 +200,18 @@ export default function ProjectAnalysis() {
           
           onError: (error) => {
             console.error('❌ gRPC ошибка:', error);
-            setError('Ошибка получения данных архитектуры. Попробуйте перезагрузить страницу.');
+            const errorMessage = error.message || 'Ошибка получения данных архитектуры';
+            
+            // Проверяем конкретные типы ошибок
+            if (errorMessage.includes('500')) {
+              setError('Внутренняя ошибка сервера при анализе проекта. Проверьте логи бэкенда или попробуйте позже.');
+            } else if (errorMessage.includes('404')) {
+              setError('Сервис анализа недоступен. Проверьте, что gRPC сервер запущен.');
+            } else if (errorMessage.includes('Failed to fetch')) {
+              setError('Не удалось подключиться к серверу анализа. Проверьте настройки Envoy и gRPC сервиса.');
+            } else {
+              setError(`${errorMessage}. Попробуйте перезагрузить страницу.`);
+            }
             setStreamComplete(true);
           }
         });

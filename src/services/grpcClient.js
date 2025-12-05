@@ -27,6 +27,42 @@ class GRPCArchitectureClient {
     } else {
       this.envoyUrl = 'http://78.153.139.47:8080'; // Production
     }
+    
+    // Health check при инициализации
+    this.checkHealth();
+  }
+
+  /**
+   * Проверка доступности gRPC сервиса
+   */
+  async checkHealth() {
+    try {
+      console.log('🏥 Проверка доступности backend сервисов...');
+      
+      // 1. Проверка REST API (FastAPI на порту 8000)
+      const restUrl = import.meta.env.DEV 
+        ? '/v1/health' 
+        : 'http://78.153.139.47:8000/v1/health';
+      
+      const restResponse = await fetch(restUrl);
+      if (restResponse.ok) {
+        const restData = await restResponse.json();
+        console.log('✅ REST API доступен:', restData);
+      } else {
+        console.warn('⚠️ REST API недоступен:', {
+          status: restResponse.status,
+          statusText: restResponse.statusText
+        });
+      }
+
+      // 2. Проверка gRPC через Envoy (порт 8080)
+      // Попробуем простой запрос к Envoy
+      const grpcUrl = `${this.envoyUrl}/core.api.FrontendStreamService/RunAlgorithm`;
+      console.log('🔍 Проверка gRPC Envoy:', grpcUrl);
+      
+    } catch (error) {
+      console.error('❌ Ошибка health check:', error.message);
+    }
   }
 
   /**
@@ -52,44 +88,79 @@ class GRPCArchitectureClient {
       const url = `${this.envoyUrl}/core.api.FrontendStreamService/RunAlgorithm`;
       
       // Создаём тело запроса в формате JSON (Envoy может транскодить JSON в Protobuf)
-      const requestBody = JSON.stringify({
-        user_id: userId,
-        task_id: taskId
+      // Создаем простой JSON payload
+      const payload = {
+        user_id: parseInt(userId),
+        task_id: parseInt(taskId)
+      };
+      
+      const requestBody = JSON.stringify(payload);
+
+      console.log('📤 Отправка gRPC запроса:', { 
+        url, 
+        payload
       });
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/grpc-web+json',
-          'Accept': 'application/grpc-web+json',
-          'X-User-Agent': 'grpc-web-javascript/0.1',
-          'X-Grpc-Web': '1'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Grpc-Web': '1',
         },
         body: requestBody,
         signal: abortController.signal
       });
 
+      console.log('📡 Получен ответ:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        grpcStatus: response.headers.get('grpc-status'),
+        grpcMessage: response.headers.get('grpc-message'),
+      });
+
       if (!response.ok) {
-        throw new Error(`gRPC request failed: ${response.status} ${response.statusText}`);
+        let errorText = 'Нет детальной информации';
+        try {
+          errorText = await response.text();
+          if (!errorText) {
+            errorText = 'Пустой ответ от сервера';
+          }
+        } catch (e) {
+          console.warn('Не удалось прочитать текст ошибки:', e);
+        }
+        
+        console.error('❌ gRPC response error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+        
+        throw new Error(`gRPC request failed: ${response.status} ${response.statusText}. ${errorText}`);
       }
 
-      // Читаем stream построчно
+      console.log('✅ gRPC соединение установлено, читаем stream...');
+
+      // Читаем stream построчно (newline-delimited JSON)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let messageCount = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         
         if (done) {
-          console.log('📭 Stream завершён');
+          console.log(`📭 Stream завершён. Получено сообщений: ${messageCount}`);
           break;
         }
 
         // Декодируем чанк и добавляем в буфер
         buffer += decoder.decode(value, { stream: true });
         
-        // Обрабатываем построчно (каждая строка = JSON объект GraphPartResponse)
+        // Обрабатываем построчно (каждая строка = JSON объект)
         const lines = buffer.split('\n');
         buffer = lines.pop(); // Последняя неполная строка остаётся в буфере
         
@@ -98,14 +169,19 @@ class GRPCArchitectureClient {
           
           try {
             const message = JSON.parse(line);
+            messageCount++;
+            console.log(`📬 Получено сообщение #${messageCount}:`, message.status || message);
             this._handleStreamMessage(message, callbacks);
           } catch (parseError) {
-            console.error('❌ Ошибка парсинга gRPC сообщения:', parseError, line);
+            console.error('❌ Ошибка парсинга сообщения:', parseError, line);
           }
         }
       }
 
       // Проверяем, был ли получен статус DONE
+      if (messageCount === 0) {
+        console.warn('⚠️ Stream завершился без сообщений');
+      }
       callbacks.onDone?.();
 
     } catch (error) {
