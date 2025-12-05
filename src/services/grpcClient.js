@@ -63,16 +63,28 @@ const GraphStatus = {
  */
 class GRPCArchitectureClient {
   constructor(envoyUrl = null) {
-    // В dev режиме используем прокси Vite, в prod - прямой адрес Envoy
-    if (envoyUrl) {
+    const envGrpcUrl = import.meta.env?.VITE_GRPC_URL;
+    // Приоритет: VITE_GRPC_URL → переданный аргумент → dev proxy /grpc → продовый Envoy
+    if (envGrpcUrl) {
+      this.envoyUrl = envGrpcUrl;
+    } else if (envoyUrl) {
       this.envoyUrl = envoyUrl;
-    } else if (import.meta.env.DEV) {
-      this.envoyUrl = '/grpc'; // Vite proxy (исправлен для streaming)
+    } else if (import.meta.env?.DEV) {
+      this.envoyUrl = '/grpc';
     } else {
-      this.envoyUrl = 'http://78.153.139.47:8080'; // Production
+      this.envoyUrl = 'http://78.153.139.47:8080';
     }
-    
-    console.log('🔧 gRPC Client инициализирован:', this.envoyUrl);
+
+    console.log('[grpc] init', {
+      envoyUrl: this.envoyUrl,
+      envGrpcUrl,
+      passedEnvoyUrl: envoyUrl,
+      locationOrigin: typeof window !== 'undefined' ? window.location.origin : 'n/a',
+      dev: import.meta.env?.DEV,
+    });
+    if (typeof this.envoyUrl === 'string' && this.envoyUrl.startsWith('/')) {
+      console.warn('[grpc] base URL looks relative, check VITE_GRPC_URL');
+    }
   }
 
   /**
@@ -565,3 +577,6 @@ const grpcClient = new GRPCArchitectureClient();
 
 export { GRPCArchitectureClient, grpcClient, GraphStatus };
 export default grpcClient;
+
+
+

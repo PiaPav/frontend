@@ -13,10 +13,13 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import styles from './ProjectViewStream.module.css';
 import { projectsAPI } from '../../services/api';
+import grpcClient from '../../services/grpcClient';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ProjectViewStream() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -31,70 +34,158 @@ export default function ProjectViewStream() {
   
   const [streamStatus, setStreamStatus] = useState('connecting'); // connecting, streaming, done
   const [progress, setProgress] = useState({ total: 0, current: 0 });
+  const [error, setError] = useState(null);
 
-  // Load project data from backend
+  // Load project data from backend or stream via gRPC if architecture is missing
   useEffect(() => {
     let cancelled = false;
-    const loadSequential = async () => {
+    let controller = null;
+
+    const normalizeEndpoints = (raw) => {
+      if (!raw) return {};
+      if (Array.isArray(raw)) {
+        const result = {};
+        raw.forEach((entry) => {
+          if (entry && typeof entry === 'object') {
+            Object.entries(entry).forEach(([key, value]) => {
+              result[key] = value;
+            });
+          }
+        });
+        return result;
+      }
+      return typeof raw === 'object' ? raw : {};
+    };
+
+    const normalizeArchitecture = (raw) => {
+      if (!raw) return [];
+      if (Array.isArray(raw)) {
+        return raw
+          .map((item) => ({
+            parent: item.parent || item.name || '',
+            children: Array.isArray(item.children) ? item.children : []
+          }))
+          .filter((item) => item.parent);
+      }
+      if (typeof raw === 'object') {
+        return Object.entries(raw).map(([parent, children]) => ({
+          parent,
+          children: Array.isArray(children) ? children : (children ? Object.values(children) : [])
+        }));
+      }
+      return [];
+    };
+
+    const loadData = async () => {
       try {
-        setStreamStatus('streaming');
+        setStreamStatus('connecting');
+        setError(null);
+        setProgress({ total: 0, current: 0 });
 
         if (!id) {
           setStreamStatus('error');
-          console.error('No project ID provided');
+          setError('No project ID provided');
           return;
         }
 
-        // GET /v1/project/{id}
+        // 1) Try to load saved architecture from REST
         const res = await projectsAPI.getById(id);
-        const arch = res.architecture || {};
-
-        const reqs = arch.requirements || [];
-        const eps = arch.endpoints || {};
-        const archParts = arch.data || arch.architecture || arch.parts || [];
-
-        setProgress({ total: reqs.length + Object.keys(eps).length + archParts.length, current: 0 });
-
-        // 1) Requirements
-        await new Promise((r) => setTimeout(r, 300));
         if (cancelled) return;
-        setRequirements(reqs);
-        setProgress((p) => ({ ...p, current: (p.current || 0) + reqs.length }));
+        const arch = res?.architecture || {};
 
-        // 2) Endpoints
-        await new Promise((r) => setTimeout(r, 400));
-        if (cancelled) return;
-        setEndpoints(eps);
+        const reqs = Array.isArray(arch.requirements) ? arch.requirements : [];
+        const eps = normalizeEndpoints(arch.endpoints);
+        const archParts = normalizeArchitecture(arch.data || arch.architecture || arch.parts);
 
-        // 3) Architecture - add parts one by one to emulate streaming
-        for (let i = 0; i < archParts.length; i++) {
-          await new Promise((r) => setTimeout(r, 150));
-          if (cancelled) return;
-          setArchitecture((prev) => [...prev, archParts[i]]);
-          setProgress((prev) => ({ ...prev, current: (prev.current || 0) + 1 }));
+        if (reqs.length || Object.keys(eps).length || archParts.length) {
+          setRequirements(reqs);
+          setEndpoints(eps);
+          setArchitecture(archParts);
+          const totalCount = reqs.length + Object.keys(eps).length + archParts.length;
+          setProgress({ total: totalCount, current: totalCount });
+          setStreamStatus('done');
+          return;
         }
 
-        setStreamStatus('done');
+        // 2) If nothing saved yet, stream from Core via gRPC
+        if (!user?.id) {
+          setStreamStatus('error');
+          setError('Missing user id for gRPC call');
+          return;
+        }
+
+        setStreamStatus('streaming');
+        controller = await grpcClient.connectToStream(user.id, parseInt(id, 10), {
+          onStart: () => {
+            if (cancelled) return;
+            setProgress({ total: 0, current: 0 });
+          },
+          onRequirements: (data) => {
+            if (cancelled) return;
+            const reqList = data?.requirements || [];
+            setRequirements(reqList);
+            setProgress((prev) => ({
+              total: Math.max(prev.total, prev.current + reqList.length),
+              current: prev.current + reqList.length
+            }));
+          },
+          onEndpoints: (data) => {
+            if (cancelled) return;
+            const normalized = normalizeEndpoints(data?.endpoints);
+            const count = Object.keys(normalized).length;
+            setEndpoints(normalized);
+            setProgress((prev) => ({
+              total: Math.max(prev.total, prev.current + count),
+              current: prev.current + count
+            }));
+          },
+          onArchitecture: (data) => {
+            if (cancelled) return;
+            setArchitecture((prev) => [...prev, { parent: data.parent, children: data.children || [] }]);
+            setProgress((prev) => ({
+              total: Math.max(prev.total, prev.current + 1),
+              current: prev.current + 1
+            }));
+          },
+          onDone: () => {
+            if (cancelled) return;
+            setStreamStatus('done');
+          },
+          onError: (err) => {
+            if (cancelled) return;
+            console.error('gRPC stream error', err);
+            setStreamStatus('error');
+            setError(err?.message || 'gRPC stream error');
+          }
+        });
+
       } catch (err) {
+        if (cancelled) return;
         console.error('Load error', err);
         setStreamStatus('error');
+        setError(err?.message || 'Failed to load project');
       }
     };
 
-    loadSequential();
+    loadData();
 
-    return () => { cancelled = true; };
-  }, [id]);
+    return () => {
+      cancelled = true;
+      controller?.abort();
+    };
+  }, [id, user]);
 
   // Группировка endpoints по классам
   const endpointsByClass = useMemo(() => {
     const grouped = {};
     Object.entries(endpoints).forEach(([route, handler]) => {
-      const [className, methodName] = handler.split('.');
-      if (!grouped[className]) {
-        grouped[className] = [];
+      const handlerStr = typeof handler === 'string' ? handler : '';
+      const [className, methodName] = handlerStr.split('.');
+      const bucket = className || 'Other';
+      if (!grouped[bucket]) {
+        grouped[bucket] = [];
       }
-      grouped[className].push({ route, method: methodName });
+      grouped[bucket].push({ route, method: methodName || handlerStr || route });
     });
     return grouped;
   }, [endpoints]);
@@ -124,7 +215,10 @@ export default function ProjectViewStream() {
     const classMethods = {};
     
     architecture.forEach((arch) => {
-      const [className, methodName] = arch.parent.split('.');
+      if (!arch?.parent) {
+        return;
+      }
+      const [className, methodName] = String(arch.parent).split('.');
       if (!classMethods[className]) {
         classMethods[className] = [];
       }
@@ -280,7 +374,13 @@ export default function ProjectViewStream() {
         <div className={styles.projectInfo}>
           <h1>Project #{id} - Architecture Visualization</h1>
           <p className={styles.statusBadge}>
-            Status: {streamStatus === 'streaming' ? '🔄 Receiving data...' : streamStatus === 'done' ? '✅ Complete' : '⏳ Connecting...'}
+            Status: {streamStatus === 'streaming'
+              ? '🔄 Receiving data...'
+              : streamStatus === 'done'
+                ? '✅ Complete'
+                : streamStatus === 'error'
+                  ? '⛔ Error'
+                  : '⏳ Connecting...'}
           </p>
         </div>
         <div className={styles.stats}>
@@ -300,6 +400,12 @@ export default function ProjectViewStream() {
           </div>
         </div>
       </header>
+
+      {streamStatus === 'error' && error && (
+        <div style={{ color: '#e53e3e', padding: '8px 40px 0', fontWeight: 600 }}>
+          {error}
+        </div>
+      )}
 
       <div className={styles.content}>
         {/* Left column: Requirements */}
