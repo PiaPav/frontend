@@ -282,11 +282,17 @@ class GRPCArchitectureClient {
     console.log(`📡 Подключение к gRPC стриму: user_id=${userId}, task_id=${taskId}`);
 
     const abortController = new AbortController();
-    let receivedDone = false; // Флаг для отслеживания получения статуса DONE
+    let receivedDone = false;
+    let timedOut = false;
+    const timeoutMs = Number(import.meta.env?.VITE_GRPC_TIMEOUT_MS ?? 60000);
+    
+    // Таймаут будет запущен ПОСЛЕ получения response, а не до
+    let timeoutId = null;
     
     try {
       // URL для gRPC-Web запроса через Envoy
       const url = `${this.envoyUrl}/core.api.FrontendStreamService/RunAlgorithm`;
+      console.log('[grpc] connect', { url: `${this.envoyUrl}/core.api.FrontendStreamService/RunAlgorithm`, envoyUrl: this.envoyUrl, envGrpcUrl: import.meta.env?.VITE_GRPC_URL, dev: import.meta.env?.DEV, userId, taskId });
       
       // Создаём бинарный Protobuf запрос
       const requestBody = this.encodeAlgorithmRequest(parseInt(userId), parseInt(taskId));
@@ -309,6 +315,9 @@ class GRPCArchitectureClient {
       console.log('🔍 Decoded: field 1 (user_id)=' + userId + ', field 2 (task_id)=' + taskId);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
+      console.log('⏳ Отправка fetch запроса...');
+      const fetchStartTime = Date.now();
+      
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -320,16 +329,33 @@ class GRPCArchitectureClient {
         body: requestBody,
         signal: abortController.signal
       });
+      
+      const fetchDuration = Date.now() - fetchStartTime;
+      console.log(`✅ Fetch завершён за ${fetchDuration}ms`);
+      
+      // ВАЖНО: Запускаем таймаут ПОСЛЕ получения response
+      // Таймаут нужен для случая когда stream зависает и не присылает DONE
+      if (timeoutMs > 0) {
+        timeoutId = setTimeout(() => {
+          timedOut = true;
+          abortController.abort();
+          console.error('[grpc] timeout waiting for DONE status, aborting stream', { userId, taskId, timeoutMs });
+        }, timeoutMs);
+      }
 
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('📥 ПОЛУЧЕН ОТВЕТ');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('📊 HTTP Status:', response.status, response.statusText);
+      console.log('📊 response.ok:', response.ok);
       console.log('📦 Response Headers:');
       console.log('  • Content-Type:', response.headers.get('content-type'));
       console.log('  • grpc-status:', response.headers.get('grpc-status'));
       console.log('  • grpc-message:', response.headers.get('grpc-message'));
       console.log('  • transfer-encoding:', response.headers.get('transfer-encoding'));
+      console.log('📖 Response body exists:', !!response.body);
+      console.log('📖 Response body type:', typeof response.body);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       if (!response.ok) {
@@ -508,8 +534,15 @@ class GRPCArchitectureClient {
       callbacks.onDone?.();
 
     } catch (error) {
+      if (timeoutId) clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        console.log('🛑 Stream отменён');
+        if (timedOut) {
+          console.error('[grpc] timeout waiting for DONE status, stream aborted', { userId, taskId, timeoutMs });
+          const timeoutError = new Error('gRPC request timed out: DONE status not received');
+          callbacks.onError?.(timeoutError);
+        } else {
+          console.log('🛑 Stream отменён');
+        }
       } else {
         console.error('❌ gRPC stream error:', error);
         callbacks.onError?.(error);
@@ -577,6 +610,10 @@ const grpcClient = new GRPCArchitectureClient();
 
 export { GRPCArchitectureClient, grpcClient, GraphStatus };
 export default grpcClient;
+
+
+
+
 
 
 

@@ -54,12 +54,21 @@ export const AuthProvider = ({ children }) => {
       }
       
       const detail = error.response?.data?.detail;
-      let errorMessage = 'Ошибка входа';
+      let errorMessage = backendMessage || '?????? ???????????.';
       
       if (typeof detail === 'string') {
         errorMessage = detail;
       } else if (Array.isArray(detail)) {
         errorMessage = detail.map(err => err.msg).join(', ');
+      }
+      if (!backendMessage && backendType) {
+        errorMessage = `${backendType}${errorMessage ? ': ' + errorMessage : ''}`;
+      }
+      if (backendMessage) {
+        errorMessage = backendMessage;
+      }
+      if (status === 409 && backendMessage) {
+        errorMessage = backendMessage;
       }
       
       return {
@@ -85,6 +94,9 @@ export const AuthProvider = ({ children }) => {
       return { success: true, data, needLogin: true };
     } catch (error) {
       console.error('Registration error:', error);
+      const status = error.response?.status;
+      const backendMessage = error.response?.data?.message;
+      const backendType = error.response?.data?.type;
       
       if (error.code === 'ERR_NETWORK') {
         return {
@@ -102,7 +114,7 @@ export const AuthProvider = ({ children }) => {
       
       // Обработка ответа от сервера
       const detail = error.response?.data?.detail;
-      let errorMessage = 'Ошибка регистрации';
+      let errorMessage = backendMessage || '?????? ???????????.';
       
       if (typeof detail === 'string') {
         errorMessage = detail;
@@ -138,3 +150,6 @@ export const useAuth = () => {
   }
   return context;
 };
+
+
+

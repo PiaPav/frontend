@@ -1,68 +1,8 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugins: [
-    react(),
-    // Custom middleware для gRPC-Web streaming
-    {
-      name: 'grpc-proxy',
-      configureServer(server) {
-        server.middlewares.use(async (req, res, next) => {
-          // Проксируем только /grpc/* запросы
-          if (req.url?.startsWith('/grpc/')) {
-            const targetUrl = 'http://78.153.139.47:8080' + req.url.replace('/grpc', '');
-            
-            try {
-              // Собираем body
-              const chunks = [];
-              req.on('data', chunk => chunks.push(chunk));
-              req.on('end', async () => {
-                const body = Buffer.concat(chunks);
-                
-                // Проксируем запрос
-                const response = await fetch(targetUrl, {
-                  method: req.method,
-                  headers: {
-                    'Content-Type': req.headers['content-type'] || 'application/grpc-web+proto',
-                    'Accept': req.headers['accept'] || 'application/grpc-web+proto',
-                    'X-Grpc-Web': '1',
-                    'X-User-Agent': 'grpc-web-javascript/0.1',
-                  },
-                  body: req.method === 'POST' ? body : undefined,
-                });
-                
-                // Копируем headers
-                res.writeHead(response.status, {
-                  'Content-Type': response.headers.get('content-type') || 'application/grpc-web+proto',
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                  'Access-Control-Allow-Headers': 'Content-Type, Accept, X-Grpc-Web, X-User-Agent',
-                });
-                
-                // Передаём stream напрямую без буферизации
-                if (response.body) {
-                  const reader = response.body.getReader();
-                  while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    res.write(value);
-                  }
-                }
-                res.end();
-              });
-            } catch (error) {
-              console.error('[gRPC Proxy Error]:', error);
-              res.writeHead(500, { 'Content-Type': 'text/plain' });
-              res.end('Proxy error: ' + error.message);
-            }
-            return;
-          }
-          next();
-        });
-      }
-    }
-  ],
+  plugins: [react()],
   base: '/',
   build: {
     outDir: 'dist',
@@ -92,10 +32,33 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      // /grpc теперь обрабатывается custom middleware выше
-    }
+      '/grpc': {
+        target: 'http://78.153.139.47:8080',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/grpc/, ''),
+        // КРИТИЧНО для streaming:
+        selfHandleResponse: false, // Vite будет проксировать напрямую
+        configure: (proxy, options) => {
+          // Отключаем буферизацию на уровне http-proxy-middleware
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            // Убеждаемся что headers правильные
+            proxyReq.setHeader('X-Grpc-Web', '1');
+            console.log('[Vite gRPC Proxy] Request:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('[Vite gRPC Proxy] Response:', proxyRes.statusCode, proxyRes.headers['content-type']);
+            // НЕ вызываем res.writeHead - пусть http-proxy сделает это сам
+            // НЕ буферизуем - chunks идут напрямую
+          });
+          proxy.on('error', (err, req, res) => {
+            console.error('[Vite gRPC Proxy] Error:', err.message);
+          });
+        },
+      },
+    },
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom', 'reactflow'],
   },
-})
+});
