@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Get Auth Token & Project ID</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔑 Получить данные для тестирования gRPC</h1>
+        
+        <div class="section">
+            <h2>1️⃣ Токен авторизации</h2>
+            <button onclick="getToken()">Получить Token</button>
+            <div id="tokenResult"></div>
+        </div>
+        
+        <div class="section">
+            <h2>2️⃣ User ID</h2>
+            <button onclick="getUserId()">Получить User ID</button>
+            <div id="userIdResult"></div>
+        </div>
+        
+        <div class="section">
+            <h2>3️⃣ Существующие проекты</h2>
+            <button onclick="getProjects()">Получить список проектов</button>
+            <div id="projectsResult"></div>
+        </div>
+        
+        <div class="section">
+            <h2>4️⃣ Тест gRPC с правильным project_id</h2>
+            <button onclick="testGrpc()">Запустить тест gRPC</button>
+            <div id="grpcResult"></div>
+            <div class="info">
+                <strong>Примечание:</strong> Убедитесь что у вас есть хотя бы один проект (шаг 3)
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getToken() {
+            const token = localStorage.getItem('token');
+            const resultDiv = document.getElementById('tokenResult');
+            
+            if (token) {
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <strong>✅ Token найден:</strong><br>
+                        <code>${token}</code>
+                    </div>
+                    <div class="info">
+                        Скопируйте этот токен и используйте в скриптах:<br>
+                        <code>./get-existing-project.sh "${token}"</code>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Token не найден</strong><br>
+                        Пожалуйста, войдите в систему
+                    </div>
+                `;
+            }
+        }
+        
+        function getUserId() {
+            const userStr = localStorage.getItem('user');
+            const resultDiv = document.getElementById('userIdResult');
+            
+            if (userStr) {
+                try {
+                    const user = JSON.parse(userStr);
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ User найден:</strong><br>
+                            ID: <code>${user.id}</code><br>
+                            Email: <code>${user.email || 'N/A'}</code>
+                        </div>
+                    `;
+                } catch (e) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Ошибка парсинга user данных</strong>
+                        </div>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ User не найден</strong><br>
+                        Пожалуйста, войдите в систему
+                    </div>
+                `;
+            }
+        }
+        
+        async function getProjects() {
+            const token = localStorage.getItem('token');
+            const resultDiv = document.getElementById('projectsResult');
+            
+            if (!token) {
+                resultDiv.innerHTML = '<div class="error">Сначала получите токен (шаг 1)</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="info">⏳ Загрузка проектов...</div>';
+            
+            try {
+                const response = await fetch('/v1/project', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.projects && data.projects.length > 0) {
+                    const projectsList = data.projects.map(p => 
+                        `<li>ID: <code>${p.id}</code> - ${p.name}</li>`
+                    ).join('');
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ Найдено проектов: ${data.projects.length}</strong><br>
+                            <ul>${projectsList}</ul>
+                        </div>
+                        <div class="info">
+                            Используйте любой ID для теста:<br>
+                            <code>diagnoseGrpc(user_id, ${data.projects[0].id})</code>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Проекты не найдены</strong><br>
+                            Создайте проект через UI или используйте скрипт:<br>
+                            <pre>./create-test-project.sh USER_ID TOKEN</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Ошибка загрузки:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function testGrpc() {
+            const userStr = localStorage.getItem('user');
+            const token = localStorage.getItem('token');
+            const resultDiv = document.getElementById('grpcResult');
+            
+            if (!token || !userStr) {
+                resultDiv.innerHTML = '<div class="error">Сначала выполните шаги 1-2</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="info">⏳ Получаем проекты...</div>';
+            
+            try {
+                const user = JSON.parse(userStr);
+                
+                // Получаем проекты
+                const projectsResponse = await fetch('/v1/project', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const projectsData = await projectsResponse.json();
+                
+                if (!projectsData.projects || projectsData.projects.length === 0) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Нет проектов для тестирования</strong><br>
+                            Создайте проект сначала (через UI или скрипт)
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const projectId = projectsData.projects[0].id;
+                
+                resultDiv.innerHTML = `
+                    <div class="info">
+                        ⏳ Тестируем gRPC...<br>
+                        User ID: ${user.id}<br>
+                        Project ID: ${projectId}
+                    </div>
+                `;
+                
+                // Запускаем диагностику
+                if (typeof diagnoseGrpc === 'function') {
+                    const result = await diagnoseGrpc(user.id, projectId);
+                    console.log('Результат теста:', result);
+                    
+                    resultDiv.innerHTML += `
+                        <div class="success">
+                            <strong>✅ Тест завершён!</strong><br>
+                            Смотрите результаты в Console (F12)
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Функция diagnoseGrpc не найдена</strong><br>
+                            Сначала загрузите diagnose-grpc.js в Console
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Ошибка:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

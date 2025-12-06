@@ -47,11 +47,11 @@
  */
 
 // gRPC-Web статусы из proto/shared/common.proto
-const GraphStatus = {
+const ParseStatus = {
   START: 0,
   REQUIREMENTS: 1,
   ENDPOINTS: 2,
-  ARCHITECTURE: 3,
+  ARHITECTURE: 3,  // Обратите внимание: ARHITECTURE (опечатка в proto)
   DONE: 4
 };
 
@@ -130,18 +130,21 @@ class GRPCArchitectureClient {
    * 
    * Формат (согласно proto/shared/common.proto):
    * message GraphPartResponse {
-   *   GraphStatus status = 1;
-   *   int64 response_id = 2;
-   *   repeated string requirements = 3;
-   *   map<string, string> endpoints = 4;
-   *   string parent = 5;
-   *   repeated string children = 6;
+   *   int64 task_id = 1;
+   *   int32 response_id = 2;
+   *   ParseStatus status = 3;
+   *   oneof graph_part_type {
+   *     GraphPartRequirements graph_requirements = 4;
+   *     GraphPartEndpoints graph_endpoints = 5;
+   *     GraphPartArchitecture graph_architecture = 6;
+   *   }
    * }
    */
   decodeGraphPartResponse(bytes) {
     const result = {
-      status: null,
+      task_id: null,
       response_id: null,
+      status: null,
       requirements: [],
       endpoints: {},
       parent: null,
@@ -160,45 +163,159 @@ class GRPCArchitectureClient {
       const wireType = tag & 0x07;
 
       switch (fieldNumber) {
-        case 1: // status (enum, varint)
-          const { value: status, length: statusLen } = this.readVarint(data, pos);
-          result.status = status;
-          pos += statusLen;
+        case 1: // task_id (int64, varint)
+          const { value: taskId, length: taskIdLen } = this.readVarint(data, pos);
+          result.task_id = taskId;
+          pos += taskIdLen;
           break;
 
-        case 2: // response_id (int64, varint)
+        case 2: // response_id (int32, varint)
           const { value: respId, length: respIdLen } = this.readVarint(data, pos);
           result.response_id = respId;
           pos += respIdLen;
           break;
 
-        case 3: // requirements (repeated string)
-          const { value: reqStr, length: reqLen } = this.readString(data, pos);
-          result.requirements.push(reqStr);
-          pos += reqLen;
+        case 3: // status (enum ParseStatus, varint)
+          const { value: status, length: statusLen } = this.readVarint(data, pos);
+          result.status = status;
+          pos += statusLen;
           break;
 
-        case 4: // endpoints (map<string, string>)
-          const { key, value: endpValue, length: endpLen } = this.readMapEntry(data, pos);
-          result.endpoints[key] = endpValue;
-          pos += endpLen;
+        case 4: // graph_requirements (message GraphPartRequirements)
+          const { value: reqMsg, length: reqMsgLen } = this.readLengthDelimited(data, pos);
+          const requirements = this.decodeGraphPartRequirements(reqMsg);
+          result.requirements = requirements.requirements;
+          result.total_requirements = requirements.total;
+          pos += reqMsgLen;
           break;
 
-        case 5: // parent (string)
-          const { value: parentStr, length: parentLen } = this.readString(data, pos);
-          result.parent = parentStr;
-          pos += parentLen;
+        case 5: // graph_endpoints (message GraphPartEndpoints)
+          const { value: endpMsg, length: endpMsgLen } = this.readLengthDelimited(data, pos);
+          const endpoints = this.decodeGraphPartEndpoints(endpMsg);
+          result.endpoints = endpoints.endpoints;
+          result.total_endpoints = endpoints.total;
+          pos += endpMsgLen;
           break;
 
-        case 6: // children (repeated string)
-          const { value: childStr, length: childLen } = this.readString(data, pos);
-          result.children.push(childStr);
-          pos += childLen;
+        case 6: // graph_architecture (message GraphPartArchitecture)
+          const { value: archMsg, length: archMsgLen } = this.readLengthDelimited(data, pos);
+          const architecture = this.decodeGraphPartArchitecture(archMsg);
+          result.parent = architecture.parent;
+          result.children = architecture.children;
+          pos += archMsgLen;
           break;
 
         default:
           // Пропускаем неизвестные поля
           pos = this.skipField(data, pos, wireType);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Декодирование GraphPartRequirements
+   * message GraphPartRequirements {
+   *   uint32 total = 1;
+   *   repeated string requirements = 2;
+   * }
+   */
+  decodeGraphPartRequirements(bytes) {
+    const result = { total: 0, requirements: [] };
+    let pos = 0;
+    const data = new Uint8Array(bytes);
+
+    while (pos < data.length) {
+      const { value: tag, length: tagLen } = this.readVarint(data, pos);
+      pos += tagLen;
+      const fieldNumber = tag >>> 3;
+
+      switch (fieldNumber) {
+        case 1: // total (uint32)
+          const { value: total, length: totalLen } = this.readVarint(data, pos);
+          result.total = total;
+          pos += totalLen;
+          break;
+        case 2: // requirements (repeated string)
+          const { value: reqStr, length: reqLen } = this.readString(data, pos);
+          result.requirements.push(reqStr);
+          pos += reqLen;
+          break;
+        default:
+          pos = this.skipField(data, pos, tag & 0x07);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Декодирование GraphPartEndpoints
+   * message GraphPartEndpoints {
+   *   uint32 total = 1;
+   *   map<string, string> endpoints = 2;
+   * }
+   */
+  decodeGraphPartEndpoints(bytes) {
+    const result = { total: 0, endpoints: {} };
+    let pos = 0;
+    const data = new Uint8Array(bytes);
+
+    while (pos < data.length) {
+      const { value: tag, length: tagLen } = this.readVarint(data, pos);
+      pos += tagLen;
+      const fieldNumber = tag >>> 3;
+
+      switch (fieldNumber) {
+        case 1: // total (uint32)
+          const { value: total, length: totalLen } = this.readVarint(data, pos);
+          result.total = total;
+          pos += totalLen;
+          break;
+        case 2: // endpoints (map<string, string>)
+          const { key, value: endpValue, length: endpLen } = this.readMapEntry(data, pos);
+          result.endpoints[key] = endpValue;
+          pos += endpLen;
+          break;
+        default:
+          pos = this.skipField(data, pos, tag & 0x07);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Декодирование GraphPartArchitecture
+   * message GraphPartArchitecture {
+   *   string parent = 1;
+   *   repeated string children = 2;
+   * }
+   */
+  decodeGraphPartArchitecture(bytes) {
+    const result = { parent: '', children: [] };
+    let pos = 0;
+    const data = new Uint8Array(bytes);
+
+    while (pos < data.length) {
+      const { value: tag, length: tagLen } = this.readVarint(data, pos);
+      pos += tagLen;
+      const fieldNumber = tag >>> 3;
+
+      switch (fieldNumber) {
+        case 1: // parent (string)
+          const { value: parentStr, length: parentLen } = this.readString(data, pos);
+          result.parent = parentStr;
+          pos += parentLen;
+          break;
+        case 2: // children (repeated string)
+          const { value: childStr, length: childLen } = this.readString(data, pos);
+          result.children.push(childStr);
+          pos += childLen;
+          break;
+        default:
+          pos = this.skipField(data, pos, tag & 0x07);
       }
     }
 
@@ -219,6 +336,12 @@ class GRPCArchitectureClient {
     }
 
     return { value, length };
+  }
+
+  readLengthDelimited(data, pos) {
+    const { value: len, length: lenSize } = this.readVarint(data, pos);
+    const bytes = data.slice(pos + lenSize, pos + lenSize + len);
+    return { value: bytes, length: lenSize + len };
   }
 
   readString(data, pos) {
@@ -486,7 +609,7 @@ class GRPCArchitectureClient {
             });
             
             // Отслеживаем получение статуса DONE
-            if (message.status === GraphStatus.DONE) {
+            if (message.status === ParseStatus.DONE) {
               receivedDone = true;
               console.log('✅ Получен статус DONE - stream завершён успешно');
             }
@@ -553,7 +676,7 @@ class GRPCArchitectureClient {
   }
 
   getStatusName(status) {
-    const names = ['START', 'REQUIREMENTS', 'ENDPOINTS', 'ARCHITECTURE', 'DONE'];
+    const names = ['START', 'REQUIREMENTS', 'ENDPOINTS', 'ARHITECTURE', 'DONE'];
     return names[status] || `UNKNOWN(${status})`;
   }
 
@@ -567,34 +690,34 @@ class GRPCArchitectureClient {
     console.log(`📨 Обработка сообщения: status=${this.getStatusName(status)}, response_id=${response_id}`);
 
     switch (status) {
-      case GraphStatus.START:
+      case ParseStatus.START:
         console.log('🎬 START - анализ начался');
         callbacks.onStart?.();
         break;
 
-      case GraphStatus.REQUIREMENTS:
+      case ParseStatus.REQUIREMENTS:
         console.log(`📋 REQUIREMENTS - получено ${requirements.length} зависимостей`);
         callbacks.onRequirements?.({
           requirements: requirements || []
         });
         break;
 
-      case GraphStatus.ENDPOINTS:
+      case ParseStatus.ENDPOINTS:
         console.log(`🔗 ENDPOINTS - получено ${Object.keys(endpoints).length} эндпоинтов`);
         callbacks.onEndpoints?.({
           endpoints: endpoints || {}
         });
         break;
 
-      case GraphStatus.ARCHITECTURE:
-        console.log(`🏗️ ARCHITECTURE - узел ${parent} с ${children.length} детьми`);
+      case ParseStatus.ARHITECTURE:
+        console.log(`🏗️ ARHITECTURE - узел ${parent} с ${children.length} детьми`);
         callbacks.onArchitecture?.({
           parent,
           children: children || []
         });
         break;
 
-      case GraphStatus.DONE:
+      case ParseStatus.DONE:
         console.log('✅ DONE - анализ завершён (обработка в основном цикле)');
         // onDone вызывается в основном цикле connectToStream после проверки receivedDone
         break;
@@ -608,7 +731,7 @@ class GRPCArchitectureClient {
 // Экспортируем класс и создаём singleton instance
 const grpcClient = new GRPCArchitectureClient();
 
-export { GRPCArchitectureClient, grpcClient, GraphStatus };
+export { GRPCArchitectureClient, grpcClient, ParseStatus };
 export default grpcClient;
 
 

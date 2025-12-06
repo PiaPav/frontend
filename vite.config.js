@@ -27,6 +27,11 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/health': {
+        target: 'http://78.153.139.47:8000',
+        changeOrigin: true,
+        secure: false,
+      },
       '/v1': {
         target: 'http://78.153.139.47:8000',
         changeOrigin: true,
@@ -39,6 +44,9 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/grpc/, ''),
         // КРИТИЧНО для streaming:
         selfHandleResponse: false, // Vite будет проксировать напрямую
+        // ⏱️ УВЕЛИЧИВАЕМ TIMEOUT ДО 5 МИНУТ для долгих анализов
+        timeout: 300000, // 5 минут (300 секунд)
+        proxyTimeout: 300000,
         configure: (proxy, options) => {
           // Отключаем буферизацию на уровне http-proxy-middleware
           proxy.on('proxyReq', (proxyReq, req, res) => {

@@ -1,6 +1,77 @@
-# React + Vite
+# React + Vite - Code Architecture Visualization
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Фронтенд для визуализации архитектуры кодовых проектов с интеграцией gRPC streaming анализа.
+
+## 🚀 Быстрый старт
+
+```bash
+# Установка зависимостей
+npm install
+
+# Запуск dev сервера
+npm run dev
+
+# Открыть http://localhost:5173
+```
+
+## 🔧 Важные файлы
+
+### Документация:
+- **`GRPC_FIX_README.md`** - ⭐ **НАЧНИТЕ ЗДЕСЬ** - инструкции по gRPC интеграции
+- **`FLOW_DIAGRAM_FOR_BACKEND.md`** - полная документация для backend команды
+- **`BACKEND_INTEGRATION.md`** - REST API интеграция
+- **`DEBUGGING_500.md`** - отладка ошибок
+
+### Тестирование:
+- **`test-grpc-console.js`** - скрипт для тестирования gRPC в консоли браузера
+
+### Ключевые модули:
+- `src/services/grpcClient.js` - gRPC-Web клиент с ручным Protobuf парсингом
+- `src/services/api.js` - REST API клиент (axios)
+- `src/pages/Projects/ProjectAnalysis.jsx` - страница анализа проекта
+- `src/pages/Projects/ProjectViewArchitecture.jsx` - визуализация архитектуры
+
+## 📡 Backend Integration
+
+### REST API (FastAPI на порту 8000)
+```
+POST /v1/project           - Создание проекта (multipart/form-data)
+GET  /v1/project/{id}      - Получение метаданных проекта
+GET  /v1/project           - Список проектов
+PATCH /v1/project/{id}     - Обновление проекта
+DELETE /v1/project/{id}    - Удаление проекта
+```
+
+### gRPC Stream (Core на порту 50051 через Envoy 8080)
+```
+/core.api.FrontendStreamService/RunAlgorithm
+Запрос:  AlgorithmRequest {user_id: int64, task_id: int64}
+Ответ:   Server Stream GraphPartResponse
+Статусы: START → REQUIREMENTS → ENDPOINTS → ARHITECTURE → DONE
+```
+
+## 🧪 Тестирование gRPC
+
+### Вариант 1: Через консоль браузера
+```javascript
+// 1. Откройте DevTools → Console
+// 2. Вставьте содержимое test-grpc-console.js
+// 3. Запустите:
+testGrpcConnection(9, 242) // user_id=9, project_id=242
+```
+
+### Вариант 2: Через UI
+1. Создайте новый проект (загрузите .zip)
+2. Откройте DevTools → Console
+3. Наблюдайте логи gRPC stream:
+```
+📤 ОТПРАВКА gRPC ЗАПРОСА
+📬 Message #1: status=START
+📬 Message #2: status=REQUIREMENTS
+...
+📬 Message #N: status=DONE
+✅ Stream завершён успешно
+```
 
 ## Project Demos
 
