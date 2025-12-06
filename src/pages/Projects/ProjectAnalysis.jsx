@@ -35,6 +35,7 @@ export default function ProjectAnalysis() {
   const [isDemoProject, setIsDemoProject] = useState(false);
   const [streamComplete, setStreamComplete] = useState(false);
   const [abortController, setAbortController] = useState(null);
+  const [grpcStarted, setGrpcStarted] = useState(false);
 
   // Загрузка проекта через REST + gRPC stream
   useEffect(() => {
@@ -155,11 +156,19 @@ export default function ProjectAnalysis() {
         setLoading(false);
         setIsFirstLoad(false);
         
+        // Проверяем, не запущен ли уже gRPC stream
+        if (grpcStarted) {
+          console.log('⚠️ gRPC stream уже запущен, пропускаем повторный вызов');
+          return;
+        }
+        
+        setGrpcStarted(true);
         console.log('📡 Запуск gRPC stream для анализа проекта');
         
         if (!user || !user.id) {
           console.error('❌ User ID не найден');
           setError('Ошибка авторизации. Перезайдите в систему.');
+          setGrpcStarted(false);
           return;
         }
         
@@ -216,6 +225,7 @@ export default function ProjectAnalysis() {
           
           onError: (error) => {
             console.error('❌ gRPC ошибка:', error);
+            setGrpcStarted(false); // Сбрасываем флаг при ошибке
             const errorMessage = error.message || 'Ошибка получения данных архитектуры';
             
             // Проверяем конкретные типы ошибок
@@ -302,6 +312,7 @@ export default function ProjectAnalysis() {
     // Cleanup: отменяем stream при размонтировании
     return () => {
       cancelled = true;
+      setGrpcStarted(false); // Сбрасываем флаг при cleanup
       if (abortController) {
         abortController.abort();
       }

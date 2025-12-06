@@ -102,6 +102,7 @@ export default function NewProject() {
       // ШАГ 2: Запуск gRPC анализа сразу после создания
       addLog('info', '📡 Подключаемся к gRPC stream для анализа...');
       addLog('info', `User ID: ${user.id}, Project ID: ${result.id}`);
+      addLog('info', '⏱️ Ожидание 2 секунды перед подключением (backend готовит данные)...');
       setAnalysisStatus('analyzing');
 
       if (!user || !user.id) {
@@ -112,13 +113,14 @@ export default function NewProject() {
       let connectionTimer = setTimeout(() => {
         addLog('warning', '⚠️ Подключение к gRPC занимает больше 5 секунд...');
         addLog('warning', 'Возможные причины: backend обрабатывает запрос или не отвечает');
-      }, 5000);
+      }, 7000); // +2 секунды на задержку
 
       let firstMessageTimer = setTimeout(() => {
         addLog('warning', '⚠️ Первое сообщение не пришло за 10 секунд');
         addLog('warning', 'Проверьте: существует ли проект в БД? Запущен ли Algorithm service?');
-      }, 10000);
+      }, 12000); // +2 секунды на задержку
 
+      // Добавляем задержку 2 секунды перед подключением к gRPC
       await grpcClient.connectToStream(user.id, result.id, {
         onStart: () => {
           clearTimeout(connectionTimer);
@@ -175,7 +177,7 @@ export default function NewProject() {
             navigate(`/projects/${result.id}/architecture`);
           }, 3000);
         }
-      });
+      }, 2000); // Задержка 2 секунды перед подключением к gRPC
       
     } catch (err) {
       console.error('Ошибка создания проекта:', err);
