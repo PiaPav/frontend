@@ -194,10 +194,17 @@ export class SimpleFrontendStreamServiceClient {
           buffer = buffer.slice(5 + messageLength);
 
           try {
+            // Проверяем, что это не trailer frame
+            if (compressedFlag === 0x80) {
+              console.log('[grpc-web] Skipping trailer frame');
+              continue;
+            }
+            
             const message = shared_common_pb.GraphPartResponse.deserializeBinary(messageBytes);
             handlers.data.forEach(cb => cb(message));
           } catch (parseError) {
-            console.error('Failed to parse message:', parseError);
+            console.warn('[grpc-web] Failed to parse message (possibly trailer):', parseError.message);
+            // Продолжаем, не падаем на кривых данных
           }
         }
       }
