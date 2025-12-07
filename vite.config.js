@@ -42,25 +42,16 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/grpc/, ''),
-        // КРИТИЧНО для streaming:
-        selfHandleResponse: false, // Vite будет проксировать напрямую
-        // ⏱️ УВЕЛИЧИВАЕМ TIMEOUT ДО 5 МИНУТ для долгих анализов
-        timeout: 300000, // 5 минут (300 секунд)
-        proxyTimeout: 300000,
+        ws: true,
         configure: (proxy, options) => {
-          // Отключаем буферизацию на уровне http-proxy-middleware
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            // Убеждаемся что headers правильные
-            proxyReq.setHeader('X-Grpc-Web', '1');
-            console.log('[Vite gRPC Proxy] Request:', req.method, req.url);
+            console.log('[Vite Proxy] →', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, res) => {
-            console.log('[Vite gRPC Proxy] Response:', proxyRes.statusCode, proxyRes.headers['content-type']);
-            // НЕ вызываем res.writeHead - пусть http-proxy сделает это сам
-            // НЕ буферизуем - chunks идут напрямую
+            console.log('[Vite Proxy] ←', proxyRes.statusCode);
           });
           proxy.on('error', (err, req, res) => {
-            console.error('[Vite gRPC Proxy] Error:', err.message);
+            console.error('[Vite Proxy] ✗', err.message);
           });
         },
       },

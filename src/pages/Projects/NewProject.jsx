@@ -164,7 +164,7 @@ export default function NewProject() {
       let firstMessageTimer = setTimeout(() => {
         addLog('warning', '⚠️ Первое сообщение не пришло за 10 секунд');
         addLog('warning', 'Проверьте: существует ли проект в БД? Запущен ли Algorithm service?');
-      }, 12000); // +2 секунды на задержку
+      }, 0); // +2 секунды на задержку
 
       // Отправляем gRPC запрос с валидными ID
       await grpcClient.connectToStream(validUserId, validProjectId, {

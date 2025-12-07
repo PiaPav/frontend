@@ -63,10 +63,6 @@ class GRPCArchitectureClient {
       dev: isDev,
       shouldUseProxy
     });
-    
-    if (shouldUseProxy) {
-      console.log('[grpc] 🔧 DEV MODE: используем proxy /grpc для избежания CORS');
-    }
   }
 
   /**
@@ -129,7 +125,7 @@ class GRPCArchitectureClient {
     console.log('🔍 Проверка созданного request:');
     console.log('  - request.getUserId():', request.getUserId());
     console.log('  - request.getTaskId():', request.getTaskId());
-    console.log('  - request.toObject():', request.toObject());
+    console.log('  - Serialized bytes length:', request.serializeBinary().length);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('📤 ОТПРАВКА gRPC ЗАПРОСА');
@@ -218,8 +214,20 @@ class GRPCArchitectureClient {
           errorMsg += '\n• Файл проекта отсутствует или повреждён';
           errorMsg += '\n• Ошибка парсинга/анализа кода';
           errorMsg += '\n\nПроверьте логи: docker logs -f core-service';
-        } else if (error.code === 404) {
-          errorMsg += '\nЭндпоинт не найден. Проверьте конфигурацию Envoy.';
+        } else if (error.code === 404 || error.message?.includes('404')) {
+          errorMsg = '❌ BACKEND ERROR: Envoy не настроен для gRPC-Web';
+          errorMsg += '\n\n🔧 Backend team должен добавить в envoy.yaml:';
+          errorMsg += '\n\nroutes:';
+          errorMsg += '\n  - match:';
+          errorMsg += '\n      prefix: "/core.api.FrontendStreamService"';
+          errorMsg += '\n    route:';
+          errorMsg += '\n      cluster: core_grpc_service';
+          errorMsg += '\n      timeout: 300s';
+          errorMsg += '\n\n📋 Тестовый curl:';
+          errorMsg += '\ncurl -X POST http://78.153.139.47:8080/core.api.FrontendStreamService/RunAlgorithm \\';
+          errorMsg += '\n  -H "Content-Type: application/grpc-web+proto" \\';
+          errorMsg += '\n  -H "X-Grpc-Web: 1"';
+          errorMsg += '\n\n💡 Должен вернуть 200 или grpc-status, а не 404';
         } else if (error.code === 502 || error.code === 503) {
           errorMsg += '\nCore gRPC сервис недоступен. Проверьте: docker ps | grep core';
         }
