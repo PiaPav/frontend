@@ -58,6 +58,7 @@ export default function NewProject() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setLogs([]); // Очистить предыдущие логи
 
     // Валидация
     if (!form.name.trim()) {
@@ -72,9 +73,16 @@ export default function NewProject() {
       return;
     }
 
+    // Проверка что файл выбран (обязательно по API)
+    if (!file) {
+      setError('Необходимо выбрать ZIP-файл проекта');
+      setLoading(false);
+      return;
+    }
+
     try {
       const LIMIT = 50 * 1024 * 1024; // 50 MB
-      if (file && file.size > LIMIT) {
+      if (file.size > LIMIT) {
         setShowPremiumModal(true);
         setLoading(false);
         return;
@@ -83,14 +91,15 @@ export default function NewProject() {
       // ШАГ 1: Создание проекта через POST /v1/project
       addLog('info', '📤 Отправка проекта на backend через REST API...');
       addLog('info', `Название: "${form.name}", Описание: "${form.description}"`);
-      if (file) {
-        addLog('info', `Файл: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-      }
+      addLog('info', `Файл: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
       
       setAnalysisStatus('creating');
       
-      const payload = { ...form };
-      if (file) payload.file = file;
+      const payload = { 
+        name: form.name,
+        description: form.description,
+        file: file
+      };
       
       const result = await projectsAPI.create(payload);
       addLog('success', '✅ Проект создан успешно!', { project_id: result.id });
@@ -242,16 +251,17 @@ export default function NewProject() {
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="file">Архитектура / файл</label>
+            <label htmlFor="file">Архитектура / файл *</label>
             <input
               id="file"
               name="file"
               type="file"
               onChange={handleFileChange}
               disabled={loading}
-              accept="application/json,application/zip,application/octet-stream"
+              accept=".zip,application/zip,application/x-zip-compressed"
+              required
             />
-            <small>Можно загрузить JSON с архитектурой или файл (опционально)</small>
+            <small>Загрузите ZIP-архив с проектом (обязательно)</small>
           </div>
 
           {/* Ошибка */}

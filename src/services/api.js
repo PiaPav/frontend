@@ -86,30 +86,20 @@ export const projectsAPI = {
   },
 
   create: async (projectData) => {
-    // Создаём FormData для отправки файла
-    const formData = new FormData();
-
-    // Append provided file or create a valid empty zip
-    if (projectData.file) {
-      formData.append('file', projectData.file);
-    } else {
-      // Create a minimal but valid ZIP file with an empty file inside
-      // This is a base64 encoded empty ZIP file
-      const emptyZipBase64 = 'UEsDBBQAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAgAAABtYWluLnB5AwBQSwECPwAUAAAACAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAbWFpbi5weVBLBQYAAAAAAQABADYAAAAmAAAAAAA=';
-      const binaryString = atob(emptyZipBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const zipBlob = new Blob([bytes], { type: 'application/zip' });
-      const zipFile = new File([zipBlob], 'project.zip', { type: 'application/zip' });
-      formData.append('file', zipFile);
+    // Проверяем что файл обязательно выбран
+    if (!projectData.file) {
+      throw new Error('Необходимо выбрать ZIP-файл проекта для загрузки');
     }
 
+    // Создаём FormData для отправки файла
+    const formData = new FormData();
+    formData.append('file', projectData.file);
+
     // name и description отправляются как query параметры согласно API спецификации
+    // ВАЖНО: Удаляем Content-Type из headers чтобы браузер сам добавил boundary
     const response = await api.post('/project', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': undefined, // ✅ Удаляем глобальный application/json
       },
       params: {
         name: projectData.name,
