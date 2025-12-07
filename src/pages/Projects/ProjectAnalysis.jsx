@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Controls,
@@ -34,8 +34,23 @@ export default function ProjectAnalysis() {
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isDemoProject, setIsDemoProject] = useState(false);
   const [streamComplete, setStreamComplete] = useState(false);
-  const [abortController, setAbortController] = useState(null);
   const [grpcStarted, setGrpcStarted] = useState(false);
+  const streamControllerRef = useRef(null);
+  const requirementsRef = useRef([]);
+  const endpointsRef = useRef({});
+  const architectureDataRef = useRef([]);
+
+  useEffect(() => {
+    requirementsRef.current = requirements;
+  }, [requirements]);
+
+  useEffect(() => {
+    endpointsRef.current = endpoints;
+  }, [endpoints]);
+
+  useEffect(() => {
+    architectureDataRef.current = architectureData;
+  }, [architectureData]);
 
   // Загрузка проекта через REST + gRPC stream
   useEffect(() => {
@@ -157,8 +172,8 @@ export default function ProjectAnalysis() {
         setIsFirstLoad(false);
         
         // Проверяем, не запущен ли уже gRPC stream
-        if (grpcStarted) {
-          console.log('⚠️ gRPC stream уже запущен, пропускаем повторный вызов');
+        if (grpcStarted || streamControllerRef.current) {
+          console.log('⚠️ gRPC stream уже запущен или есть активный controller, пропускаем повторный вызов');
           return;
         }
         
@@ -172,6 +187,11 @@ export default function ProjectAnalysis() {
           return;
         }
         
+        console.log('[ui] 🛰 вызов grpcClient.connectToStream()', {
+          userId: user.id,
+          taskId: parseInt(id, 10),
+        });
+
         const controller = await grpcClient.connectToStream(user.id, parseInt(id), {
           onStart: () => {
             console.log('🎬 Анализ начался');
@@ -189,29 +209,34 @@ export default function ProjectAnalysis() {
           
           onArchitecture: (data) => {
             console.log('🏗️ Architecture часть получена:', data.parent);
-            setArchitectureData(prev => [...prev, {
-              parent: data.parent,
-              children: data.children
-            }]);
+            setArchitectureData(prev => {
+              const next = [...prev, {
+                parent: data.parent,
+                children: data.children
+              }];
+              architectureDataRef.current = next;
+              return next;
+            });
           },
           
           onDone: async () => {
             console.log('✅ gRPC Stream завершён');
             setStreamComplete(true);
+            streamControllerRef.current = null;
             
             // 3. Сохраняем финальную архитектуру через PATCH
             try {
               // Используем setTimeout чтобы дождаться обновления всех state
               setTimeout(async () => {
                 const dataObject = {};
-                architectureData.forEach(item => {
+                architectureDataRef.current.forEach(item => {
                   dataObject[item.parent] = item.children;
                 });
                 
                 await projectsAPI.update(parseInt(id), {
                   architecture: {
-                    requirements: requirements,
-                    endpoints: endpoints,
+                    requirements: requirementsRef.current,
+                    endpoints: endpointsRef.current,
                     data: dataObject
                   }
                 });
@@ -225,6 +250,7 @@ export default function ProjectAnalysis() {
           
           onError: (error) => {
             console.error('❌ gRPC ошибка:', error);
+            streamControllerRef.current = null;
             setGrpcStarted(false); // Сбрасываем флаг при ошибке
             const errorMessage = error.message || 'Ошибка получения данных архитектуры';
             
@@ -287,7 +313,6 @@ export default function ProjectAnalysis() {
           }
         });
         
-        setAbortController(controller);
         
       } catch (err) {
         if (cancelled) return;
@@ -313,8 +338,10 @@ export default function ProjectAnalysis() {
     return () => {
       cancelled = true;
       setGrpcStarted(false); // Сбрасываем флаг при cleanup
-      if (abortController) {
-        abortController.abort();
+      if (streamControllerRef.current) {
+        streamControllerRef.current.abort?.();
+        streamControllerRef.current.cancel?.();
+        streamControllerRef.current = null;
       }
     };
   }, [id, user]);

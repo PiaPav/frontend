@@ -137,6 +137,16 @@ export class SimpleFrontendStreamServiceClient {
         return;
       }
 
+      // Проверяем gRPC статус в заголовках (может быть установлен до конца stream)
+      const grpcStatus = response.headers.get('grpc-status');
+      if (grpcStatus && grpcStatus !== '0') {
+        const grpcMessage = response.headers.get('grpc-message') || 'Unknown gRPC error';
+        const error = new Error(`gRPC error: ${grpcMessage}`);
+        error.code = parseInt(grpcStatus);
+        handlers.error.forEach(cb => cb(error));
+        return;
+      }
+
       const reader = response.body.getReader();
       let buffer = new Uint8Array(0);
 
@@ -174,7 +184,14 @@ export class SimpleFrontendStreamServiceClient {
         }
       }
 
-      // Stream завершён
+      // Stream завершён - проверяем финальные трейлеры
+      // В gRPC-Web трейлеры могут быть в последнем фрейме
+      // Если buffer содержит trailer фрейм (flag = 0x80), обрабатываем его
+      if (buffer.length > 0 && buffer[0] === 0x80) {
+        // Trailer frame - пропускаем, т.к. статус уже проверили в заголовках
+        console.log('[grpc-web] Received trailer frame, ignoring');
+      }
+      
       handlers.status.forEach(cb => cb({ code: 0, message: 'OK' }));
       handlers.end.forEach(cb => cb());
 

@@ -10,13 +10,15 @@ import * as jspb from 'google-protobuf';
 
 /**
  * enum ParseStatus
+ * ВАЖНО: START (0) определён в proto, но бэкенд его НЕ отправляет
+ * Реальная последовательность: REQUIREMENTS → ENDPOINTS → ARHITECTURE → DONE
  */
 export const ParseStatus = {
-  START: 0,
-  REQUIREMENTS: 1,
-  ENDPOINTS: 2,
-  ARHITECTURE: 3,
-  DONE: 4
+  START: 0,           // Не используется бэкендом
+  REQUIREMENTS: 1,    // Первый статус - список зависимостей
+  ENDPOINTS: 2,       // Второй статус - словарь эндпоинтов
+  ARHITECTURE: 3,     // Множество статусов - узлы графа (опечатка в proto)
+  DONE: 4             // Финальный статус - завершение (parent="", children="" - заглушка)
 };
 
 /**

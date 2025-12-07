@@ -14,6 +14,20 @@
  * 
  * 3. Envoy Proxy на порту 8080
  *    - gRPC-Web gateway для браузерных клиентов
+ * 
+ * ПОТОК АНАЛИЗА:
+ * ==============
+ * 1. Frontend отправляет binary Protobuf через POST:
+ *    URL: /grpc/core.api.FrontendStreamService/RunAlgorithm (в dev через Vite proxy)
+ *    Headers: Content-Type: application/grpc-web+proto
+ *    Body: AlgorithmRequest (user_id, task_id)
+ * 
+ * 2. Backend отвечает серверным стримом с последовательностью сообщений:
+ *    REQUIREMENTS (1) → ENDPOINTS (2) → ARHITECTURE (3) → DONE (4)
+ *    ВАЖНО: START (0) не используется бэкендом, stream начинается сразу с REQUIREMENTS
+ * 
+ * 3. КРИТИЧЕСКИ ВАЖНО: Stream считается успешным ТОЛЬКО если получен статус DONE.
+ *    Если stream оборвался до DONE - это ошибка, нужно показать пользователю.
  */
 
 import { SimpleFrontendStreamServiceClient } from '../grpc/api_core_grpc_web_pb';
@@ -86,6 +100,13 @@ class GRPCArchitectureClient {
     console.log('📦 Using generated proto classes');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
+    callbacks.onStart?.();
+    console.log('[grpc] ▶️ connectToStream start', {
+      url: `${this.envoyUrl}/core.api.FrontendStreamService/RunAlgorithm`,
+      userId: Number(userId),
+      taskId: Number(taskId)
+    });
+
     let receivedDone = false;
     let messageCount = 0;
     let timedOut = false;
@@ -131,7 +152,11 @@ class GRPCArchitectureClient {
       if (timeoutId) clearTimeout(timeoutId);
       
       if (!timedOut) {
-        console.error('❌ gRPC stream error:', error);
+        console.error('❌ gRPC stream error:', {
+          code: error?.code,
+          message: error?.message,
+          error
+        });
         
         let errorMsg = `gRPC request failed: ${error.message}`;
         
@@ -149,6 +174,7 @@ class GRPCArchitectureClient {
         }
         
         const wrappedError = new Error(errorMsg);
+        wrappedError.code = error.code;
         callbacks.onError?.(wrappedError);
       }
     });
@@ -185,7 +211,12 @@ class GRPCArchitectureClient {
     });
 
     // Возвращаем объект для возможности отмены
+    // ВАЖНО: используем abort() для совместимости с React компонентами
     return {
+      abort: () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        stream.cancel();
+      },
       cancel: () => {
         if (timeoutId) clearTimeout(timeoutId);
         stream.cancel();
@@ -194,7 +225,13 @@ class GRPCArchitectureClient {
   }
 
   getStatusName(status) {
-    const names = ['START', 'REQUIREMENTS', 'ENDPOINTS', 'ARHITECTURE', 'DONE'];
+    const names = [
+      'START (не используется)', 
+      'REQUIREMENTS', 
+      'ENDPOINTS', 
+      'ARHITECTURE', 
+      'DONE'
+    ];
     return names[status] || `UNKNOWN(${status})`;
   }
 
@@ -209,11 +246,6 @@ class GRPCArchitectureClient {
     console.log(`📨 Обработка сообщения: status=${this.getStatusName(status)}, response_id=${responseId}`);
 
     switch (status) {
-      case ParseStatus.START:
-        console.log('🎬 START - анализ начался');
-        callbacks.onStart?.();
-        break;
-
       case ParseStatus.REQUIREMENTS:
         const graphReq = message.getGraphRequirements();
         if (graphReq) {
@@ -260,6 +292,7 @@ class GRPCArchitectureClient {
 
       case ParseStatus.DONE:
         console.log('✅ DONE - анализ завершён');
+        // ВАЖНО: В DONE parent="" и children="" - это заглушка, игнорируем
         // onDone вызывается в обработчике 'end'
         break;
 

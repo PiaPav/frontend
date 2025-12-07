@@ -45,6 +45,14 @@ export default function App() {
             path="/projects/:id"
             element={
               <ProtectedRoute>
+                <ProjectAnalysis />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id/basic"
+            element={
+              <ProtectedRoute>
                 <ProjectView />
               </ProtectedRoute>
             }

@@ -129,10 +129,10 @@ export default function ProjectsList() {
                   <p className={styles.projectDescription}>{project.description}</p>
                 </div>
                 <div className={styles.projectActions}>
-                  <Link to={`/projects/${project.id}/analysis`} className={styles.actionBtnPrimary}>
+                  <Link to={`/projects/${project.id}`} className={styles.actionBtnPrimary}>
                     🔬 Анализ
                   </Link>
-                  <Link to={`/projects/${project.id}`} className={styles.actionBtn}>
+                  <Link to={`/projects/${project.id}/basic`} className={styles.actionBtn}>
                     📊 Basic View
                   </Link>
                   <Link to={`/projects/${project.id}/stream`} className={styles.actionBtn}>
@@ -147,3 +147,4 @@ export default function ProjectsList() {
     </div>
   );
 }
+
