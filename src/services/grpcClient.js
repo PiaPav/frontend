@@ -79,32 +79,72 @@ class GRPCArchitectureClient {
    * @returns {Promise<Object>} - объект с методом cancel() для отмены
    */
   async connectToStream(userId, taskId, callbacks, delayMs = 0) {
+    // КРИТИЧНО: Детальное логирование входных параметров
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔍 [grpc] connectToStream ВЫЗВАН');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📊 RAW параметры:');
+    console.log('  - userId (raw):', userId, `(type: ${typeof userId})`);
+    console.log('  - taskId (raw):', taskId, `(type: ${typeof taskId})`);
+    console.log('  - delayMs:', delayMs);
+    console.log('');
+    console.log('📊 PARSED параметры:');
+    console.log('  - parseInt(userId):', parseInt(userId));
+    console.log('  - parseInt(taskId):', parseInt(taskId));
+    console.log('  - Number(userId):', Number(userId));
+    console.log('  - Number(taskId):', Number(taskId));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // Валидация
+    const parsedUserId = parseInt(userId);
+    const parsedTaskId = parseInt(taskId);
+    
+    if (isNaN(parsedUserId) || parsedUserId === 0) {
+      const error = `❌ КРИТИЧЕСКАЯ ОШИБКА: userId невалидный! raw=${userId}, parsed=${parsedUserId}`;
+      console.error(error);
+      throw new Error(error);
+    }
+    
+    if (isNaN(parsedTaskId) || parsedTaskId === 0) {
+      const error = `❌ КРИТИЧЕСКАЯ ОШИБКА: taskId невалидный! raw=${taskId}, parsed=${parsedTaskId}`;
+      console.error(error);
+      throw new Error(error);
+    }
+    
+    console.log('✅ Валидация пройдена:', { userId: parsedUserId, taskId: parsedTaskId });
+    
     if (delayMs > 0) {
       console.log(`⏱️ Ожидание ${delayMs}ms перед подключением к gRPC...`);
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
 
-    console.log(`📡 Подключение к gRPC стриму: user_id=${userId}, task_id=${taskId}`);
+    console.log(`📡 Подключение к gRPC стриму: user_id=${parsedUserId}, task_id=${parsedTaskId}`);
 
     // Создаём запрос используя сгенерированный класс
     const request = new AlgorithmRequest();
-    request.setUserId(parseInt(userId));
-    request.setTaskId(parseInt(taskId));
+    request.setUserId(parsedUserId);
+    request.setTaskId(parsedTaskId);
+    
+    // Проверяем что установилось
+    console.log('🔍 Проверка созданного request:');
+    console.log('  - request.getUserId():', request.getUserId());
+    console.log('  - request.getTaskId():', request.getTaskId());
+    console.log('  - request.toObject():', request.toObject());
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📤 ОТПРАВКА gRPC ЗАПРОСА (NEW)');
+    console.log('📤 ОТПРАВКА gRPC ЗАПРОСА');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🌐 URL:', `${this.envoyUrl}/core.api.FrontendStreamService/RunAlgorithm`);
-    console.log('👤 User ID:', parseInt(userId));
-    console.log('📋 Task ID:', parseInt(taskId));
+    console.log('👤 User ID:', parsedUserId);
+    console.log('📋 Task ID (Project ID):', parsedTaskId);
     console.log('📦 Using generated proto classes');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     callbacks.onStart?.();
     console.log('[grpc] ▶️ connectToStream start', {
       url: `${this.envoyUrl}/core.api.FrontendStreamService/RunAlgorithm`,
-      userId: Number(userId),
-      taskId: Number(taskId)
+      userId: parsedUserId,
+      taskId: parsedTaskId
     });
 
     let receivedDone = false;
@@ -112,6 +152,17 @@ class GRPCArchitectureClient {
     let timedOut = false;
     const timeoutMs = Number(import.meta.env?.VITE_GRPC_TIMEOUT_MS ?? 60000);
     let timeoutId = null;
+
+    const payload = request.serializeBinary();
+    console.log('[grpc] request bytes len:', payload.length, 'hex:', Array.from(payload).map(b => b.toString(16).padStart(2, '0')).join(' '));
+    console.log('[grpc] headers:', {
+      'Content-Type': 'application/grpc-web+proto',
+      'Accept': 'application/grpc-web+proto',
+      'X-Grpc-Web': '1',
+      'X-User-Agent': 'grpc-web-javascript/0.1',
+    });
+    console.log('[grpc] url:', `${this.envoyUrl}/core.api.FrontendStreamService/RunAlgorithm`);
+
 
     // Вызываем метод runAlgorithm
     const stream = this.client.runAlgorithm(request, {});

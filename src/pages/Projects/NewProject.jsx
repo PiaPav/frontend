@@ -102,21 +102,58 @@ export default function NewProject() {
       };
       
       const result = await projectsAPI.create(payload);
-      addLog('success', '✅ Проект создан успешно!', { project_id: result.id });
       
-      if (!result.id) {
+      // Детальное логирование ответа backend
+      addLog('info', '🔍 Backend response:', result);
+      console.log('📊 FULL BACKEND RESPONSE:', result);
+      console.log('📊 result.id:', result.id);
+      console.log('📊 result.project_id:', result.project_id);
+      console.log('📊 typeof result.id:', typeof result.id);
+      console.log('📊 typeof result.project_id:', typeof result.project_id);
+      
+      // Определяем правильный ID проекта
+      const projectId = result.project_id || result.id;
+      
+      if (!projectId || projectId === 0) {
+        addLog('error', '❌ Backend не вернул валидный ID проекта!', result);
         throw new Error('Backend не вернул ID проекта');
       }
+      
+      addLog('success', '✅ Проект создан успешно!', { 
+        project_id: projectId,
+        full_response: result 
+      });
 
       // ШАГ 2: Запуск gRPC анализа сразу после создания
       addLog('info', '📡 Подключаемся к gRPC stream для анализа...');
-      addLog('info', `User ID: ${user.id}, Project ID: ${result.id}`);
-      addLog('info', '⏱️ Ожидание 2 секунды перед подключением (backend готовит данные)...');
+      addLog('info', `User ID: ${user.id}, Project ID: ${projectId}`);
+      addLog('info', `🔍 Проверка значений перед отправкой:`);
+      addLog('info', `  - user.id = ${user.id} (type: ${typeof user.id})`);
+      addLog('info', `  - projectId = ${projectId} (type: ${typeof projectId})`);
+      addLog('info', `  - parseInt(user.id) = ${parseInt(user.id)}`);
+      addLog('info', `  - parseInt(projectId) = ${parseInt(projectId)}`);
+      
       setAnalysisStatus('analyzing');
 
       if (!user || !user.id) {
         throw new Error('User ID не найден. Перезайдите в систему.');
       }
+      
+      // Валидация IDs перед отправкой
+      const validUserId = parseInt(user.id);
+      const validProjectId = parseInt(projectId);
+      
+      if (isNaN(validUserId) || validUserId === 0) {
+        addLog('error', `❌ Невалидный User ID: ${user.id}`);
+        throw new Error('Невалидный User ID');
+      }
+      
+      if (isNaN(validProjectId) || validProjectId === 0) {
+        addLog('error', `❌ Невалидный Project ID: ${projectId}`);
+        throw new Error('Невалидный Project ID');
+      }
+      
+      addLog('info', `✅ Валидация пройдена: user_id=${validUserId}, task_id=${validProjectId}`);
 
       // Таймер для отслеживания долгого ожидания
       let connectionTimer = setTimeout(() => {
@@ -129,8 +166,8 @@ export default function NewProject() {
         addLog('warning', 'Проверьте: существует ли проект в БД? Запущен ли Algorithm service?');
       }, 12000); // +2 секунды на задержку
 
-      // Добавляем задержку 2 секунды перед подключением к gRPC
-      await grpcClient.connectToStream(user.id, result.id, {
+      // Отправляем gRPC запрос с валидными ID
+      await grpcClient.connectToStream(validUserId, validProjectId, {
         onStart: () => {
           clearTimeout(connectionTimer);
           clearTimeout(firstMessageTimer);
@@ -165,7 +202,7 @@ export default function NewProject() {
           
           // Переход на страницу визуализации архитектуры
           setTimeout(() => {
-            navigate(`/projects/${result.id}/architecture`);
+            navigate(`/projects/${projectId}/architecture`);
           }, 1000);
         },
         
@@ -183,7 +220,7 @@ export default function NewProject() {
           // Даже при ошибке анализа переходим на страницу проекта
           addLog('info', 'Переход на страницу проекта через 3 секунды...');
           setTimeout(() => {
-            navigate(`/projects/${result.id}/architecture`);
+            navigate(`/projects/${projectId}/architecture`);
           }, 3000);
         }
       }, 2000); // Задержка 2 секунды перед подключением к gRPC
