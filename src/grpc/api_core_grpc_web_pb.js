@@ -89,6 +89,16 @@ export class SimpleFrontendStreamServiceClient {
   runAlgorithm(request, metadata) {
     const url = `${this.hostname}/core.api.FrontendStreamService/RunAlgorithm`;
     const requestBytes = request.serializeBinary();
+    
+    // gRPC-Web формат требует 5-байтовый prefix:
+    // [compressed_flag: 1 byte][length: 4 bytes big-endian][message]
+    const frame = new Uint8Array(5 + requestBytes.length);
+    frame[0] = 0; // не сжато
+    frame[1] = (requestBytes.length >> 24) & 0xFF;
+    frame[2] = (requestBytes.length >> 16) & 0xFF;
+    frame[3] = (requestBytes.length >> 8) & 0xFF;
+    frame[4] = requestBytes.length & 0xFF;
+    frame.set(requestBytes, 5);
 
     const abortController = new AbortController();
     let handlers = {
@@ -98,8 +108,16 @@ export class SimpleFrontendStreamServiceClient {
       status: []
     };
 
+    // Логируем полный запрос
+    console.log('[grpc-web] 📤 Отправка:', {
+      url,
+      frameLength: frame.length,
+      messageLength: requestBytes.length,
+      frameHex: Array.from(frame).map(b => b.toString(16).padStart(2, '0')).join(' ')
+    });
+
     // Запускаем fetch асинхронно
-    this._startStream(url, requestBytes, metadata, abortController, handlers);
+    this._startStream(url, frame, metadata, abortController, handlers);
 
     // Возвращаем объект со stream API
     return {
