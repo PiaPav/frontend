@@ -224,35 +224,22 @@ export default function ProjectAnalysis() {
             setStreamComplete(true);
             streamControllerRef.current = null;
             
-            // 3. Сохраняем финальную архитектуру через PATCH
-            try {
-              // Используем setTimeout чтобы дождаться обновления всех state
-              setTimeout(async () => {
-                const dataObject = {};
-                architectureDataRef.current.forEach(item => {
-                  dataObject[item.parent] = item.children;
-                });
-                
-                await projectsAPI.update(parseInt(id), {
-                  architecture: {
-                    requirements: requirementsRef.current,
-                    endpoints: endpointsRef.current,
-                    data: dataObject
-                  }
-                });
-                
-                console.log('💾 Архитектура сохранена в БД');
-              }, 1000);
-            } catch (err) {
-              console.error('❌ Ошибка сохранения архитектуры:', err);
-            }
+            // PATCH будет вызван при закрытии страницы или вручную
+            console.log('💡 Архитектура получена. Сохранение при закрытии проекта.');
           },
           
           onError: (error) => {
             console.error('❌ gRPC ошибка:', error);
             streamControllerRef.current = null;
-            setGrpcStarted(false); // Сбрасываем флаг при ошибке
+            setGrpcStarted(false);
             const errorMessage = error.message || 'Ошибка получения данных архитектуры';
+            
+            // Если ошибка 500 и данные уже есть в БД - игнорируем
+            if (errorMessage.includes('500') && project?.architecture?.data) {
+              console.log('⚠️ gRPC 500, но данные уже в БД - показываем их');
+              setError(null);
+              return;
+            }
             
             // Проверяем конкретные типы ошибок
             if (errorMessage.includes('прерван преждевременно')) {
@@ -350,8 +337,9 @@ export default function ProjectAnalysis() {
   useEffect(() => {
     // Проверяем что данные загружены и не пустые
     if (!project) return;
-    if (!endpoints || Object.keys(endpoints).length === 0) {
-      console.log('⏳ Endpoints пока пусты, ожидание данных...');
+    // Строим граф, как только есть architecture данные
+    if (architectureData.length === 0) {
+      console.log('⏳ Architecture данных пока нет, ожидание...');
       return;
     }
 
@@ -361,12 +349,12 @@ export default function ProjectAnalysis() {
       const newEdges = [];
 
       // Конфигурация слоев
-      const LAYER_GAP = 420; // Увеличено для равных расстояний
+      const LAYER_GAP = 420;
       const START_X = 100;
       const START_Y = 50;
-      const NODE_HEIGHT = 80; // Средняя высота узла для расчета позиций
+      const NODE_HEIGHT = 80;
 
-      console.log('🔄 Перестраиваем граф. Architecture данных:', architectureData.length);
+      console.log('🔄 Перестраиваем граф. Architecture:', architectureData.length, 'Endpoints:', Object.keys(endpoints || {}).length);
 
       // === ФУНКЦИЯ ОПРЕДЕЛЕНИЯ ТИПА УЗЛА (мемоизация) ===
       const nodeTypeCache = new Map();
@@ -378,7 +366,7 @@ export default function ProjectAnalysis() {
         let result;
         
         // HTTP Endpoints (из endpoints)
-        if (endpoints[nodeName]) {
+        if (endpoints && endpoints[nodeName]) {
           result = { type: 'endpoint', layer: 2 };
         }
         // Services (точно соответствуют AuthService, AccountService, ProjectService, CoreService)

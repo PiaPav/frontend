@@ -139,9 +139,7 @@ export class SimpleFrontendStreamServiceClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/grpc-web+proto',
-          'Accept': 'application/grpc-web+proto',
           'X-Grpc-Web': '1',
-          'X-User-Agent': 'grpc-web-javascript/0.1',
           ...metadata
         },
         body: requestBytes,
