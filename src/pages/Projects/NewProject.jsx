@@ -1,9 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReactFlow, {
+  Controls,
+  Background,
+  useNodesState,
+  useEdgesState,
+  MarkerType,
+} from 'reactflow';
+import 'reactflow/dist/style.css';
 import { projectsAPI } from '../../services/api';
 import grpcClient from '../../services/grpcClient';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Projects.module.css';
+import analysisStyles from './ProjectAnalysis.module.css';
 
 export default function NewProject() {
   const [form, setForm] = useState({
@@ -15,25 +24,76 @@ export default function NewProject() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [analysisStatus, setAnalysisStatus] = useState(''); // 'creating', 'analyzing', 'completed'
-  const [logs, setLogs] = useState([]); // Логи для отображения
-  const logsEndRef = useRef(null); // Ref для автоскролла
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  // Состояние для графа
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [requirements, setRequirements] = useState([]);
+  const [endpoints, setEndpoints] = useState({});
+  const [architectureData, setArchitectureData] = useState([]);
+  const [showGraph, setShowGraph] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState(null);
+  const architectureDataRef = useRef([]);
+  const streamControllerRef = useRef(null);
 
-  // Автоскролл логов вниз
+  // Сохранение архитектуры при уходе со страницы
   useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs]);
-
-  // Функция для добавления лога
-  const addLog = (type, message, details = null) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const logEntry = { type, message, details, timestamp };
-    console.log(`[${timestamp}] ${type.toUpperCase()}: ${message}`, details || '');
-    setLogs(prev => [...prev, logEntry]);
-  };
+    const handleSaveOnExit = async () => {
+      if (currentProjectId && architectureDataRef.current.length > 0) {
+        console.log('💾 Сохранение архитектуры при закрытии страницы...');
+        
+        const archData = {
+          requirements,
+          endpoints: Object.entries(endpoints).map(([k, v]) => ({ [k]: v })),
+          data: architectureDataRef.current.reduce((acc, item) => {
+            acc[item.parent] = item.children;
+            return acc;
+          }, {})
+        };
+        
+        try {
+          // Используем fetch с keepalive для надёжной отправки при закрытии
+          const token = localStorage.getItem('access_token');
+          await fetch(`${import.meta.env.VITE_API_URL || '/v1'}/project/${currentProjectId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ architecture: archData }),
+            keepalive: true
+          });
+          console.log('✅ Архитектура сохранена');
+        } catch (err) {
+          console.error('❌ Ошибка сохранения:', err);
+        }
+      }
+    };
+    
+    // Сохранение при уходе со страницы
+    const handleBeforeUnload = (e) => {
+      if (currentProjectId && architectureDataRef.current.length > 0) {
+        handleSaveOnExit();
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Сохранение при размонтировании компонента (переход по навигации)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      if (currentProjectId && architectureDataRef.current.length > 0) {
+        handleSaveOnExit();
+      }
+    };
+  }, [currentProjectId, requirements, endpoints]);
+  
+  // Синхронизация ref с state
+  useEffect(() => {
+    architectureDataRef.current = architectureData;
+  }, [architectureData]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -58,7 +118,6 @@ export default function NewProject() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setLogs([]); // Очистить предыдущие логи
 
     // Валидация
     if (!form.name.trim()) {
@@ -89,9 +148,7 @@ export default function NewProject() {
       }
 
       // ШАГ 1: Создание проекта через POST /v1/project
-      addLog('info', '📤 Отправка проекта на backend через REST API...');
-      addLog('info', `Название: "${form.name}", Описание: "${form.description}"`);
-      addLog('info', `Файл: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      console.log('📤 Создание проекта через REST API...');
       
       setAnalysisStatus('creating');
       
@@ -103,122 +160,76 @@ export default function NewProject() {
       
       const result = await projectsAPI.create(payload);
       
-      // Детальное логирование ответа backend
-      addLog('info', '🔍 Backend response:', result);
-      console.log('📊 FULL BACKEND RESPONSE:', result);
-      console.log('📊 result.id:', result.id);
-      console.log('📊 result.project_id:', result.project_id);
-      console.log('📊 typeof result.id:', typeof result.id);
-      console.log('📊 typeof result.project_id:', typeof result.project_id);
+      console.log('✅ Проект создан:', result);
       
       // Определяем правильный ID проекта
       const projectId = result.project_id || result.id;
       
-      if (!projectId || projectId === 0) {
-        addLog('error', '❌ Backend не вернул валидный ID проекта!', result);
+      if (!projectId) {
         throw new Error('Backend не вернул ID проекта');
       }
       
-      addLog('success', '✅ Проект создан успешно!', { 
-        project_id: projectId,
-        full_response: result 
-      });
+      setCurrentProjectId(projectId);
+      console.log('✅ Проект создан, ID:', projectId);
 
-      // ШАГ 2: Запуск gRPC анализа сразу после создания
-      addLog('info', '📡 Подключаемся к gRPC stream для анализа...');
-      addLog('info', `User ID: ${user.id}, Project ID: ${projectId}`);
-      addLog('info', `🔍 Проверка значений перед отправкой:`);
-      addLog('info', `  - user.id = ${user.id} (type: ${typeof user.id})`);
-      addLog('info', `  - projectId = ${projectId} (type: ${typeof projectId})`);
-      addLog('info', `  - parseInt(user.id) = ${parseInt(user.id)}`);
-      addLog('info', `  - parseInt(projectId) = ${parseInt(projectId)}`);
-      
+      // ШАГ 2: Запуск gRPC анализа и показ визуализации
       setAnalysisStatus('analyzing');
+      setShowGraph(true); // Показываем граф сразу
 
       if (!user || !user.id) {
         throw new Error('User ID не найден. Перезайдите в систему.');
       }
       
-      // Валидация IDs перед отправкой
       const validUserId = parseInt(user.id);
       const validProjectId = parseInt(projectId);
       
       if (isNaN(validUserId) || validUserId === 0) {
-        addLog('error', `❌ Невалидный User ID: ${user.id}`);
         throw new Error('Невалидный User ID');
       }
       
       if (isNaN(validProjectId) || validProjectId === 0) {
-        addLog('error', `❌ Невалидный Project ID: ${projectId}`);
         throw new Error('Невалидный Project ID');
       }
       
-      addLog('info', `✅ Валидация пройдена: user_id=${validUserId}, task_id=${validProjectId}`);
+      console.log('🚀 Запуск gRPC stream:', { user_id: validUserId, task_id: validProjectId });
 
-      // Таймер для отслеживания долгого ожидания
-      let connectionTimer = setTimeout(() => {
-        addLog('warning', '⚠️ Подключение к gRPC занимает больше 5 секунд...');
-        addLog('warning', 'Возможные причины: backend обрабатывает запрос или не отвечает');
-      }, 7000); // +2 секунды на задержку
-
-      let firstMessageTimer = setTimeout(() => {
-        addLog('warning', '⚠️ Первое сообщение не пришло за 10 секунд');
-        addLog('warning', 'Проверьте: существует ли проект в БД? Запущен ли Algorithm service?');
-      }, 0); // +2 секунды на задержку
-
-      // Отправляем gRPC запрос с валидными ID
-      await grpcClient.connectToStream(validUserId, validProjectId, {
+      // Отправляем gRPC запрос
+      const controller = await grpcClient.connectToStream(validUserId, validProjectId, {
         onStart: () => {
-          clearTimeout(connectionTimer);
-          clearTimeout(firstMessageTimer);
-          addLog('success', '🎬 gRPC подключение установлено - начался анализ');
+          console.log('🎬 gRPC подключение установлено');
         },
         
         onRequirements: (data) => {
-          clearTimeout(firstMessageTimer);
-          const count = data.requirements?.length || 0;
-          addLog('success', `📋 Получены Requirements (${count} шт.)`);
-          addLog('info', 'Содержание:', data.requirements?.slice(0, 3).map(r => r.description).join(', '));
+          console.log('📋 Requirements:', data.requirements?.length);
+          setRequirements(data.requirements || []);
         },
         
         onEndpoints: (data) => {
-          const count = Object.keys(data.endpoints || {}).length;
-          addLog('success', `🔗 Получены Endpoints (${count} шт.)`);
-          addLog('info', 'Endpoints:', Object.keys(data.endpoints || {}).join(', '));
+          console.log('🔗 Endpoints:', Object.keys(data.endpoints || {}).length);
+          setEndpoints(data.endpoints || {});
         },
         
         onArchitecture: (data) => {
-          addLog('success', `🏗️ Получена Architecture часть (parent: ${data.parent || 'root'})`);
-          addLog('info', `Детей: ${data.children?.length || 0}`);
+          console.log('🏗️ Architecture:', data.parent, '→', data.children?.length);
+          setArchitectureData(prev => [...prev, {
+            parent: data.parent,
+            children: data.children || []
+          }]);
         },
         
-        onDone: () => {
-          clearTimeout(connectionTimer);
-          clearTimeout(firstMessageTimer);
-          addLog('success', '✅ gRPC Stream завершён успешно!');
-          addLog('info', '🚀 Перенаправление на страницу визуализации...');
+        onDone: async () => {
+          console.log('✅ gRPC Stream завершён успешно!');
           setAnalysisStatus('completed');
           setLoading(false);
-          
-          // Переход на страницу визуализации архитектуры
-          setTimeout(() => {
-            navigate(`/projects/${projectId}/architecture`);
-          }, 1000);
+          streamControllerRef.current = null;
         },
         
         onError: (error) => {
-          clearTimeout(connectionTimer);
-          clearTimeout(firstMessageTimer);
-          addLog('error', '❌ Ошибка gRPC stream');
-          addLog('error', error.message);
-          addLog('error', 'Stack trace:', error.stack);
-          
+          console.error('❌ Ошибка gRPC stream:', error);
           setError(`Ошибка анализа проекта: ${error.message}`);
           setAnalysisStatus('error');
           setLoading(false);
-          
-          // Даже при ошибке анализа переходим на страницу проекта
-          addLog('info', 'Переход на страницу проекта через 3 секунды...');
+          streamControllerRef.current = null;
           setTimeout(() => {
             navigate(`/projects/${projectId}/architecture`);
           }, 3000);
@@ -252,6 +263,119 @@ export default function NewProject() {
       setAnalysisStatus('error');
     }
   }
+
+  // Построение графа в реальном времени
+  useEffect(() => {
+    if (architectureData.length === 0) return;
+
+    const LAYER_GAP = 420;
+    const START_X = 100;
+    const START_Y = 50;
+    const NODE_HEIGHT = 80;
+
+    const newNodes = [];
+    const newEdges = [];
+
+    // Группируем узлы по слоям
+    const layerGroups = {
+      2: [], // endpoints
+      3: [], // services  
+      3.5: [], // service methods
+      4: [] // database
+    };
+
+    const getNodeType = (nodeName) => {
+      if (endpoints[nodeName]) {
+        return { type: 'endpoint', layer: 2 };
+      } else if (['AuthService', 'AccountService', 'ProjectService', 'CoreService'].includes(nodeName)) {
+        return { type: 'service', layer: 3 };
+      } else if (nodeName.includes('Service.')) {
+        return { type: 'service-method', layer: 3.5 };
+      } else if (nodeName.startsWith('Account.') || nodeName.startsWith('Project.')) {
+        return { type: 'database-method', layer: 4 };
+      } else if (nodeName.startsWith('DatabaseManager')) {
+        return { type: 'database-manager', layer: 4 };
+      }
+      return null;
+    };
+
+    // Собираем все узлы
+    architectureData.forEach(({ parent, children }) => {
+      const parentType = getNodeType(parent);
+      if (parentType) {
+        layerGroups[parentType.layer].push(parent);
+      }
+
+      children.forEach(child => {
+        const childType = getNodeType(child);
+        if (childType) {
+          layerGroups[childType.layer].push(child);
+        }
+      });
+    });
+
+    // Удаляем дубликаты
+    Object.keys(layerGroups).forEach(layer => {
+      layerGroups[layer] = [...new Set(layerGroups[layer])];
+    });
+
+    // Создаём узлы
+    Object.entries(layerGroups).forEach(([layer, nodes]) => {
+      nodes.forEach((nodeName, idx) => {
+        const nodeType = getNodeType(nodeName);
+        newNodes.push({
+          id: nodeName,
+          type: 'default',
+          position: {
+            x: START_X + parseFloat(layer) * LAYER_GAP,
+            y: START_Y + idx * NODE_HEIGHT
+          },
+          data: {
+            label: (
+              <div style={{ padding: '10px', textAlign: 'center' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '12px' }}>{nodeName}</div>
+                {endpoints[nodeName] && (
+                  <div style={{ fontSize: '10px', color: '#666' }}>{endpoints[nodeName]}</div>
+                )}
+              </div>
+            )
+          },
+          style: {
+            background: nodeType?.type === 'endpoint' ? '#4CAF50' :
+                       nodeType?.type === 'service' ? '#2196F3' :
+                       nodeType?.type === 'service-method' ? '#03A9F4' :
+                       '#9C27B0',
+            color: 'white',
+            border: '1px solid #333',
+            borderRadius: '8px',
+            fontSize: '12px'
+          }
+        });
+      });
+    });
+
+    // Создаём рёбра
+    architectureData.forEach(({ parent, children }) => {
+      children.forEach(child => {
+        const parentType = getNodeType(parent);
+        const childType = getNodeType(child);
+        
+        if (parentType && childType) {
+          newEdges.push({
+            id: `${parent}-${child}`,
+            source: parent,
+            target: child,
+            type: 'default',
+            markerEnd: { type: MarkerType.ArrowClosed },
+            style: { stroke: '#555', strokeWidth: 1.5 }
+          });
+        }
+      });
+    });
+
+    setNodes(newNodes);
+    setEdges(newEdges);
+  }, [architectureData, endpoints, setNodes, setEdges]);
 
   return (
     <div className={styles.container}>
@@ -312,30 +436,8 @@ export default function NewProject() {
           {analysisStatus && !error && (
             <div className={styles.analysisStatus}>
               {analysisStatus === 'creating' && '📤 Создание проекта...'}
-              {analysisStatus === 'analyzing' && '📡 Анализ проекта... Это может занять несколько минут.'}
+              {analysisStatus === 'analyzing' && '📡 Анализ проекта в реальном времени...'}
               {analysisStatus === 'completed' && '✅ Анализ завершён!'}
-            </div>
-          )}
-
-          {/* Логи в реальном времени */}
-          {logs.length > 0 && (
-            <div className={styles.logsContainer}>
-              <h3>📋 Логи процесса:</h3>
-              <div className={styles.logsList}>
-                {logs.map((log, index) => (
-                  <div 
-                    key={index} 
-                    className={`${styles.logEntry} ${styles[`log${log.type.charAt(0).toUpperCase() + log.type.slice(1)}`]}`}
-                  >
-                    <span className={styles.logTime}>[{log.timestamp}]</span>
-                    <span className={styles.logMessage}>{log.message}</span>
-                    {log.details && (
-                      <pre className={styles.logDetails}>{JSON.stringify(log.details, null, 2)}</pre>
-                    )}
-                  </div>
-                ))}
-                <div ref={logsEndRef} />
-              </div>
             </div>
           )}
 
@@ -357,6 +459,28 @@ export default function NewProject() {
             </button>
           </div>
         </form>
+
+        {/* Граф в реальном времени */}
+        {showGraph && (
+          <div className={analysisStyles.graphContainer} style={{ marginTop: '20px', height: '600px', border: '1px solid #333', borderRadius: '8px' }}>
+            <div style={{ padding: '10px', background: '#1a1a1a', borderBottom: '1px solid #333' }}>
+              <h3>📊 Визуализация архитектуры</h3>
+              <div style={{ fontSize: '12px', color: '#888' }}>
+                Узлов: {nodes.length} | Связей: {edges.length} | Requirements: {requirements.length} | Endpoints: {Object.keys(endpoints).length}
+              </div>
+            </div>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              fitView
+            >
+              <Background />
+              <Controls />
+            </ReactFlow>
+          </div>
+        )}
       </div>
 
       {showPremiumModal && (

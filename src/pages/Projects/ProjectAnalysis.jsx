@@ -56,64 +56,7 @@ export default function ProjectAnalysis() {
   useEffect(() => {
     let cancelled = false;
     
-    // Демо-проект: загружаем моковые данные
-    if (id === 'demo') {
-      const loadDemo = async () => {
-        try {
-          setLoading(true);
-          setError(null);
-          setIsDemoProject(true);
-          
-          console.log('📦 Загрузка ДЕМО проекта');
-          
-          await new Promise(r => setTimeout(r, 500));
-          if (cancelled) return;
-          
-          setProject(DEMO_PROJECT);
-          setRequirements(DEMO_PROJECT.architecture.requirements);
-          setEndpoints(DEMO_PROJECT.architecture.endpoints);
-          
-          const archArray = Object.entries(DEMO_PROJECT.architecture.data).map(([parent, children]) => ({
-            parent,
-            children: Array.isArray(children) ? children : []
-          }));
-          setArchitectureData(archArray);
-          setStreamComplete(true);
-          
-          setLoading(false);
-          setIsFirstLoad(false);
-        } catch (err) {
-          if (cancelled) return;
-          console.error('❌ Ошибка загрузки демо:', err);
-          setError('Ошибка загрузки демо-проекта');
-          setLoading(false);
-        }
-      };
-      
-      loadDemo();
-      
-      return () => {
-        cancelled = true;
-      };
-    }
-    
     // Реальный проект: REST + gRPC
-    //
-    // ПОТОК РАБОТЫ СОГЛАСНО БЭКЕНД СПЕЦИФИКАЦИИ:
-    // 1. REST: GET /v1/project/{project_id} - получаем метаданные проекта
-    //    - Требует: Authorization: Bearer <JWT> (добавляется автоматически через interceptor)
-    //    - Ответ: {id, name, description, picture_url, architecture:{requirements[], endpoints[], data{}}}
-    //    - Если architecture уже есть - показываем, пропускаем gRPC
-    //
-    // 2. gRPC Stream: /core.api.FrontendStreamService/RunAlgorithm
-    //    - Если архитектуры нет - запускаем анализ через gRPC-Web
-    //    - Запрос: AlgorithmRequest {user_id: int64, task_id: int64}
-    //    - Ответ: серверный стрим GraphPartResponse с порядком:
-    //      START → REQUIREMENTS → ENDPOINTS → ARCHITECTURE (несколько раз) → DONE
-    //    - КРИТИЧЕСКИ ВАЖНО: Stream считается успешным ТОЛЬКО если получен DONE
-    //      Если stream оборвался до DONE - это ошибка, показываем пользователю
-    //
-    // 3. После получения DONE - сохраняем архитектуру через PATCH /v1/project/{id}
     const loadProject = async () => {
       try {
         if (isFirstLoad) {
@@ -121,7 +64,6 @@ export default function ProjectAnalysis() {
           setError(null);
         }
         
-        setIsDemoProject(false);
         console.log('🌐 Загрузка проекта через REST, ID:', id);
         
         // 1. Получаем данные через REST API

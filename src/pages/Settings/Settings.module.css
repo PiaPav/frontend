@@ -142,15 +142,16 @@
 
 .input {
   padding: 12px 16px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #264d9c;
   border-radius: 12px;
   font-size: 16px;
+  color: #1a1a1a;
   transition: all 0.3s ease;
 }
 
 .input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #002fff;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
