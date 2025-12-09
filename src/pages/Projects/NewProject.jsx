@@ -268,22 +268,31 @@ export default function NewProject() {
   useEffect(() => {
     if (architectureData.length === 0) return;
 
-    const LAYER_GAP = 420;
-    const START_X = 100;
-    const START_Y = 50;
-    const NODE_HEIGHT = 80;
+    const LAYER_GAP = 400;
+    const START_X = 80;
+    const START_Y = 80;
+    const NODE_SPACING = 110;
 
     const newNodes = [];
     const newEdges = [];
 
-    // Группируем узлы по слоям
-    const layerGroups = {
-      2: [], // endpoints
-      3: [], // services  
-      3.5: [], // service methods
-      4: [] // database
+    // Цвета для HTTP методов
+    const methodColors = {
+      'GET': { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
+      'POST': { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' },
+      'PATCH': { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706' },
+      'PUT': { bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', border: '#7c3aed' },
+      'DELETE': { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626' },
     };
 
+    const serviceColors = {
+      'AuthService': { color: '#8b5cf6', icon: '🔐', label: 'Auth' },
+      'AccountService': { color: '#3b82f6', icon: '👤', label: 'Account' },
+      'ProjectService': { color: '#10b981', icon: '📁', label: 'Project' },
+      'CoreService': { color: '#f59e0b', icon: '⚙️', label: 'Core' },
+    };
+
+    // Определение типа узла
     const getNodeType = (nodeName) => {
       if (endpoints[nodeName]) {
         return { type: 'endpoint', layer: 2 };
@@ -295,82 +304,335 @@ export default function NewProject() {
         return { type: 'database-method', layer: 4 };
       } else if (nodeName.startsWith('DatabaseManager')) {
         return { type: 'database-manager', layer: 4 };
+      } else if (nodeName.includes('Controller.')) {
+        return { type: 'controller', layer: 3.5 };
+      } else if (nodeName.startsWith('router.')) {
+        return { type: 'router', layer: 2.5 };
       }
-      return null;
+      return { type: 'other', layer: 5 };
     };
 
-    // Собираем все узлы
+    // Собираем все узлы из architecture data
+    const allNodes = new Set();
     architectureData.forEach(({ parent, children }) => {
-      const parentType = getNodeType(parent);
-      if (parentType) {
-        layerGroups[parentType.layer].push(parent);
-      }
-
+      allNodes.add(parent);
       children.forEach(child => {
-        const childType = getNodeType(child);
-        if (childType) {
-          layerGroups[childType.layer].push(child);
-        }
+        const cleanChild = child.split('/').pop();
+        allNodes.add(cleanChild);
       });
     });
 
-    // Удаляем дубликаты
-    Object.keys(layerGroups).forEach(layer => {
-      layerGroups[layer] = [...new Set(layerGroups[layer])];
+    // Группируем по слоям
+    const nodesByLayer = {
+      2: [], // Endpoints
+      2.5: [], // Routers
+      3: [], // Services  
+      3.5: [], // Service/Controller methods
+      4: [], // Database
+      5: [] // Other
+    };
+
+    allNodes.forEach(nodeName => {
+      const { layer } = getNodeType(nodeName);
+      if (nodesByLayer[layer]) {
+        nodesByLayer[layer].push(nodeName);
+      }
     });
 
-    // Создаём узлы
-    Object.entries(layerGroups).forEach(([layer, nodes]) => {
-      nodes.forEach((nodeName, idx) => {
-        const nodeType = getNodeType(nodeName);
+    // Добавляем endpoints из объекта endpoints
+    nodesByLayer[2] = Object.keys(endpoints);
+
+    console.log('📊 Узлы по слоям:', {
+      'Endpoints': nodesByLayer[2].length,
+      'Routers': nodesByLayer[2.5].length,
+      'Services': nodesByLayer[3].length,
+      'Methods': nodesByLayer[3.5].length,
+      'Database': nodesByLayer[4].length,
+    });
+    
+    console.log('🔍 Примеры узлов:', {
+      endpoints: nodesByLayer[2].slice(0, 3),
+      routers: nodesByLayer[2.5].slice(0, 3),
+      services: nodesByLayer[3],
+      methods: nodesByLayer[3.5].slice(0, 5),
+      database: nodesByLayer[4].slice(0, 5)
+    });
+
+    // === LAYER 2: HTTP Endpoints ===
+    const endpointsList = nodesByLayer[2].map(key => ({ key, value: endpoints[key] }));
+    const methodOrder = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
+    const sortedEndpoints = endpointsList.sort((a, b) => {
+      const methodA = a.value?.split(' ')[0] || 'GET';
+      const methodB = b.value?.split(' ')[0] || 'GET';
+      return methodOrder.indexOf(methodA) - methodOrder.indexOf(methodB);
+    });
+
+    sortedEndpoints.forEach(({ key, value }, idx) => {
+      const method = value?.split(' ')[0] || 'GET';
+      const path = value?.split(' ')[1] || '';
+      const color = methodColors[method] || methodColors['GET'];
+      
+      newNodes.push({
+        id: key,
+        type: 'default',
+        position: { x: START_X, y: START_Y + idx * 100 },
+        data: {
+          label: (
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ 
+                background: color.bg, 
+                color: 'white', 
+                padding: '4px 10px', 
+                borderRadius: '6px', 
+                fontSize: '11px', 
+                fontWeight: 'bold',
+                marginBottom: '6px',
+                display: 'inline-block',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                {method}
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: '600', marginTop: '6px', color: '#1f2937' }}>{path}</div>
+              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>{key}</div>
+            </div>
+          ),
+        },
+        style: {
+          background: 'white',
+          border: `3px solid ${color.border}`,
+          borderRadius: '12px',
+          width: 240,
+          fontSize: '12px',
+          boxShadow: `0 4px 16px ${color.border}35`,
+        },
+        sourcePosition: 'right',
+        targetPosition: 'left',
+      });
+    });
+
+    // === LAYER 3: Services ===
+    nodesByLayer[3].forEach((serviceName, idx) => {
+      const serviceConfig = serviceColors[serviceName] || { 
+        color: '#64748b', 
+        icon: '⚙️', 
+        label: serviceName.replace('Service', '') 
+      };
+      
+      newNodes.push({
+        id: serviceName,
+        type: 'default',
+        position: { x: START_X + LAYER_GAP * 1.5, y: START_Y + idx * 180 },
+        data: {
+          label: (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '20px', marginBottom: '6px' }}>{serviceConfig.icon}</div>
+              <div style={{ fontSize: '15px', fontWeight: '700' }}>{serviceConfig.label}</div>
+              <div style={{ fontSize: '9px', opacity: 0.8, marginTop: '2px', letterSpacing: '1px' }}>SERVICE</div>
+            </div>
+          ),
+        },
+        style: {
+          background: `linear-gradient(135deg, ${serviceConfig.color} 0%, ${serviceConfig.color}dd 100%)`,
+          color: 'white',
+          borderRadius: '16px',
+          padding: '20px 24px',
+          width: 160,
+          textAlign: 'center',
+          boxShadow: `0 8px 24px ${serviceConfig.color}40`,
+          border: '2px solid white',
+        },
+        sourcePosition: 'right',
+        targetPosition: 'left',
+      });
+    });
+
+    // === LAYER 3.5: Methods (Controllers/Service Methods) ===
+    nodesByLayer[3.5].forEach((methodName, idx) => {
+      const serviceName = methodName.split('.')[0];
+      const methodShortName = methodName.split('.')[1];
+      const serviceConfig = serviceColors[serviceName] || { color: '#64748b' };
+      
+      newNodes.push({
+        id: methodName,
+        type: 'default',
+        position: { x: START_X + LAYER_GAP * 2.5, y: START_Y + idx * NODE_SPACING },
+        data: {
+          label: (
+            <div style={{ padding: '4px 8px' }}>
+              <div style={{ 
+                fontSize: '8px', 
+                fontWeight: '700', 
+                color: serviceConfig.color,
+                background: `${serviceConfig.color}15`,
+                padding: '2px 6px',
+                borderRadius: '4px',
+                marginBottom: '4px',
+                textAlign: 'center'
+              }}>
+                {serviceName.replace('Service', '').toUpperCase()}
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: '#1f2937', textAlign: 'center' }}>
+                {methodShortName}
+              </div>
+            </div>
+          ),
+        },
+        style: {
+          background: 'white',
+          border: `2px solid ${serviceConfig.color}`,
+          borderRadius: '10px',
+          padding: '6px 10px',
+          width: 170,
+          fontSize: '11px',
+          boxShadow: `0 4px 12px ${serviceConfig.color}25`,
+        },
+        sourcePosition: 'right',
+        targetPosition: 'left',
+      });
+    });
+
+    // === LAYER 4: Database (сгруппированные по классам) ===
+    const dbGroups = {
+      'DatabaseManager': [],
+      'Account': [],
+      'Project': [],
+    };
+    
+    nodesByLayer[4].forEach(nodeName => {
+      if (nodeName.startsWith('DatabaseManager')) {
+        dbGroups['DatabaseManager'].push(nodeName);
+      } else if (nodeName.startsWith('Account.')) {
+        dbGroups['Account'].push(nodeName);
+      } else if (nodeName.startsWith('Project.')) {
+        dbGroups['Project'].push(nodeName);
+      }
+    });
+
+    let dbYOffset = START_Y;
+    Object.entries(dbGroups).forEach(([groupName, methods]) => {
+      if (methods.length === 0) return;
+
+      // Заголовок группы - увеличенный и более заметный
+      newNodes.push({
+        id: `group-${groupName}`,
+        type: 'default',
+        position: { x: START_X + LAYER_GAP * 3.5, y: dbYOffset },
+        data: {
+          label: (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '9px', fontWeight: '700', opacity: 0.9, marginBottom: '6px', letterSpacing: '1px' }}>🗄️ DATABASE</div>
+              <div style={{ fontSize: '16px', fontWeight: '700' }}>{groupName}</div>
+              <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>{methods.length} метод{methods.length > 1 ? 'а' : ''}</div>
+            </div>
+          ),
+        },
+        style: {
+          background: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
+          color: 'white',
+          borderRadius: '16px',
+          padding: '16px 20px',
+          width: 200,
+          boxShadow: '0 8px 24px #9C27B040',
+          border: '2px solid white',
+        },
+        sourcePosition: 'right',
+        targetPosition: 'left',
+      });
+
+      dbYOffset += 90;
+
+      // Методы группы
+      methods.forEach((method, idx) => {
+        const methodShort = method.split('.')[1] || method;
         newNodes.push({
-          id: nodeName,
+          id: method,
           type: 'default',
-          position: {
-            x: START_X + parseFloat(layer) * LAYER_GAP,
-            y: START_Y + idx * NODE_HEIGHT
-          },
+          position: { x: START_X + LAYER_GAP * 4.3, y: dbYOffset + idx * 75 },
           data: {
             label: (
-              <div style={{ padding: '10px', textAlign: 'center' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '12px' }}>{nodeName}</div>
-                {endpoints[nodeName] && (
-                  <div style={{ fontSize: '10px', color: '#666' }}>{endpoints[nodeName]}</div>
-                )}
+              <div style={{ padding: '6px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#1f2937' }}>{methodShort}</div>
               </div>
-            )
+            ),
           },
           style: {
-            background: nodeType?.type === 'endpoint' ? '#4CAF50' :
-                       nodeType?.type === 'service' ? '#2196F3' :
-                       nodeType?.type === 'service-method' ? '#03A9F4' :
-                       '#9C27B0',
-            color: 'white',
-            border: '1px solid #333',
+            background: 'white',
+            border: '2px solid #9C27B0',
             borderRadius: '8px',
-            fontSize: '12px'
-          }
+            padding: '4px 8px',
+            width: 160,
+            fontSize: '11px',
+            boxShadow: '0 4px 12px #9C27B025',
+          },
+          sourcePosition: 'right',
+          targetPosition: 'left',
         });
       });
+
+      dbYOffset += methods.length * 70 + 40;
     });
 
-    // Создаём рёбра
+    // === Создание рёбер (связей) ===
+    // Строим map всех узлов для быстрой проверки
+    const nodeIds = new Set(newNodes.map(n => n.id));
+    
     architectureData.forEach(({ parent, children }) => {
       children.forEach(child => {
-        const parentType = getNodeType(parent);
-        const childType = getNodeType(child);
+        const cleanChild = child.split('/').pop();
         
-        if (parentType && childType) {
+        // Проверяем существование обоих узлов
+        if (nodeIds.has(parent) && nodeIds.has(cleanChild)) {
           newEdges.push({
-            id: `${parent}-${child}`,
+            id: `${parent}-${cleanChild}`,
             source: parent,
-            target: child,
-            type: 'default',
-            markerEnd: { type: MarkerType.ArrowClosed },
-            style: { stroke: '#555', strokeWidth: 1.5 }
+            target: cleanChild,
+            type: 'smoothstep',
+            markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
+            style: { stroke: '#94a3b8', strokeWidth: 2 },
+            animated: false
           });
         }
       });
+    });
+    
+    // Связываем endpoints напрямую с методами контроллеров
+    let endpointLinksCount = 0;
+    Object.keys(endpoints).forEach(endpointKey => {
+      // Ищем соответствующие узлы: AuthController.login, ProjectController.create_project и т.д.
+      const possibleTargets = [
+        `AuthController.${endpointKey}`,
+        `ProjectController.${endpointKey}`,
+        `AccountController.${endpointKey}`,
+        `router.${endpointKey}`,
+      ];
+      
+      for (const target of possibleTargets) {
+        if (nodeIds.has(target)) {
+          const method = endpoints[endpointKey]?.split(' ')[0] || 'GET';
+          const color = methodColors[method]?.border || '#3b82f6';
+          
+          newEdges.push({
+            id: `${endpointKey}-${target}`,
+            source: endpointKey,
+            target: target,
+            type: 'smoothstep',
+            markerEnd: { type: MarkerType.ArrowClosed, color: color },
+            style: { stroke: color, strokeWidth: 3 },
+            animated: true,
+            label: method,
+            labelStyle: { fontSize: '10px', fontWeight: '700', fill: color },
+            labelBgStyle: { fill: 'white', fillOpacity: 0.9 }
+          });
+          endpointLinksCount++;
+          break;
+        }
+      }
+    });
+    
+    console.log('🔗 Связи построены:', {
+      total: newEdges.length,
+      fromArchitecture: newEdges.length - endpointLinksCount,
+      fromEndpoints: endpointLinksCount
     });
 
     setNodes(newNodes);
@@ -379,8 +641,10 @@ export default function NewProject() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.newProjectWrapper}>
-        <form className={styles.newProjectForm} onSubmit={handleSubmit}>
+      {/* Форма создания проекта */}
+      {!showGraph && (
+        <div className={styles.newProjectWrapper}>
+          <form className={styles.newProjectForm} onSubmit={handleSubmit}>
           <h1>Создать новый проект</h1>
 
           <div className={styles.inputGroup}>
@@ -459,16 +723,36 @@ export default function NewProject() {
             </button>
           </div>
         </form>
+        </div>
+      )}
 
-        {/* Граф в реальном времени */}
-        {showGraph && (
-          <div className={analysisStyles.graphContainer} style={{ marginTop: '20px', height: '600px', border: '1px solid #333', borderRadius: '8px' }}>
-            <div style={{ padding: '10px', background: '#1a1a1a', borderBottom: '1px solid #333' }}>
-              <h3>📊 Визуализация архитектуры</h3>
-              <div style={{ fontSize: '12px', color: '#888' }}>
+      {/* Граф в реальном времени на весь экран */}
+      {showGraph && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#f5f5f5', zIndex: 1000 }}>
+          <div style={{ padding: '16px 20px', background: 'white', borderBottom: '2px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111' }}>📊 Архитектура проекта</h2>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                 Узлов: {nodes.length} | Связей: {edges.length} | Requirements: {requirements.length} | Endpoints: {Object.keys(endpoints).length}
               </div>
             </div>
+            <button 
+              onClick={() => { setShowGraph(false); navigate('/projects'); }}
+              style={{ 
+                background: '#ef4444', 
+                color: 'white', 
+                border: 'none', 
+                padding: '8px 16px', 
+                borderRadius: '6px', 
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600'
+              }}
+            >
+              Закрыть
+            </button>
+          </div>
+          <div style={{ height: 'calc(100vh - 80px)' }}>
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -476,12 +760,12 @@ export default function NewProject() {
               onEdgesChange={onEdgesChange}
               fitView
             >
-              <Background />
+              <Background color="#d1d5db" gap={20} />
               <Controls />
             </ReactFlow>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {showPremiumModal && (
         <div className={styles.modalOverlay} onClick={() => setShowPremiumModal(false)}>
