@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { projectsAPI } from '../../services/api';
+import { homeAPI } from '../../services/api';
 import { DEMO_PROJECT } from '../../data/demoProject';
 import styles from './Projects.module.css';
 
@@ -9,6 +9,7 @@ export default function ProjectsList() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [userName, setUserName] = useState('');
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -21,9 +22,14 @@ export default function ProjectsList() {
   async function loadProjects() {
     try {
       setLoading(true);
-      const response = await projectsAPI.getAll();
-      // API возвращает { total: number, data: [...] }
-      const projectsList = response.data || response || [];
+      const response = await homeAPI.getHomepage();
+      
+      // response = { user: { id, name, surname }, projects: { total, data: [...] } }
+      if (response.user) {
+        setUserName(response.user.login || '');
+      }
+      
+      const projectsList = response.projects?.data || [];
       
       // Всегда добавляем демо-проект первым
       setProjects([DEMO_PROJECT, ...projectsList]);
@@ -78,10 +84,10 @@ export default function ProjectsList() {
         <div className={styles.userMenu}>
           <button className={styles.userBtn}>
             <div className={styles.avatar}>
-              {user?.name?.[0]?.toUpperCase() || user?.login?.[0]?.toUpperCase() || 'П'}
+              {userName?.[0]?.toUpperCase() || user?.login?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || 'П'}
             </div>
             <span className={styles.userName}>
-              {user?.name || user?.login || 'Пользователь'}
+              {userName || user?.login || user?.name || 'Пользователь'}
             </span>
             <span className={styles.chevron}>▼</span>
           </button>
@@ -147,4 +153,3 @@ export default function ProjectsList() {
     </div>
   );
 }
-

@@ -121,6 +121,14 @@ export const projectsAPI = {
   },
 };
 
+// API для домашней страницы
+export const homeAPI = {
+  getHomepage: async () => {
+    const response = await api.get('/home');
+    return response.data;
+  },
+};
+
 // API для работы с аккаунтом
 export const accountAPI = {
   // Получить данные аккаунта

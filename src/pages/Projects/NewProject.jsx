@@ -101,6 +101,15 @@ export default function NewProject() {
     setError('');
   }
 
+  function formatFileSize(bytes) {
+    if (!bytes && bytes !== 0) return '';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / Math.pow(1024, exponent);
+    const rounded = value >= 10 || exponent === 0 ? Math.round(value) : value.toFixed(1);
+    return `${rounded} ${units[exponent]}`;
+  }
+
   function handleFileChange(e) {
     const f = e.target.files?.[0] || null;
     const LIMIT = 50 * 1024 * 1024; // 50 MB
@@ -264,17 +273,89 @@ export default function NewProject() {
     }
   }
 
-  // Построение графа в реальном времени
+  // Build graph in real-time with proper grouping and filtering
   useEffect(() => {
     if (architectureData.length === 0) return;
 
-    const LAYER_GAP = 400;
+    const LAYER_GAP = 450;
     const START_X = 80;
     const START_Y = 80;
-    const NODE_SPACING = 110;
+    const NODE_SPACING = 120; // Increased spacing between HTTP endpoints
+    const GROUP_SPACING = 180;
 
     const newNodes = [];
-    const newEdges = [];
+    
+    // Build dependency graph to filter isolated nodes
+    const dependencyMap = new Map(); // node -> nodes that depend on it
+    const reverseDependencyMap = new Map(); // node -> nodes it depends on (children)
+    
+    architectureData.forEach(({ parent, children }) => {
+      children.forEach(child => {
+        const cleanChild = child.split('/').pop();
+        
+        // dependencyMap: who uses this node
+        if (!dependencyMap.has(cleanChild)) {
+          dependencyMap.set(cleanChild, new Set());
+        }
+        dependencyMap.get(cleanChild).add(parent);
+        
+        // reverseDependencyMap: what this node uses
+        if (!reverseDependencyMap.has(parent)) {
+          reverseDependencyMap.set(parent, new Set());
+        }
+        reverseDependencyMap.get(parent).add(cleanChild);
+      });
+    });
+    
+    // Start from endpoints and traverse DOWN the dependency tree
+    const connectedNodes = new Set();
+    
+    const traverse = (node) => {
+      if (connectedNodes.has(node)) return;
+      connectedNodes.add(node);
+      
+      // Traverse to children (dependencies)
+      if (reverseDependencyMap.has(node)) {
+        reverseDependencyMap.get(node).forEach(child => traverse(child));
+      }
+    };
+    
+    // Start traversal from all endpoints
+    Object.keys(endpoints).forEach(endpointKey => {
+      traverse(endpointKey);
+      
+      // Also need to find what endpoints call directly
+      // Look for any architecture node that might be called by this endpoint
+      architectureData.forEach(({ parent }) => {
+        // Check if this parent is related to the endpoint
+        const endpointName = endpointKey.toLowerCase().replace(/_/g, '');
+        const parentName = parent.toLowerCase().replace(/[._]/g, '');
+        
+        // If parent name contains endpoint name, it's likely called by this endpoint
+        if (parentName.includes(endpointName) || endpointName.includes(parentName)) {
+          traverse(parent);
+        }
+      });
+    });
+    
+    // Also mark nodes that have incoming edges as connected
+    architectureData.forEach(({ parent, children }) => {
+      if (connectedNodes.has(parent)) {
+        children.forEach(child => {
+          const cleanChild = child.split('/').pop();
+          traverse(cleanChild);
+        });
+      }
+    });
+
+    console.log('🔍 Debug info:', {
+      architectureDataLength: architectureData.length,
+      endpointsCount: Object.keys(endpoints).length,
+      connectedNodesCount: connectedNodes.size,
+      reverseDependencyMapSize: reverseDependencyMap.size,
+      sampleArchitectureData: architectureData.slice(0, 3),
+      sampleConnectedNodes: Array.from(connectedNodes).slice(0, 10)
+    });
 
     // Цвета для HTTP методов
     const methodColors = {
@@ -292,74 +373,184 @@ export default function NewProject() {
       'CoreService': { color: '#f59e0b', icon: '⚙️', label: 'Core' },
     };
 
-    // Определение типа узла
+    // Determine node layer and classification based on naming patterns
     const getNodeType = (nodeName) => {
+      // Skip if not connected
+      if (!connectedNodes.has(nodeName)) return null;
+      
+      // Layer 1: HTTP Endpoints
       if (endpoints[nodeName]) {
-        return { type: 'endpoint', layer: 2 };
-      } else if (['AuthService', 'AccountService', 'ProjectService', 'CoreService'].includes(nodeName)) {
-        return { type: 'service', layer: 3 };
-      } else if (nodeName.includes('Service.')) {
-        return { type: 'service-method', layer: 3.5 };
-      } else if (nodeName.startsWith('Account.') || nodeName.startsWith('Project.')) {
-        return { type: 'database-method', layer: 4 };
-      } else if (nodeName.startsWith('DatabaseManager')) {
-        return { type: 'database-manager', layer: 4 };
-      } else if (nodeName.includes('Controller.')) {
-        return { type: 'controller', layer: 3.5 };
-      } else if (nodeName.startsWith('router.')) {
-        return { type: 'router', layer: 2.5 };
+        return { type: 'endpoint', layer: 1, class: 'HTTP' };
       }
-      return { type: 'other', layer: 5 };
+      
+      // Layer 5: gRPC / Algorithm / Core services
+      if (nodeName.includes('StreamService') || 
+          nodeName.includes('AlgorithmConnection') ||
+          nodeName.includes('CoreServer') ||
+          nodeName.includes('TaskSession') ||
+          nodeName.includes('TaskManager') ||
+          nodeName.startsWith('start_grpc') ||
+          nodeName.startsWith('stop_grpc') ||
+          nodeName.includes('Servicer') ||
+          nodeName.includes('Stub') ||
+          nodeName.includes('add_') && nodeName.includes('_to_server')) {
+        
+        let className = 'gRPC Core';
+        if (nodeName.includes('FrontendStream')) className = 'FrontendStream';
+        else if (nodeName.includes('AlgorithmConnection')) className = 'AlgorithmConnection';
+        else if (nodeName.includes('CoreServer') || nodeName.includes('grpc')) className = 'CoreServer';
+        else if (nodeName.includes('TaskSession')) className = 'TaskSession';
+        else if (nodeName.includes('TaskManager')) className = 'TaskManager';
+        
+        return { type: 'grpc', layer: 5, class: className };
+      }
+      
+      // Layer 4: Database infrastructure
+      if (nodeName.startsWith('DatabaseManager') ||
+          nodeName.startsWith('init_db') ||
+          nodeName.includes('Exception') ||
+          nodeName.includes('Broker') ||
+          nodeName.includes('Storage') ||
+          nodeName.includes('Consumer') ||
+          nodeName.includes('Producer') ||
+          nodeName.includes('Connection')) {
+        
+        let className = 'Database';
+        if (nodeName.startsWith('DatabaseManager')) className = 'DatabaseManager';
+        else if (nodeName.includes('Exception')) className = 'Exceptions';
+        else if (nodeName.includes('Broker')) className = 'MessageBroker';
+        else if (nodeName.includes('Storage')) className = 'ObjectStorage';
+        else if (nodeName.includes('Consumer') || nodeName.includes('Producer')) className = 'MessageQueue';
+        
+        return { type: 'database', layer: 4, class: className };
+      }
+      
+      // Layer 3: Domain / Service layer (classes with methods)
+      if (nodeName.includes('.')) {
+        const className = nodeName.split('.')[0];
+        
+        // Service classes
+        if (nodeName.includes('Service')) {
+          return { type: 'service', layer: 3, class: className };
+        }
+        
+        // Database models (Account.*, Project.*)
+        if (className === 'Account' || className === 'Project') {
+          return { type: 'model', layer: 3, class: className };
+        }
+        
+        // Other domain classes
+        return { type: 'domain', layer: 3, class: className };
+      }
+      
+      // Layer 2: Handler / Router functions (simple names without dots)
+      // These are FastAPI route handlers
+      const handlerPatterns = [
+        'homepage', 'health', 'lifespan',
+        'get_account', 'patch_account', 
+        'get_project', 'get_projects_list', 'create_project', 'patch_project', 'delete_project',
+        'login', 'refresh', 'registration',
+        'load_config', 'create_logger', 'run_frontend_test'
+      ];
+      
+      const isHandler = handlerPatterns.some(pattern => nodeName.includes(pattern)) ||
+                        (!nodeName.includes('.') && !nodeName.includes('Manager') && !nodeName.includes('Service'));
+      
+      if (isHandler) {
+        let className = 'Core';
+        if (nodeName.includes('account')) className = 'Account';
+        else if (nodeName.includes('project')) className = 'Project';
+        else if (nodeName.includes('login') || nodeName.includes('auth') || nodeName.includes('registration') || nodeName.includes('refresh')) className = 'Auth';
+        else if (nodeName.includes('home') || nodeName.includes('health')) className = 'System';
+        else if (nodeName.includes('config') || nodeName.includes('logger')) className = 'Config';
+        
+        return { type: 'handler', layer: 2, class: className };
+      }
+      
+      // Default: Layer 3, Other
+      return { type: 'other', layer: 3, class: 'Other' };
     };
 
-    // Собираем все узлы из architecture data
-    const allNodes = new Set();
-    architectureData.forEach(({ parent, children }) => {
-      allNodes.add(parent);
-      children.forEach(child => {
-        const cleanChild = child.split('/').pop();
-        allNodes.add(cleanChild);
+    // Group nodes by layer and class
+    const classByLayer = {
+      0: { 'Requirements': [] }, // Requirements (dependencies)
+      1: { 'HTTP': [] },        // HTTP Endpoints
+      2: {},                     // Handler / Router functions
+      3: {},                     // Domain / Service layer
+      4: {},                     // Database infrastructure
+      5: {}                      // gRPC / Algorithm / Core
+    };
+    
+    // Collect and group connected nodes
+    const processedNodes = new Set();
+    
+    // Add requirements to Layer 0
+    requirements.forEach(req => {
+      if (req && !processedNodes.has(req)) {
+        processedNodes.add(req);
+        classByLayer[0]['Requirements'].push(req);
+      }
+    });
+    
+    connectedNodes.forEach(nodeName => {
+      const nodeType = getNodeType(nodeName);
+      if (!nodeType || processedNodes.has(nodeName)) return;
+      
+      processedNodes.add(nodeName);
+      const { layer, class: className } = nodeType;
+      
+      if (!classByLayer[layer]) classByLayer[layer] = {};
+      if (!classByLayer[layer][className]) classByLayer[layer][className] = [];
+      
+      classByLayer[layer][className].push(nodeName);
+    });
+
+    console.log('📊 Grouped nodes:', {
+      'Layer 0 (Requirements)': classByLayer[0]['Requirements']?.length || 0,
+      'Layer 1 (HTTP Endpoints)': classByLayer[1]['HTTP']?.length || 0,
+      'Layer 2 (Handlers)': Object.keys(classByLayer[2]).length,
+      'Layer 3 (Domain/Service)': Object.keys(classByLayer[3]).length,
+      'Layer 4 (Database/Infra)': Object.keys(classByLayer[4]).length,
+      'Layer 5 (gRPC/Core)': Object.keys(classByLayer[5]).length,
+    });
+    
+    console.log('🔍 Classes by layer:', {
+      layer0: classByLayer[0]['Requirements']?.slice(0, 5),
+      layer2: Object.keys(classByLayer[2]),
+      layer3: Object.keys(classByLayer[3]),
+      layer4: Object.keys(classByLayer[4]),
+      layer5: Object.keys(classByLayer[5])
+    });
+
+    // === LAYER 0: Requirements (Dependencies) ===
+    const requirementsList = classByLayer[0]['Requirements'] || [];
+    requirementsList.forEach((reqName, idx) => {
+      newNodes.push({        id: reqName,
+        type: 'default',
+        position: { x: START_X - LAYER_GAP * 0.8, y: START_Y + idx * 60 },
+        data: {
+          label: (
+            <div style={{ padding: '6px 10px' }}>
+              <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280' }}>{reqName}</div>
+            </div>
+          ),
+        },
+        style: {
+          background: 'white',
+          border: '2px solid #e5e7eb',
+          borderRadius: '8px',
+          width: 140,
+          fontSize: '10px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        },
+        sourcePosition: 'right',
+        targetPosition: 'left',
       });
     });
 
-    // Группируем по слоям
-    const nodesByLayer = {
-      2: [], // Endpoints
-      2.5: [], // Routers
-      3: [], // Services  
-      3.5: [], // Service/Controller methods
-      4: [], // Database
-      5: [] // Other
-    };
-
-    allNodes.forEach(nodeName => {
-      const { layer } = getNodeType(nodeName);
-      if (nodesByLayer[layer]) {
-        nodesByLayer[layer].push(nodeName);
-      }
-    });
-
-    // Добавляем endpoints из объекта endpoints
-    nodesByLayer[2] = Object.keys(endpoints);
-
-    console.log('📊 Узлы по слоям:', {
-      'Endpoints': nodesByLayer[2].length,
-      'Routers': nodesByLayer[2.5].length,
-      'Services': nodesByLayer[3].length,
-      'Methods': nodesByLayer[3.5].length,
-      'Database': nodesByLayer[4].length,
-    });
-    
-    console.log('🔍 Примеры узлов:', {
-      endpoints: nodesByLayer[2].slice(0, 3),
-      routers: nodesByLayer[2.5].slice(0, 3),
-      services: nodesByLayer[3],
-      methods: nodesByLayer[3.5].slice(0, 5),
-      database: nodesByLayer[4].slice(0, 5)
-    });
-
-    // === LAYER 2: HTTP Endpoints ===
-    const endpointsList = nodesByLayer[2].map(key => ({ key, value: endpoints[key] }));
+    // === LAYER 1: HTTP Endpoints ===
+    const httpEndpoints = classByLayer[1]['HTTP'] || [];
+    const endpointsList = httpEndpoints.map(key => ({ key, value: endpoints[key] }));
     const methodOrder = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
     const sortedEndpoints = endpointsList.sort((a, b) => {
       const methodA = a.value?.split(' ')[0] || 'GET';
@@ -410,119 +601,167 @@ export default function NewProject() {
       });
     });
 
-    // === LAYER 3: Services ===
-    nodesByLayer[3].forEach((serviceName, idx) => {
-      const serviceConfig = serviceColors[serviceName] || { 
-        color: '#64748b', 
-        icon: '⚙️', 
-        label: serviceName.replace('Service', '') 
-      };
+    // === LAYER 2: Controllers and Services (grouped by class) ===
+    let layer2YOffset = START_Y;
+    Object.entries(classByLayer[2]).forEach(([className, methods]) => {
+      if (methods.length === 0) return;
       
+      // Determine class color
+      const classConfig = serviceColors[className] || { color: '#64748b', icon: '⚙️' };
+      const classColor = classConfig.color;
+      const classIcon = classConfig.icon;
+      
+      // Class header
       newNodes.push({
-        id: serviceName,
+        id: `class-${className}`,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 1.5, y: START_Y + idx * 180 },
+        position: { x: START_X + LAYER_GAP, y: layer2YOffset },
         data: {
           label: (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '20px', marginBottom: '6px' }}>{serviceConfig.icon}</div>
-              <div style={{ fontSize: '15px', fontWeight: '700' }}>{serviceConfig.label}</div>
-              <div style={{ fontSize: '9px', opacity: 0.8, marginTop: '2px', letterSpacing: '1px' }}>SERVICE</div>
+              <div style={{ fontSize: '18px', marginBottom: '4px' }}>{classIcon}</div>
+              <div style={{ fontSize: '14px', fontWeight: '700' }}>{className.replace('Service', '').replace('Controller', '')}</div>
+              <div style={{ fontSize: '9px', opacity: 0.85, marginTop: '2px' }}>{methods.length} methods</div>
             </div>
           ),
         },
         style: {
-          background: `linear-gradient(135deg, ${serviceConfig.color} 0%, ${serviceConfig.color}dd 100%)`,
+          background: `linear-gradient(135deg, ${classColor} 0%, ${classColor}dd 100%)`,
           color: 'white',
-          borderRadius: '16px',
-          padding: '20px 24px',
-          width: 160,
-          textAlign: 'center',
-          boxShadow: `0 8px 24px ${serviceConfig.color}40`,
+          borderRadius: '14px',
+          padding: '16px 20px',
+          width: 180,
+          boxShadow: `0 8px 20px ${classColor}35`,
           border: '2px solid white',
         },
         sourcePosition: 'right',
         targetPosition: 'left',
       });
+      
+      layer2YOffset += 90;
+      
+      // Methods of this class
+      methods.forEach((methodName, idx) => {
+        const methodShort = methodName.split('.')[1] || methodName;
+        
+        newNodes.push({
+          id: methodName,
+          type: 'default',
+          position: { x: START_X + LAYER_GAP * 1.8, y: layer2YOffset + idx * 80 },
+          data: {
+            label: (
+              <div style={{ padding: '6px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#1f2937' }}>{methodShort}</div>
+              </div>
+            ),
+          },
+          style: {
+            background: 'white',
+            border: `2px solid ${classColor}`,
+            borderRadius: '10px',
+            padding: '6px 10px',
+            width: 160,
+            boxShadow: `0 4px 12px ${classColor}25`,
+          },
+          sourcePosition: 'right',
+          targetPosition: 'left',
+        });
+      });
+      
+      layer2YOffset += methods.length * 80 + 60;
     });
 
-    // === LAYER 3.5: Methods (Controllers/Service Methods) ===
-    nodesByLayer[3.5].forEach((methodName, idx) => {
-      const serviceName = methodName.split('.')[0];
-      const methodShortName = methodName.split('.')[1];
-      const serviceConfig = serviceColors[serviceName] || { color: '#64748b' };
-      
+    // === LAYER 3: Domain / Service layer (grouped by class) ===
+    let layer3YOffset = START_Y;
+    Object.entries(classByLayer[3]).forEach(([className, methods]) => {
+      if (methods.length === 0) return;
+
+      // Domain/Service class header
+      const classColors = {
+        'Account': '#3b82f6',
+        'Project': '#10b981',
+        'Auth': '#8b5cf6',
+        'AccountService': '#2563eb',
+        'AuthService': '#7c3aed',
+        'ProjectService': '#059669',
+        'CoreService': '#f59e0b',
+      };
+      const classColor = classColors[className] || '#64748b';
+
       newNodes.push({
-        id: methodName,
+        id: `class-${className}`,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 2.5, y: START_Y + idx * NODE_SPACING },
+        position: { x: START_X + LAYER_GAP * 2.6, y: layer3YOffset },
         data: {
           label: (
-            <div style={{ padding: '4px 8px' }}>
-              <div style={{ 
-                fontSize: '8px', 
-                fontWeight: '700', 
-                color: serviceConfig.color,
-                background: `${serviceConfig.color}15`,
-                padding: '2px 6px',
-                borderRadius: '4px',
-                marginBottom: '4px',
-                textAlign: 'center'
-              }}>
-                {serviceName.replace('Service', '').toUpperCase()}
-              </div>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: '#1f2937', textAlign: 'center' }}>
-                {methodShortName}
-              </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '9px', fontWeight: '700', opacity: 0.9, marginBottom: '6px', letterSpacing: '1px' }}>📦 DOMAIN</div>
+              <div style={{ fontSize: '16px', fontWeight: '700' }}>{className}</div>
+              <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>{methods.length} methods</div>
             </div>
           ),
         },
         style: {
-          background: 'white',
-          border: `2px solid ${serviceConfig.color}`,
-          borderRadius: '10px',
-          padding: '6px 10px',
-          width: 170,
-          fontSize: '11px',
-          boxShadow: `0 4px 12px ${serviceConfig.color}25`,
+          background: `linear-gradient(135deg, ${classColor} 0%, ${classColor}dd 100%)`,
+          color: 'white',
+          borderRadius: '16px',
+          padding: '16px 20px',
+          width: 200,
+          boxShadow: `0 8px 24px ${classColor}40`,
+          border: '2px solid white',
         },
         sourcePosition: 'right',
         targetPosition: 'left',
       });
+
+      layer3YOffset += 90;
+
+      // Domain methods
+      methods.forEach((method, idx) => {
+        const methodShort = method.split('.')[1] || method;
+        newNodes.push({
+          id: method,
+          type: 'default',
+          position: { x: START_X + LAYER_GAP * 3.4, y: layer3YOffset + idx * 75 },
+          data: {
+            label: (
+              <div style={{ padding: '6px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', fontWeight: '600', color: '#1f2937' }}>{methodShort}</div>
+              </div>
+            ),
+          },
+          style: {
+            background: 'white',
+            border: `2px solid ${classColor}`,
+            borderRadius: '8px',
+            padding: '4px 8px',
+            width: 160,
+            fontSize: '11px',
+            boxShadow: `0 4px 12px ${classColor}25`,
+          },
+          sourcePosition: 'right',
+          targetPosition: 'left',
+        });
+      });
+
+      layer3YOffset += methods.length * 75 + 60;
     });
 
-    // === LAYER 4: Database (сгруппированные по классам) ===
-    const dbGroups = {
-      'DatabaseManager': [],
-      'Account': [],
-      'Project': [],
-    };
-    
-    nodesByLayer[4].forEach(nodeName => {
-      if (nodeName.startsWith('DatabaseManager')) {
-        dbGroups['DatabaseManager'].push(nodeName);
-      } else if (nodeName.startsWith('Account.')) {
-        dbGroups['Account'].push(nodeName);
-      } else if (nodeName.startsWith('Project.')) {
-        dbGroups['Project'].push(nodeName);
-      }
-    });
-
-    let dbYOffset = START_Y;
-    Object.entries(dbGroups).forEach(([groupName, methods]) => {
+    // === LAYER 4: Database / Infrastructure (grouped by class) ===
+    let layer4YOffset = START_Y;
+    Object.entries(classByLayer[4]).forEach(([className, methods]) => {
       if (methods.length === 0) return;
 
-      // Заголовок группы - увеличенный и более заметный
       newNodes.push({
-        id: `group-${groupName}`,
+        id: `class-${className}`,
         type: 'default',
-        position: { x: START_X + LAYER_GAP * 3.5, y: dbYOffset },
+        position: { x: START_X + LAYER_GAP * 4.2, y: layer4YOffset },
         data: {
           label: (
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '9px', fontWeight: '700', opacity: 0.9, marginBottom: '6px', letterSpacing: '1px' }}>🗄️ DATABASE</div>
-              <div style={{ fontSize: '16px', fontWeight: '700' }}>{groupName}</div>
-              <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>{methods.length} метод{methods.length > 1 ? 'а' : ''}</div>
+              <div style={{ fontSize: '16px', fontWeight: '700' }}>{className}</div>
+              <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>{methods.length} items</div>
             </div>
           ),
         },
@@ -539,15 +778,14 @@ export default function NewProject() {
         targetPosition: 'left',
       });
 
-      dbYOffset += 90;
+      layer4YOffset += 90;
 
-      // Методы группы
       methods.forEach((method, idx) => {
         const methodShort = method.split('.')[1] || method;
         newNodes.push({
           id: method,
           type: 'default',
-          position: { x: START_X + LAYER_GAP * 4.3, y: dbYOffset + idx * 75 },
+          position: { x: START_X + LAYER_GAP * 5, y: layer4YOffset + idx * 75 },
           data: {
             label: (
               <div style={{ padding: '6px 10px', textAlign: 'center' }}>
@@ -569,48 +807,87 @@ export default function NewProject() {
         });
       });
 
-      dbYOffset += methods.length * 70 + 40;
+      layer4YOffset += methods.length * 75 + 60;
     });
 
-    // === Создание рёбер (связей) ===
-    // Строим map всех узлов для быстрой проверки
-    const nodeIds = new Set(newNodes.map(n => n.id));
-    
-    architectureData.forEach(({ parent, children }) => {
-      children.forEach(child => {
-        const cleanChild = child.split('/').pop();
-        
-        // Проверяем существование обоих узлов
-        if (nodeIds.has(parent) && nodeIds.has(cleanChild)) {
-          newEdges.push({
-            id: `${parent}-${cleanChild}`,
-            source: parent,
-            target: cleanChild,
-            type: 'smoothstep',
-            markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
-            style: { stroke: '#94a3b8', strokeWidth: 2 },
-            animated: false
-          });
-        }
+    // === LAYER 5: gRPC / Algorithm / Core (grouped by class) ===
+    let layer5YOffset = START_Y;
+    Object.entries(classByLayer[5]).forEach(([className, methods]) => {
+      if (methods.length === 0) return;
+
+      newNodes.push({
+        id: `class-${className}`,
+        type: 'default',
+        position: { x: START_X + LAYER_GAP * 5.8, y: layer5YOffset },
+        data: {
+          label: (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '9px', fontWeight: '700', opacity: 0.9, marginBottom: '6px', letterSpacing: '1px' }}>⚡ gRPC CORE</div>
+              <div style={{ fontSize: '16px', fontWeight: '700' }}>{className}</div>
+              <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>{methods.length} items</div>
+            </div>
+          ),
+        },
+        style: {
+          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+          color: 'white',
+          borderRadius: '16px',
+          padding: '16px 20px',
+          width: 200,
+          boxShadow: '0 8px 24px #f9731640',
+          border: '2px solid white',
+        },
+        sourcePosition: 'right',
+        targetPosition: 'left',
       });
+
+      layer5YOffset += 90;
+
+      methods.forEach((method, idx) => {
+        const methodShort = method.split('.').pop();
+        newNodes.push({
+          id: method,
+          type: 'default',
+          position: { x: START_X + LAYER_GAP * 6.6, y: layer5YOffset + idx * 75 },
+          data: {
+            label: (
+              <div style={{ padding: '6px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: '10px', fontWeight: '600', color: '#1f2937' }}>{methodShort}</div>
+              </div>
+            ),
+          },
+          style: {
+            background: 'white',
+            border: '2px solid #f97316',
+            borderRadius: '8px',
+            padding: '4px 8px',
+            width: 160,
+            fontSize: '11px',
+            boxShadow: '0 4px 12px #f9731625',
+          },
+          sourcePosition: 'right',
+          targetPosition: 'left',
+        });
+      });
+
+      layer5YOffset += methods.length * 75 + 60;
     });
-    
-    // Связываем endpoints напрямую с методами контроллеров
-    let endpointLinksCount = 0;
+
+    // === EDGES: Build connections using dependency graph ===
+    const newEdges = [];
+    const nodeIds = new Set(newNodes.map(n => n.id));
+    const nodesWithIncomingEdges = new Set();
+    const nodesWithOutgoingEdges = new Set();
+
+    // Direct connections from endpoints
     Object.keys(endpoints).forEach(endpointKey => {
-      // Ищем соответствующие узлы: AuthController.login, ProjectController.create_project и т.д.
-      const possibleTargets = [
-        `AuthController.${endpointKey}`,
-        `ProjectController.${endpointKey}`,
-        `AccountController.${endpointKey}`,
-        `router.${endpointKey}`,
-      ];
+      if (!reverseDependencyMap.has(endpointKey)) return;
       
-      for (const target of possibleTargets) {
-        if (nodeIds.has(target)) {
-          const method = endpoints[endpointKey]?.split(' ')[0] || 'GET';
-          const color = methodColors[method]?.border || '#3b82f6';
-          
+      const method = endpoints[endpointKey]?.split(' ')[0] || 'GET';
+      const color = methodColors[method]?.border || '#3b82f6';
+      
+      reverseDependencyMap.get(endpointKey).forEach(target => {
+        if (nodeIds.has(target) && connectedNodes.has(target) && !target.startsWith('class-')) {
           newEdges.push({
             id: `${endpointKey}-${target}`,
             source: endpointKey,
@@ -623,19 +900,53 @@ export default function NewProject() {
             labelStyle: { fontSize: '10px', fontWeight: '700', fill: color },
             labelBgStyle: { fill: 'white', fillOpacity: 0.9 }
           });
-          endpointLinksCount++;
-          break;
+          nodesWithOutgoingEdges.add(endpointKey);
+          nodesWithIncomingEdges.add(target);
         }
-      }
-    });
-    
-    console.log('🔗 Связи построены:', {
-      total: newEdges.length,
-      fromArchitecture: newEdges.length - endpointLinksCount,
-      fromEndpoints: endpointLinksCount
+      });
     });
 
-    setNodes(newNodes);
+    // All other dependencies (excluding class headers)
+    architectureData.forEach(({ parent, children }) => {
+      if (!connectedNodes.has(parent) || parent.startsWith('class-')) return;
+      
+      children.forEach(child => {
+        const cleanChild = child.split('/').pop();
+        if (connectedNodes.has(cleanChild) && nodeIds.has(cleanChild) && !cleanChild.startsWith('class-')) {
+          newEdges.push({
+            id: `${parent}-${cleanChild}`,
+            source: parent,
+            target: cleanChild,
+            type: 'smoothstep',
+            markerEnd: { type: MarkerType.ArrowClosed },
+            style: { stroke: '#94a3b8', strokeWidth: 2 },
+          });
+          nodesWithOutgoingEdges.add(parent);
+          nodesWithIncomingEdges.add(cleanChild);
+        }
+      });
+    });
+    
+    // Filter out isolated nodes (nodes with no incoming or outgoing edges)
+    // Keep endpoints and class headers
+    const filteredNodes = newNodes.filter(node => {
+      if (node.id.startsWith('class-')) return true; // Keep class headers
+      if (endpoints[node.id]) return true; // Keep all endpoints
+      if (classByLayer[0]['Requirements']?.includes(node.id)) return true; // Keep requirements
+      // Keep only nodes that have at least one edge
+      return nodesWithIncomingEdges.has(node.id) || nodesWithOutgoingEdges.has(node.id);
+    });
+    
+    console.log('🔗 Edges built:', {
+      total: newEdges.length,
+      fromEndpoints: Object.keys(endpoints).length,
+      connectedNodes: connectedNodes.size,
+      nodesBeforeFilter: newNodes.length,
+      nodesAfterFilter: filteredNodes.length,
+      isolated: newNodes.length - filteredNodes.length
+    });
+
+    setNodes(filteredNodes);
     setEdges(newEdges);
   }, [architectureData, endpoints, setNodes, setEdges]);
 
@@ -677,16 +988,35 @@ export default function NewProject() {
 
           <div className={styles.inputGroup}>
             <label htmlFor="file">Архитектура / файл *</label>
-            <input
-              id="file"
-              name="file"
-              type="file"
-              onChange={handleFileChange}
-              disabled={loading}
-              accept=".zip,application/zip,application/x-zip-compressed"
-              required
-            />
-            <small>Загрузите ZIP-архив с проектом (обязательно)</small>
+            <div className={styles.fileUpload}>
+              <input
+                id="file"
+                name="file"
+                type="file"
+                onChange={handleFileChange}
+                disabled={loading}
+                accept=".zip,application/zip,application/x-zip-compressed"
+                required
+                className={styles.fileInput}
+              />
+              <label htmlFor="file" className={styles.fileLabel} aria-disabled={loading}>
+                <div className={styles.fileIcon}>📦</div>
+                <div className={styles.fileText}>
+                  <div className={styles.fileTitle}>{file ? 'Файл выбран' : 'Загрузить проект (ZIP)'}</div>
+                  <div className={styles.fileHint}>
+                    {file ? file.name : 'Перетащите архив сюда или нажмите, чтобы выбрать'}
+                  </div>
+                </div>
+                <div className={styles.fileBadge}>ZIP</div>
+              </label>
+              {file && (
+                <div className={styles.fileMeta}>
+                  <span className={styles.fileChip}>{file.name}</span>
+                  <span className={styles.fileSize}>{formatFileSize(file.size)}</span>
+                </div>
+              )}
+            </div>
+            <small className={styles.fileNote}>Загрузите ZIP-архив с проектом (обязательно)</small>
           </div>
 
           {/* Ошибка */}
@@ -731,9 +1061,9 @@ export default function NewProject() {
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#f5f5f5', zIndex: 1000 }}>
           <div style={{ padding: '16px 20px', background: 'white', borderBottom: '2px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111' }}>📊 Архитектура проекта</h2>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111' }}>📊 Project Architecture</h2>
               <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                Узлов: {nodes.length} | Связей: {edges.length} | Requirements: {requirements.length} | Endpoints: {Object.keys(endpoints).length}
+                Nodes: {nodes.length} | Edges: {edges.length} | Requirements: {requirements.length} | Endpoints: {Object.keys(endpoints).length}
               </div>
             </div>
             <button 
@@ -749,7 +1079,7 @@ export default function NewProject() {
                 fontWeight: '600'
               }}
             >
-              Закрыть
+              Close
             </button>
           </div>
           <div style={{ height: 'calc(100vh - 80px)' }}>
