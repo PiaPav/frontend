@@ -11,7 +11,6 @@ import 'reactflow/dist/style.css';
 import styles from './ProjectAnalysis.module.css';
 import { projectsAPI } from '../../services/api';
 import grpcClient from '../../services/grpcClient';
-import { DEMO_PROJECT } from '../../data/demoProject';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ProjectAnalysis() {
@@ -39,6 +38,19 @@ export default function ProjectAnalysis() {
   const requirementsRef = useRef([]);
   const endpointsRef = useRef({});
   const architectureDataRef = useRef([]);
+
+  // Сбрасываем состояние при смене id проекта
+  useEffect(() => {
+    setProject(null);
+    setRequirements([]);
+    setEndpoints({});
+    setArchitectureData([]);
+    setStreamComplete(false);
+    setGrpcStarted(false);
+    setError(null);
+    setIsFirstLoad(true);
+    setLoading(true);
+  }, [id]);
 
   useEffect(() => {
     requirementsRef.current = requirements;
@@ -68,6 +80,22 @@ export default function ProjectAnalysis() {
         
         // 1. Получаем данные через REST API
         const projectData = await projectsAPI.getById(id);
+        console.log('📥 REST /project response:', {
+          id: projectData?.id,
+          name: projectData?.name,
+          description: projectData?.description,
+          hasArchitecture: !!projectData?.architecture,
+          archRequirements: projectData?.architecture?.requirements?.length || 0,
+          archEndpoints: Array.isArray(projectData?.architecture?.endpoints)
+            ? projectData.architecture.endpoints.length
+            : projectData?.architecture?.endpoints
+              ? Object.keys(projectData.architecture.endpoints).length
+              : 0,
+          archDataNodes: projectData?.architecture?.data
+            ? Object.keys(projectData.architecture.data).length
+            : 0,
+          rawArchitecture: projectData?.architecture,
+        });
         if (cancelled) return;
         
         setProject(projectData);
@@ -101,6 +129,11 @@ export default function ProjectAnalysis() {
               children: Array.isArray(children) ? children : []
             }));
             setArchitectureData(archArray);
+            console.log('📊 Архитектура из REST (нормализовано):', {
+              requirements: arch.requirements?.length || 0,
+              endpoints: Object.keys(endpointsObj).length,
+              nodes: archArray.length,
+            });
           }
           
           setStreamComplete(true);

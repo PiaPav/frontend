@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { homeAPI } from '../../services/api';
-import { DEMO_PROJECT } from '../../data/demoProject';
 import styles from './Projects.module.css';
 
 export default function ProjectsList() {
@@ -26,19 +25,16 @@ export default function ProjectsList() {
       
       // response = { user: { id, name, surname }, projects: { total, data: [...] } }
       if (response.user) {
-        setUserName(response.user.name || '');
+        setUserName(response.user.login || '');
       }
       
       const projectsList = response.projects?.data || [];
-      
-      // Всегда добавляем демо-проект первым
-      setProjects([DEMO_PROJECT, ...projectsList]);
+      setProjects(projectsList);
       setError('');
     } catch (err) {
       console.error('Ошибка загрузки проектов:', err);
       setError('Не удалось загрузить проекты');
-      // Даже при ошибке показываем демо-проект
-      setProjects([DEMO_PROJECT]);
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -114,14 +110,15 @@ export default function ProjectsList() {
             borderRadius: '20px',
             color: '#666'
           }}>
-            <h2 style={{ marginBottom: '10px', color: '#1a1a1a' }}>Загрузка...</h2>
+            <h2 style={{ marginBottom: '10px', color: '#1a1a1a' }}>Проекты не найдены</h2>
+            <p style={{ margin: 0 }}>Создайте новый проект, чтобы начать.</p>
           </div>
         ) : (
           <div className={styles.projectsGrid}>
             {projects.map((project) => (
               <div 
                 key={project.id} 
-                className={`${styles.projectCard} ${project.id === 'demo' ? styles.demoCard : ''}`}
+                className={styles.projectCard}
               >
                 <div className={styles.projectImage}>
                   {project.picture_url ? (
@@ -135,14 +132,8 @@ export default function ProjectsList() {
                   <p className={styles.projectDescription}>{project.description}</p>
                 </div>
                 <div className={styles.projectActions}>
-                  <Link to={`/projects/${project.id}`} className={styles.actionBtnPrimary}>
-                    🔬 Анализ
-                  </Link>
-                  <Link to={`/projects/${project.id}/basic`} className={styles.actionBtn}>
-                    📊 Basic View
-                  </Link>
-                  <Link to={`/projects/${project.id}/stream`} className={styles.actionBtn}>
-                    🚀 Live Stream
+                  <Link to={`/projects/${project.id}/architecture`} className={styles.actionBtnPrimary} style={{ width: '100%' }}>
+                    👁️ Просмотр
                   </Link>
                 </div>
               </div>

@@ -37,39 +37,54 @@ export default function NewProject() {
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const architectureDataRef = useRef([]);
   const streamControllerRef = useRef(null);
+  const isSavingRef = useRef(false);
+
+  const buildArchitecturePayload = () => ({
+    requirements,
+    endpoints: Object.entries(endpoints).map(([k, v]) => ({ [k]: v })),
+    data: architectureDataRef.current.reduce((acc, item) => {
+      acc[item.parent] = item.children;
+      return acc;
+    }, {})
+  });
+
+  const saveArchitecture = async (reason = 'auto') => {
+    if (!currentProjectId || architectureDataRef.current.length === 0) return;
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const archData = buildArchitecturePayload();
+      console.log(`💾 Сохранение архитектуры (${reason})...`, {
+        projectId: currentProjectId,
+        reqs: archData.requirements?.length,
+        eps: archData.endpoints?.length,
+        nodes: Object.keys(archData.data || {}).length
+      });
+
+      await fetch(`${import.meta.env.VITE_API_URL || '/v1'}/project/${currentProjectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ architecture: archData }),
+        keepalive: reason === 'exit'
+      });
+
+      console.log('✅ Архитектура сохранена');
+    } catch (err) {
+      console.error('❌ Ошибка сохранения архитектуры:', err);
+    } finally {
+      isSavingRef.current = false;
+    }
+  };
 
   // Сохранение архитектуры при уходе со страницы
   useEffect(() => {
     const handleSaveOnExit = async () => {
-      if (currentProjectId && architectureDataRef.current.length > 0) {
-        console.log('💾 Сохранение архитектуры при закрытии страницы...');
-        
-        const archData = {
-          requirements,
-          endpoints: Object.entries(endpoints).map(([k, v]) => ({ [k]: v })),
-          data: architectureDataRef.current.reduce((acc, item) => {
-            acc[item.parent] = item.children;
-            return acc;
-          }, {})
-        };
-        
-        try {
-          // Используем fetch с keepalive для надёжной отправки при закрытии
-          const token = localStorage.getItem('access_token');
-          await fetch(`${import.meta.env.VITE_API_URL || '/v1'}/project/${currentProjectId}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ architecture: archData }),
-            keepalive: true
-          });
-          console.log('✅ Архитектура сохранена');
-        } catch (err) {
-          console.error('❌ Ошибка сохранения:', err);
-        }
-      }
+      await saveArchitecture('exit');
     };
     
     // Сохранение при уходе со страницы
@@ -200,41 +215,110 @@ export default function NewProject() {
         throw new Error('Невалидный Project ID');
       }
       
-      console.log('🚀 Запуск gRPC stream:', { user_id: validUserId, task_id: validProjectId });
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🚀 ЗАПУСК gRPC АНАЛИЗА ПРОЕКТА');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('📊 Параметры подключения:', {
+        user_id: validUserId,
+        task_id: validProjectId,
+        project_name: form.name
+      });
 
       // Отправляем gRPC запрос
       const controller = await grpcClient.connectToStream(validUserId, validProjectId, {
         onStart: () => {
-          console.log('🎬 gRPC подключение установлено');
+          console.log('\n🎬 ПОДКЛЮЧЕНИЕ УСТАНОВЛЕНО');
+          console.log('⏳ Ожидание данных от сервера...');
         },
         
         onRequirements: (data) => {
-          console.log('📋 Requirements:', data.requirements?.length);
+          console.log('\n📋 REQUIREMENTS (Зависимости проекта)');
+          console.log('───────────────────────────────────────────────────');
+          console.log('Количество зависимостей:', data.requirements?.length || 0);
+          if (data.requirements && data.requirements.length > 0) {
+            console.log('Список зависимостей:', data.requirements.slice(0, 10).join(', ') + (data.requirements.length > 10 ? '...' : ''));
+          }
           setRequirements(data.requirements || []);
         },
         
         onEndpoints: (data) => {
-          console.log('🔗 Endpoints:', Object.keys(data.endpoints || {}).length);
-          setEndpoints(data.endpoints || {});
+          console.log('\n🔗 ENDPOINTS (HTTP маршруты)');
+          console.log('───────────────────────────────────────────────────');
+          const eps = data.endpoints || {};
+          const epsList = Object.entries(eps);
+          console.log('Количество эндпоинтов:', epsList.length);
+          
+          // Группировка по методам
+          const byMethod = {};
+          epsList.forEach(([key]) => {
+            const method = key.split(' ')[0];
+            byMethod[method] = (byMethod[method] || 0) + 1;
+          });
+          console.log('По методам:', byMethod);
+          
+          // Примеры эндпоинтов
+          if (epsList.length > 0) {
+            console.log('Примеры эндпоинтов:');
+            epsList.slice(0, 5).forEach(([key, value]) => {
+              console.log(`  ${key} → ${value}`);
+            });
+            if (epsList.length > 5) {
+              console.log(`  ... и ещё ${epsList.length - 5} эндпоинтов`);
+            }
+          }
+          setEndpoints(eps);
         },
         
         onArchitecture: (data) => {
-          console.log('🏗️ Architecture:', data.parent, '→', data.children?.length);
-          setArchitectureData(prev => [...prev, {
-            parent: data.parent,
-            children: data.children || []
-          }]);
+          setArchitectureData(prev => {
+            const newData = [...prev, {
+              parent: data.parent,
+              children: data.children || []
+            }];
+            
+            // Логирование с прогрессом
+            if (newData.length % 10 === 0 || newData.length <= 5) {
+              console.log(`\n🏗️ ARCHITECTURE (Связь #${newData.length})`);
+              console.log('───────────────────────────────────────────────────');
+            }
+            console.log(`  ${data.parent} → [${(data.children || []).length} зависимостей]`);
+            if (data.children && data.children.length > 0) {
+              console.log(`    └─ ${data.children.slice(0, 3).join(', ')}${data.children.length > 3 ? '...' : ''}`);
+            }
+            
+            return newData;
+          });
         },
         
         onDone: async () => {
-          console.log('✅ gRPC Stream завершён успешно!');
+          console.log('\n═══════════════════════════════════════════════════');
+          console.log('✅ АНАЛИЗ ЗАВЕРШЁН УСПЕШНО!');
+          console.log('═══════════════════════════════════════════════════');
+          console.log('📊 Итоговая статистика:');
+          console.log('  📋 Requirements:', requirements.length);
+          console.log('  🔗 Endpoints:', Object.keys(endpoints).length);
+          console.log('  🏗️ Architecture nodes:', architectureDataRef.current.length);
+          console.log('═══════════════════════════════════════════════════\n');
+          
           setAnalysisStatus('completed');
           setLoading(false);
           streamControllerRef.current = null;
+          await saveArchitecture('done');
         },
         
         onError: (error) => {
-          console.error('❌ Ошибка gRPC stream:', error);
+          console.log('\n═══════════════════════════════════════════════════');
+          console.error('❌ ОШИБКА gRPC STREAM');
+          console.log('═══════════════════════════════════════════════════');
+          console.error('Тип ошибки:', error.name || 'Unknown');
+          console.error('Сообщение:', error.message);
+          console.error('Stack trace:', error.stack);
+          console.log('\n📊 Данные получены до ошибки:');
+          console.log('  📋 Requirements:', requirements.length);
+          console.log('  🔗 Endpoints:', Object.keys(endpoints).length);
+          console.log('  🏗️ Architecture nodes:', architectureDataRef.current.length);
+          console.log('═══════════════════════════════════════════════════\n');
+          
           setError(`Ошибка анализа проекта: ${error.message}`);
           setAnalysisStatus('error');
           setLoading(false);
@@ -281,6 +365,7 @@ export default function NewProject() {
     const START_X = 120;
     const START_Y = 80;
     const NODE_SPACING = 140; // Increased spacing between HTTP endpoints
+    const LANE_GAP_Y = 60;
 
     const newNodes = [];
     
@@ -567,7 +652,7 @@ export default function NewProject() {
     });
 
     // Helper to render one lane-card node
-    const renderLaneNodes = (layerKey, xPos, title, icon) => {
+    const renderLaneNodes = (layerKey, xPos) => {
       let cursorY = START_Y;
       Object.entries(classByLayer[layerKey]).forEach(([className, methods]) => {
         if (!methods?.length) return;
@@ -575,7 +660,7 @@ export default function NewProject() {
 
         const preview = methods.slice(0, lanePreviewLimit).map(m => m.split('.').pop() || m);
         const overflow = methods.length > lanePreviewLimit ? `+${methods.length - lanePreviewLimit} еще` : null;
-        const estimatedHeight = 90 + preview.length * 18 + (overflow ? 18 : 0);
+        const estimatedHeight = 120 + preview.length * 22 + (overflow ? 22 : 0);
 
         newNodes.push({
           id: `lane-${layerKey}-${className}`,
@@ -584,9 +669,6 @@ export default function NewProject() {
           data: {
             label: (
               <div style={{ padding: '12px 14px' }}>
-                <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px', color: '#111', marginBottom: '6px' }}>
-                  {icon} {title}
-                </div>
                 <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{className}</div>
                 <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{methods.length} методов</div>
                 <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
@@ -613,14 +695,14 @@ export default function NewProject() {
           targetPosition: 'left',
         });
 
-        cursorY += estimatedHeight + laneGapY;
+        cursorY += estimatedHeight + LANE_GAP_Y;
       });
     };
 
     // === LAYER 2: Handlers (FastAPI + доменные методы) ===
-    renderLaneNodes(2, laneX.handlers, 'Handlers', '🛰️');
+    renderLaneNodes(2, laneX.handlers);
     // === LAYER 3: Database / Infra / gRPC ===
-    renderLaneNodes(3, laneX.db, 'Infra / DB', '🗄️');
+    renderLaneNodes(3, laneX.db);
 
     const getLaneId = (layer, className) => `lane-${layer}-${className}`;
 
@@ -705,6 +787,20 @@ export default function NewProject() {
       nodesBeforeFilter: newNodes.length,
       nodesAfterFilter: filteredNodes.length,
       isolated: newNodes.length - filteredNodes.length
+    });
+
+    const summaryByLane = {
+      http: classByLayer[1].HTTP?.length || 0,
+      handlers: Object.keys(classByLayer[2] || {}).map((cls) => `${cls} (${classByLayer[2][cls].length})`),
+      infra: Object.keys(classByLayer[3] || {}).map((cls) => `${cls} (${classByLayer[3][cls].length})`),
+    };
+
+    console.log('✅ Граф отрисован (итог):', {
+      nodes: filteredNodes.length,
+      edges: newEdges.length,
+      requirements: requirements.length,
+      endpoints: Object.keys(endpoints).length,
+      lanes: summaryByLane,
     });
 
     setNodes(filteredNodes);
@@ -849,7 +945,10 @@ export default function NewProject() {
               edges={edges}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
+              minZoom={0.05}
+              maxZoom={2}
               fitView
+              fitViewOptions={{ padding: 0.15 }}
             >
               <Background color="#d1d5db" gap={20} />
               <Controls />

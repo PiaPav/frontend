@@ -180,15 +180,75 @@ class GRPCArchitectureClient {
       const status = message.getStatus();
       const responseId = message.getResponseId();
       
-      console.log(`📬 Получено сообщение #${messageCount}:`, {
-        status: this.getStatusName(status),
-        response_id: responseId
-      });
+      console.log('\n✅ Получено сообщение от Core:');
+      console.log(`task_id: ${parsedTaskId}`);
+      console.log(`response_id: ${responseId}`);
+      console.log(`status: ${this.getStatusName(status).split(' ')[0]}`);
+      
+      // Форматированный вывод содержимого сообщения
+      try {
+        switch (status) {
+          case ParseStatus.REQUIREMENTS:
+            const graphReq = message.getGraphRequirements();
+            if (graphReq) {
+              const requirements = graphReq.getRequirementsList();
+              console.log('graph_requirements {');
+              console.log(`  total: ${requirements.length}`);
+              requirements.forEach(req => {
+                console.log(`  requirements: "${req}"`);
+              });
+              console.log('}');
+            }
+            break;
+
+          case ParseStatus.ENDPOINTS:
+            const graphEndp = message.getGraphEndpoints();
+            if (graphEndp) {
+              const endpointsMap = graphEndp.getEndpointsMap();
+              const entries = [];
+              if (endpointsMap) {
+                endpointsMap.forEach((value, key) => entries.push({key, value}));
+              }
+              console.log('graph_endpoints {');
+              console.log(`  total: ${entries.length}`);
+              entries.forEach(({key, value}) => {
+                console.log('  endpoints {');
+                console.log(`    key: "${key}"`);
+                console.log(`    value: "${value}"`);
+                console.log('  }');
+              });
+              console.log('}');
+            }
+            break;
+
+          case ParseStatus.ARHITECTURE:
+            const graphArch = message.getGraphArchitecture();
+            if (graphArch) {
+              const parent = graphArch.getParent();
+              const children = graphArch.getChildrenList();
+              console.log('graph_architecture {');
+              console.log(`  parent: "${parent}"`);
+              children.forEach(child => {
+                console.log(`  children: "${child}"`);
+              });
+              console.log('}');
+            }
+            break;
+
+          case ParseStatus.DONE:
+            console.log('graph_architecture {');
+            console.log('}');
+            break;
+        }
+      } catch (err) {
+        console.error('❌ Ошибка при форматировании сообщения:', err);
+      }
+      
+      console.log('');
 
       // Отслеживаем DONE
       if (status === ParseStatus.DONE) {
         receivedDone = true;
-        console.log('✅ Получен статус DONE - stream завершён успешно');
       }
 
       this._handleStreamMessage(message, callbacks);
@@ -300,16 +360,12 @@ class GRPCArchitectureClient {
    */
   _handleStreamMessage(message, callbacks) {
     const status = message.getStatus();
-    const responseId = message.getResponseId();
-    
-    console.log(`📨 Обработка сообщения: status=${this.getStatusName(status)}, response_id=${responseId}`);
 
     switch (status) {
       case ParseStatus.REQUIREMENTS:
         const graphReq = message.getGraphRequirements();
         if (graphReq) {
           const requirements = graphReq.getRequirementsList();
-          console.log(`📋 REQUIREMENTS - получено ${requirements.length} зависимостей`);
           callbacks.onRequirements?.({
             requirements: requirements || []
           });
@@ -322,14 +378,12 @@ class GRPCArchitectureClient {
           const endpointsMap = graphEndp.getEndpointsMap();
           const endpoints = {};
           
-          // Конвертируем Map в обычный объект
           if (endpointsMap) {
             endpointsMap.forEach((value, key) => {
               endpoints[key] = value;
             });
           }
           
-          console.log(`🔗 ENDPOINTS - получено ${Object.keys(endpoints).length} эндпоинтов`);
           callbacks.onEndpoints?.({
             endpoints: endpoints || {}
           });
@@ -341,7 +395,7 @@ class GRPCArchitectureClient {
         if (graphArch) {
           const parent = graphArch.getParent();
           const children = graphArch.getChildrenList();
-          console.log(`🏗️ ARHITECTURE - узел ${parent} с ${children.length} детьми`);
+          
           callbacks.onArchitecture?.({
             parent,
             children: children || []
@@ -350,8 +404,6 @@ class GRPCArchitectureClient {
         break;
 
       case ParseStatus.DONE:
-        console.log('✅ DONE - анализ завершён');
-        // ВАЖНО: В DONE parent="" и children="" - это заглушка, игнорируем
         // onDone вызывается в обработчике 'end'
         break;
 
