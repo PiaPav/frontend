@@ -277,11 +277,10 @@ export default function NewProject() {
   useEffect(() => {
     if (architectureData.length === 0) return;
 
-    const LAYER_GAP = 450;
-    const START_X = 80;
+    const LAYER_GAP = 620;
+    const START_X = 120;
     const START_Y = 80;
-    const NODE_SPACING = 120; // Increased spacing between HTTP endpoints
-    const GROUP_SPACING = 180;
+    const NODE_SPACING = 140; // Increased spacing between HTTP endpoints
 
     const newNodes = [];
     
@@ -383,29 +382,7 @@ export default function NewProject() {
         return { type: 'endpoint', layer: 1, class: 'HTTP' };
       }
       
-      // Layer 5: gRPC / Algorithm / Core services
-      if (nodeName.includes('StreamService') || 
-          nodeName.includes('AlgorithmConnection') ||
-          nodeName.includes('CoreServer') ||
-          nodeName.includes('TaskSession') ||
-          nodeName.includes('TaskManager') ||
-          nodeName.startsWith('start_grpc') ||
-          nodeName.startsWith('stop_grpc') ||
-          nodeName.includes('Servicer') ||
-          nodeName.includes('Stub') ||
-          nodeName.includes('add_') && nodeName.includes('_to_server')) {
-        
-        let className = 'gRPC Core';
-        if (nodeName.includes('FrontendStream')) className = 'FrontendStream';
-        else if (nodeName.includes('AlgorithmConnection')) className = 'AlgorithmConnection';
-        else if (nodeName.includes('CoreServer') || nodeName.includes('grpc')) className = 'CoreServer';
-        else if (nodeName.includes('TaskSession')) className = 'TaskSession';
-        else if (nodeName.includes('TaskManager')) className = 'TaskManager';
-        
-        return { type: 'grpc', layer: 5, class: className };
-      }
-      
-      // Layer 4: Database infrastructure
+      // Layer 3: Database / infra / gRPC
       if (nodeName.startsWith('DatabaseManager') ||
           nodeName.startsWith('init_db') ||
           nodeName.includes('Exception') ||
@@ -421,26 +398,18 @@ export default function NewProject() {
         else if (nodeName.includes('Broker')) className = 'MessageBroker';
         else if (nodeName.includes('Storage')) className = 'ObjectStorage';
         else if (nodeName.includes('Consumer') || nodeName.includes('Producer')) className = 'MessageQueue';
+        else if (nodeName.includes('TaskSession') || nodeName.includes('TaskManager')) className = 'TaskManager';
+        else if (nodeName.includes('StreamService') || nodeName.includes('grpc') || nodeName.includes('Servicer') || nodeName.includes('Stub')) className = 'CoreServer';
         
-        return { type: 'database', layer: 4, class: className };
+        return { type: 'database', layer: 3, class: className };
       }
       
-      // Layer 3: Domain / Service layer (classes with methods)
+      // Layer 2: Domain / Service layer (classes with methods)
       if (nodeName.includes('.')) {
         const className = nodeName.split('.')[0];
-        
-        // Service classes
-        if (nodeName.includes('Service')) {
-          return { type: 'service', layer: 3, class: className };
-        }
-        
-        // Database models (Account.*, Project.*)
-        if (className === 'Account' || className === 'Project') {
-          return { type: 'model', layer: 3, class: className };
-        }
-        
-        // Other domain classes
-        return { type: 'domain', layer: 3, class: className };
+
+        // Все классы (даже модели) кладём в слой handlers/app
+        return { type: 'domain', layer: 2, class: className };
       }
       
       // Layer 2: Handler / Router functions (simple names without dots)
@@ -471,61 +440,57 @@ export default function NewProject() {
       return { type: 'other', layer: 3, class: 'Other' };
     };
 
-    // Group nodes by layer and class
+    // Group nodes by layer and class (HTTP → Handlers → Infra, плюс requirements)
     const classByLayer = {
-      0: { 'Requirements': [] }, // Requirements (dependencies)
-      1: { 'HTTP': [] },        // HTTP Endpoints
-      2: {},                     // Handler / Router functions
-      3: {},                     // Domain / Service layer
-      4: {},                     // Database infrastructure
-      5: {}                      // gRPC / Algorithm / Core
+      0: { Requirements: [] },
+      1: { HTTP: [] },
+      2: {}, // Handlers / routers
+      3: {}, // DB / infra / gRPC
     };
-    
-    // Collect and group connected nodes
-    const processedNodes = new Set();
-    
-    // Add requirements to Layer 0
-    requirements.forEach(req => {
-      if (req && !processedNodes.has(req)) {
-        processedNodes.add(req);
-        classByLayer[0]['Requirements'].push(req);
-      }
-    });
-    
-    connectedNodes.forEach(nodeName => {
-      const nodeType = getNodeType(nodeName);
-      if (!nodeType || processedNodes.has(nodeName)) return;
-      
-      processedNodes.add(nodeName);
-      const { layer, class: className } = nodeType;
-      
+    const methodMeta = new Map(); // nodeName -> { layer, className }
+
+    const register = (name, layer, className) => {
       if (!classByLayer[layer]) classByLayer[layer] = {};
       if (!classByLayer[layer][className]) classByLayer[layer][className] = [];
-      
-      classByLayer[layer][className].push(nodeName);
+      classByLayer[layer][className].push(name);
+      methodMeta.set(name, { layer, className });
+    };
+
+    // Add requirements to Layer 0
+    requirements.forEach(req => {
+      if (req) {
+        classByLayer[0].Requirements.push(req);
+      }
+    });
+
+    connectedNodes.forEach(nodeName => {
+      const nodeType = getNodeType(nodeName);
+      if (!nodeType) return;
+
+      const { layer, class: className } = nodeType;
+      register(nodeName, layer, className);
     });
 
     console.log('📊 Grouped nodes:', {
-      'Layer 0 (Requirements)': classByLayer[0]['Requirements']?.length || 0,
-      'Layer 1 (HTTP Endpoints)': classByLayer[1]['HTTP']?.length || 0,
+      'Layer 1 (HTTP Endpoints)': classByLayer[1].HTTP?.length || 0,
       'Layer 2 (Handlers)': Object.keys(classByLayer[2]).length,
-      'Layer 3 (Domain/Service)': Object.keys(classByLayer[3]).length,
-      'Layer 4 (Database/Infra)': Object.keys(classByLayer[4]).length,
-      'Layer 5 (gRPC/Core)': Object.keys(classByLayer[5]).length,
-    });
-    
-    console.log('🔍 Classes by layer:', {
-      layer0: classByLayer[0]['Requirements']?.slice(0, 5),
-      layer2: Object.keys(classByLayer[2]),
-      layer3: Object.keys(classByLayer[3]),
-      layer4: Object.keys(classByLayer[4]),
-      layer5: Object.keys(classByLayer[5])
+      'Layer 3 (Infra/DB)': Object.keys(classByLayer[3]).length,
     });
 
+    const laneX = {
+      http: START_X,
+      handlers: START_X + LAYER_GAP,
+      db: START_X + LAYER_GAP * 2,
+    };
+
+    const lanePreviewLimit = 8;
+    const laneGapY = 30;
+
     // === LAYER 0: Requirements (Dependencies) ===
-    const requirementsList = classByLayer[0]['Requirements'] || [];
+    const requirementsList = classByLayer[0].Requirements || [];
     requirementsList.forEach((reqName, idx) => {
-      newNodes.push({        id: reqName,
+      newNodes.push({
+        id: reqName,
         type: 'default',
         position: { x: START_X - LAYER_GAP * 0.8, y: START_Y + idx * 60 },
         data: {
@@ -548,8 +513,8 @@ export default function NewProject() {
       });
     });
 
-    // === LAYER 1: HTTP Endpoints ===
-    const httpEndpoints = classByLayer[1]['HTTP'] || [];
+    // === LAYER 1: HTTP Endpoints (карточки как раньше) ===
+    const httpEndpoints = classByLayer[1].HTTP || [];
     const endpointsList = httpEndpoints.map(key => ({ key, value: endpoints[key] }));
     const methodOrder = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
     const sortedEndpoints = endpointsList.sort((a, b) => {
@@ -561,21 +526,21 @@ export default function NewProject() {
     sortedEndpoints.forEach(({ key, value }, idx) => {
       const method = value?.split(' ')[0] || 'GET';
       const path = value?.split(' ')[1] || '';
-      const color = methodColors[method] || methodColors['GET'];
-      
+      const color = methodColors[method] || methodColors.GET;
+
       newNodes.push({
         id: key,
         type: 'default',
-        position: { x: START_X, y: START_Y + idx * 100 },
+        position: { x: laneX.http, y: START_Y + idx * NODE_SPACING },
         data: {
           label: (
             <div style={{ padding: '10px 14px' }}>
-              <div style={{ 
-                background: color.bg, 
-                color: 'white', 
-                padding: '4px 10px', 
-                borderRadius: '6px', 
-                fontSize: '11px', 
+              <div style={{
+                background: color.bg,
+                color: 'white',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '11px',
                 fontWeight: 'bold',
                 marginBottom: '6px',
                 display: 'inline-block',
@@ -601,342 +566,138 @@ export default function NewProject() {
       });
     });
 
-    // === LAYER 2: Controllers and Services (grouped by class) ===
-    let layer2YOffset = START_Y;
-    Object.entries(classByLayer[2]).forEach(([className, methods]) => {
-      if (methods.length === 0) return;
-      
-      // Determine class color
-      const classConfig = serviceColors[className] || { color: '#64748b', icon: '⚙️' };
-      const classColor = classConfig.color;
-      const classIcon = classConfig.icon;
-      
-      // Class header
-      newNodes.push({
-        id: `class-${className}`,
-        type: 'default',
-        position: { x: START_X + LAYER_GAP, y: layer2YOffset },
-        data: {
-          label: (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '18px', marginBottom: '4px' }}>{classIcon}</div>
-              <div style={{ fontSize: '14px', fontWeight: '700' }}>{className.replace('Service', '').replace('Controller', '')}</div>
-              <div style={{ fontSize: '9px', opacity: 0.85, marginTop: '2px' }}>{methods.length} methods</div>
-            </div>
-          ),
-        },
-        style: {
-          background: `linear-gradient(135deg, ${classColor} 0%, ${classColor}dd 100%)`,
-          color: 'white',
-          borderRadius: '14px',
-          padding: '16px 20px',
-          width: 180,
-          boxShadow: `0 8px 20px ${classColor}35`,
-          border: '2px solid white',
-        },
-        sourcePosition: 'right',
-        targetPosition: 'left',
-      });
-      
-      layer2YOffset += 90;
-      
-      // Methods of this class
-      methods.forEach((methodName, idx) => {
-        const methodShort = methodName.split('.')[1] || methodName;
-        
+    // Helper to render one lane-card node
+    const renderLaneNodes = (layerKey, xPos, title, icon) => {
+      let cursorY = START_Y;
+      Object.entries(classByLayer[layerKey]).forEach(([className, methods]) => {
+        if (!methods?.length) return;
+        const classColor = serviceColors[className]?.color || '#64748b';
+
+        const preview = methods.slice(0, lanePreviewLimit).map(m => m.split('.').pop() || m);
+        const overflow = methods.length > lanePreviewLimit ? `+${methods.length - lanePreviewLimit} еще` : null;
+        const estimatedHeight = 90 + preview.length * 18 + (overflow ? 18 : 0);
+
         newNodes.push({
-          id: methodName,
+          id: `lane-${layerKey}-${className}`,
           type: 'default',
-          position: { x: START_X + LAYER_GAP * 1.8, y: layer2YOffset + idx * 80 },
+          position: { x: xPos, y: cursorY },
           data: {
             label: (
-              <div style={{ padding: '6px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#1f2937' }}>{methodShort}</div>
+              <div style={{ padding: '12px 14px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.5px', color: '#111', marginBottom: '6px' }}>
+                  {icon} {title}
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{className}</div>
+                <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{methods.length} методов</div>
+                <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
+                  {preview.map(m => (
+                    <div key={m} style={{ background: '#f8fafc', borderRadius: '8px', padding: '6px 8px', fontSize: '11px', color: '#0f172a', border: `1px solid ${classColor}33` }}>
+                      {m}
+                    </div>
+                  ))}
+                  {overflow && (
+                    <div style={{ fontSize: '10px', color: '#475569' }}>{overflow}</div>
+                  )}
+                </div>
               </div>
             ),
           },
           style: {
             background: 'white',
             border: `2px solid ${classColor}`,
-            borderRadius: '10px',
-            padding: '6px 10px',
-            width: 160,
-            boxShadow: `0 4px 12px ${classColor}25`,
+            borderRadius: '14px',
+            width: 260,
+            boxShadow: `0 10px 24px ${classColor}25`,
           },
           sourcePosition: 'right',
           targetPosition: 'left',
         });
+
+        cursorY += estimatedHeight + laneGapY;
       });
-      
-      layer2YOffset += methods.length * 80 + 60;
-    });
+    };
 
-    // === LAYER 3: Domain / Service layer (grouped by class) ===
-    let layer3YOffset = START_Y;
-    Object.entries(classByLayer[3]).forEach(([className, methods]) => {
-      if (methods.length === 0) return;
+    // === LAYER 2: Handlers (FastAPI + доменные методы) ===
+    renderLaneNodes(2, laneX.handlers, 'Handlers', '🛰️');
+    // === LAYER 3: Database / Infra / gRPC ===
+    renderLaneNodes(3, laneX.db, 'Infra / DB', '🗄️');
 
-      // Domain/Service class header
-      const classColors = {
-        'Account': '#3b82f6',
-        'Project': '#10b981',
-        'Auth': '#8b5cf6',
-        'AccountService': '#2563eb',
-        'AuthService': '#7c3aed',
-        'ProjectService': '#059669',
-        'CoreService': '#f59e0b',
-      };
-      const classColor = classColors[className] || '#64748b';
+    const getLaneId = (layer, className) => `lane-${layer}-${className}`;
 
-      newNodes.push({
-        id: `class-${className}`,
-        type: 'default',
-        position: { x: START_X + LAYER_GAP * 2.6, y: layer3YOffset },
-        data: {
-          label: (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '9px', fontWeight: '700', opacity: 0.9, marginBottom: '6px', letterSpacing: '1px' }}>📦 DOMAIN</div>
-              <div style={{ fontSize: '16px', fontWeight: '700' }}>{className}</div>
-              <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>{methods.length} methods</div>
-            </div>
-          ),
-        },
-        style: {
-          background: `linear-gradient(135deg, ${classColor} 0%, ${classColor}dd 100%)`,
-          color: 'white',
-          borderRadius: '16px',
-          padding: '16px 20px',
-          width: 200,
-          boxShadow: `0 8px 24px ${classColor}40`,
-          border: '2px solid white',
-        },
-        sourcePosition: 'right',
-        targetPosition: 'left',
-      });
-
-      layer3YOffset += 90;
-
-      // Domain methods
-      methods.forEach((method, idx) => {
-        const methodShort = method.split('.')[1] || method;
-        newNodes.push({
-          id: method,
-          type: 'default',
-          position: { x: START_X + LAYER_GAP * 3.4, y: layer3YOffset + idx * 75 },
-          data: {
-            label: (
-              <div style={{ padding: '6px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#1f2937' }}>{methodShort}</div>
-              </div>
-            ),
-          },
-          style: {
-            background: 'white',
-            border: `2px solid ${classColor}`,
-            borderRadius: '8px',
-            padding: '4px 8px',
-            width: 160,
-            fontSize: '11px',
-            boxShadow: `0 4px 12px ${classColor}25`,
-          },
-          sourcePosition: 'right',
-          targetPosition: 'left',
-        });
-      });
-
-      layer3YOffset += methods.length * 75 + 60;
-    });
-
-    // === LAYER 4: Database / Infrastructure (grouped by class) ===
-    let layer4YOffset = START_Y;
-    Object.entries(classByLayer[4]).forEach(([className, methods]) => {
-      if (methods.length === 0) return;
-
-      newNodes.push({
-        id: `class-${className}`,
-        type: 'default',
-        position: { x: START_X + LAYER_GAP * 4.2, y: layer4YOffset },
-        data: {
-          label: (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '9px', fontWeight: '700', opacity: 0.9, marginBottom: '6px', letterSpacing: '1px' }}>🗄️ DATABASE</div>
-              <div style={{ fontSize: '16px', fontWeight: '700' }}>{className}</div>
-              <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>{methods.length} items</div>
-            </div>
-          ),
-        },
-        style: {
-          background: 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)',
-          color: 'white',
-          borderRadius: '16px',
-          padding: '16px 20px',
-          width: 200,
-          boxShadow: '0 8px 24px #9C27B040',
-          border: '2px solid white',
-        },
-        sourcePosition: 'right',
-        targetPosition: 'left',
-      });
-
-      layer4YOffset += 90;
-
-      methods.forEach((method, idx) => {
-        const methodShort = method.split('.')[1] || method;
-        newNodes.push({
-          id: method,
-          type: 'default',
-          position: { x: START_X + LAYER_GAP * 5, y: layer4YOffset + idx * 75 },
-          data: {
-            label: (
-              <div style={{ padding: '6px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: '600', color: '#1f2937' }}>{methodShort}</div>
-              </div>
-            ),
-          },
-          style: {
-            background: 'white',
-            border: '2px solid #9C27B0',
-            borderRadius: '8px',
-            padding: '4px 8px',
-            width: 160,
-            fontSize: '11px',
-            boxShadow: '0 4px 12px #9C27B025',
-          },
-          sourcePosition: 'right',
-          targetPosition: 'left',
-        });
-      });
-
-      layer4YOffset += methods.length * 75 + 60;
-    });
-
-    // === LAYER 5: gRPC / Algorithm / Core (grouped by class) ===
-    let layer5YOffset = START_Y;
-    Object.entries(classByLayer[5]).forEach(([className, methods]) => {
-      if (methods.length === 0) return;
-
-      newNodes.push({
-        id: `class-${className}`,
-        type: 'default',
-        position: { x: START_X + LAYER_GAP * 5.8, y: layer5YOffset },
-        data: {
-          label: (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '9px', fontWeight: '700', opacity: 0.9, marginBottom: '6px', letterSpacing: '1px' }}>⚡ gRPC CORE</div>
-              <div style={{ fontSize: '16px', fontWeight: '700' }}>{className}</div>
-              <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '4px' }}>{methods.length} items</div>
-            </div>
-          ),
-        },
-        style: {
-          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-          color: 'white',
-          borderRadius: '16px',
-          padding: '16px 20px',
-          width: 200,
-          boxShadow: '0 8px 24px #f9731640',
-          border: '2px solid white',
-        },
-        sourcePosition: 'right',
-        targetPosition: 'left',
-      });
-
-      layer5YOffset += 90;
-
-      methods.forEach((method, idx) => {
-        const methodShort = method.split('.').pop();
-        newNodes.push({
-          id: method,
-          type: 'default',
-          position: { x: START_X + LAYER_GAP * 6.6, y: layer5YOffset + idx * 75 },
-          data: {
-            label: (
-              <div style={{ padding: '6px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: '10px', fontWeight: '600', color: '#1f2937' }}>{methodShort}</div>
-              </div>
-            ),
-          },
-          style: {
-            background: 'white',
-            border: '2px solid #f97316',
-            borderRadius: '8px',
-            padding: '4px 8px',
-            width: 160,
-            fontSize: '11px',
-            boxShadow: '0 4px 12px #f9731625',
-          },
-          sourcePosition: 'right',
-          targetPosition: 'left',
-        });
-      });
-
-      layer5YOffset += methods.length * 75 + 60;
-    });
-
-    // === EDGES: Build connections using dependency graph ===
+    // === EDGES: Build connections between lanes (class-level) ===
     const newEdges = [];
     const nodeIds = new Set(newNodes.map(n => n.id));
     const nodesWithIncomingEdges = new Set();
     const nodesWithOutgoingEdges = new Set();
+    const edgeKeys = new Set();
 
-    // Direct connections from endpoints
+    const pushEdge = (source, target, options) => {
+      const key = `${source}->${target}`;
+      if (edgeKeys.has(key)) return;
+      edgeKeys.add(key);
+      newEdges.push({
+        id: key,
+        source,
+        target,
+        type: 'smoothstep',
+        markerEnd: { type: MarkerType.ArrowClosed, color: options?.color || '#94a3b8' },
+        style: { stroke: options?.color || '#94a3b8', strokeWidth: options?.strokeWidth || 2 },
+        animated: options?.animated || false,
+        label: options?.label,
+        labelStyle: options?.labelStyle,
+        labelBgStyle: options?.labelBgStyle,
+      });
+      nodesWithOutgoingEdges.add(source);
+      nodesWithIncomingEdges.add(target);
+    };
+
+    // Edges from HTTP endpoints -> handler/infra lanes
     Object.keys(endpoints).forEach(endpointKey => {
       if (!reverseDependencyMap.has(endpointKey)) return;
-      
+
       const method = endpoints[endpointKey]?.split(' ')[0] || 'GET';
       const color = methodColors[method]?.border || '#3b82f6';
-      
+
       reverseDependencyMap.get(endpointKey).forEach(target => {
-        if (nodeIds.has(target) && connectedNodes.has(target) && !target.startsWith('class-')) {
-          newEdges.push({
-            id: `${endpointKey}-${target}`,
-            source: endpointKey,
-            target: target,
-            type: 'smoothstep',
-            markerEnd: { type: MarkerType.ArrowClosed, color: color },
-            style: { stroke: color, strokeWidth: 3 },
-            animated: true,
-            label: method,
-            labelStyle: { fontSize: '10px', fontWeight: '700', fill: color },
-            labelBgStyle: { fill: 'white', fillOpacity: 0.9 }
-          });
-          nodesWithOutgoingEdges.add(endpointKey);
-          nodesWithIncomingEdges.add(target);
-        }
+        const meta = methodMeta.get(target);
+        if (!meta) return;
+        const targetId = meta.layer === 1 ? target : getLaneId(meta.layer, meta.className);
+        if (!nodeIds.has(targetId)) return;
+
+        pushEdge(endpointKey, targetId, {
+          color,
+          strokeWidth: 3,
+          animated: true,
+        });
       });
     });
 
-    // All other dependencies (excluding class headers)
+    // Edges between classes (parent -> child aggregated)
     architectureData.forEach(({ parent, children }) => {
-      if (!connectedNodes.has(parent) || parent.startsWith('class-')) return;
-      
-      children.forEach(child => {
-        const cleanChild = child.split('/').pop();
-        if (connectedNodes.has(cleanChild) && nodeIds.has(cleanChild) && !cleanChild.startsWith('class-')) {
-          newEdges.push({
-            id: `${parent}-${cleanChild}`,
-            source: parent,
-            target: cleanChild,
-            type: 'smoothstep',
-            markerEnd: { type: MarkerType.ArrowClosed },
-            style: { stroke: '#94a3b8', strokeWidth: 2 },
-          });
-          nodesWithOutgoingEdges.add(parent);
-          nodesWithIncomingEdges.add(cleanChild);
-        }
+      const parentMeta = methodMeta.get(parent);
+      if (!parentMeta) return;
+
+      const sourceId = parentMeta.layer === 1 ? parent : getLaneId(parentMeta.layer, parentMeta.className);
+      if (!nodeIds.has(sourceId)) return;
+
+      children.forEach(childRaw => {
+        const child = childRaw.split('/').pop();
+        const childMeta = methodMeta.get(child);
+        if (!childMeta) return;
+
+        const targetId = childMeta.layer === 1 ? child : getLaneId(childMeta.layer, childMeta.className);
+        if (!nodeIds.has(targetId)) return;
+
+        pushEdge(sourceId, targetId, { color: '#94a3b8' });
       });
     });
-    
-    // Filter out isolated nodes (nodes with no incoming or outgoing edges)
-    // Keep endpoints and class headers
+
+    // Filter out isolated nodes (оставляем только с рёбрами)
     const filteredNodes = newNodes.filter(node => {
-      if (node.id.startsWith('class-')) return true; // Keep class headers
-      if (endpoints[node.id]) return true; // Keep all endpoints
-      if (classByLayer[0]['Requirements']?.includes(node.id)) return true; // Keep requirements
-      // Keep only nodes that have at least one edge
-      return nodesWithIncomingEdges.has(node.id) || nodesWithOutgoingEdges.has(node.id);
+      const hasEdges = nodesWithIncomingEdges.has(node.id) || nodesWithOutgoingEdges.has(node.id);
+      return hasEdges;
     });
-    
+
     console.log('🔗 Edges built:', {
       total: newEdges.length,
       fromEndpoints: Object.keys(endpoints).length,
