@@ -26,7 +26,7 @@ export default function ProjectsList() {
       
       // response = { user: { id, name, surname }, projects: { total, data: [...] } }
       if (response.user) {
-        setUserName(response.user.login || '');
+        setUserName(response.user.name || '');
       }
       
       const projectsList = response.projects?.data || [];

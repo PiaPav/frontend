@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import { authAPI, accountAPI } from '../services/api';
+import { authAPI, homeAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -23,19 +23,21 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('refresh_token', data.refresh_token);
       
-      // Получаем полные данные пользователя с сервера
+      // Получаем полные данные пользователя с домашнего эндпоинта (приходит сразу)
       try {
-        const accountData = await accountAPI.getAccount();
+        const homeData = await homeAPI.getHomepage();
+        const accountData = homeData?.user || {};
         const userData = {
           id: accountData.id,
           login: accountData.login,
           name: accountData.name,
+          surname: accountData.surname,
           email: accountData.email
         };
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
-      } catch (accountError) {
-        console.error('Error fetching account data:', accountError);
+      } catch (homeError) {
+        console.error('Error fetching user from home endpoint:', homeError);
         // Fallback: сохраняем хотя бы логин
         const userData = { login: credentials.login };
         localStorage.setItem('user', JSON.stringify(userData));
@@ -150,6 +152,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
-
-
