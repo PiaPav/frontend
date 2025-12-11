@@ -564,7 +564,7 @@ export default function NewProject() {
 
     const lanePreviewLimit = Infinity;
     const laneOffsetX = 320; // горизонтальный сдвиг для шахматного порядка
-    const laneGapY = 80;     // вертикальный зазор между рядами карточек
+    const laneBaseGapY = 100; // базовый вертикальный зазор между рядами карточек
 
     // === LAYER 0: Requirements (Dependencies) ===
     const requirementsList = classByLayer[0].Requirements || [];
@@ -662,6 +662,7 @@ export default function NewProject() {
         });
 
       let rowY = START_Y;
+      const rowStepMin = Math.max(HTTP_SPACING, laneBaseGapY); // привязка к высоте колонки HTTP
       for (let i = 0; i < cards.length; i += 2) {
         const left = cards[i];
         const right = cards[i + 1];
@@ -731,7 +732,8 @@ export default function NewProject() {
         }
 
         const rowHeight = Math.max(left.estimatedHeight, right ? right.estimatedHeight + 40 : 0);
-        rowY += rowHeight + laneGapY;
+        const rowStep = Math.max(rowHeight + laneBaseGapY, rowStepMin);
+        rowY += rowStep;
       }
     };
 
