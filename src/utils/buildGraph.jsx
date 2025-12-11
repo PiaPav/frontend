@@ -45,8 +45,8 @@ export function buildGraph({
   const LAYER_ANCHOR_SPACING = 40;
   const LANE_COLUMN_GAP = 380; // расстояние между карточками внутри слоя
   const LANE_CARD_WIDTH = 360;
-  const LANE_BASE_GAP_Y = 30;
-  const LANE_ROW_HEIGHT = 180; // базовая высота ряда; увеличиваем динамически под самый высокий блок
+  const LANE_BASE_GAP_Y = 80; // добавляем побольше вертикального зазора
+  const LANE_ROW_HEIGHT = 200; // базовая высота ряда; увеличиваем динамически под самый высокий блок
   const MAX_ROWS_LAYER2 = 4;
   const MAX_ROWS_LAYER3 = 4;
 
@@ -343,7 +343,8 @@ export function buildGraph({
       .map(([className, methods]) => {
         const classColor = serviceColors[className]?.color || '#64748b';
         const preview = methods.map((m) => m.split('.').pop() || m);
-        const estimatedHeight = 130 + preview.length * 22;
+        const rowsCount = Math.max(preview.length, 3);
+        const estimatedHeight = 120 + rowsCount * 26; // примерно под список методов
         return { className, methods, classColor, preview, estimatedHeight, anchor: anchors?.[className] ?? 0 };
       })
       .sort((a, b) => a.anchor - b.anchor);
@@ -351,14 +352,27 @@ export function buildGraph({
     if (cards.length === 0) return;
 
     const maxRows = layerKey === 2 ? MAX_ROWS_LAYER2 : MAX_ROWS_LAYER3;
-    const maxCardHeight = cards.reduce((max, c) => Math.max(max, c.estimatedHeight), LANE_ROW_HEIGHT);
-    const rowHeight = Math.max(LANE_ROW_HEIGHT, maxCardHeight + LANE_BASE_GAP_Y);
+    const rowHeights = Array(maxRows).fill(LANE_ROW_HEIGHT);
+
+    cards.forEach((card, idx) => {
+      const row = idx % maxRows;
+      const extra = card.methods.length > 10 ? 60 : 0;
+      const cardHeight = card.estimatedHeight + LANE_BASE_GAP_Y + extra;
+      rowHeights[row] = Math.max(rowHeights[row], cardHeight);
+    });
+
+    const rowOffsets = [];
+    let yCursor = START_Y;
+    rowHeights.forEach((h) => {
+      rowOffsets.push(yCursor);
+      yCursor += h;
+    });
 
     cards.forEach((card, idx) => {
       const row = idx % maxRows;
       const col = Math.floor(idx / maxRows);
       const targetX = xPos + col * LANE_COLUMN_GAP;
-      const targetY = START_Y + row * rowHeight;
+      const targetY = rowOffsets[row] ?? START_Y;
 
       newNodes.push({
         id: `lane-${layerKey}-${card.className}`,
