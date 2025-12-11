@@ -129,7 +129,6 @@ export default function NewProject() {
     const f = e.target.files?.[0] || null;
     const LIMIT = 50 * 1024 * 1024; // 50 MB
     if (f && f.size > LIMIT) {
-      // Keep the file selection but show premium modal
       setFile(f);
       setShowPremiumModal(true);
     } else {
@@ -146,12 +145,6 @@ export default function NewProject() {
     // Валидация
     if (!form.name.trim()) {
       setError('Введите название проекта');
-      setLoading(false);
-      return;
-    }
-
-    if (!form.description.trim()) {
-      setError('Введите описание проекта');
       setLoading(false);
       return;
     }
@@ -364,8 +357,9 @@ export default function NewProject() {
     const LAYER_GAP = 620;
     const START_X = 120;
     const START_Y = 80;
+    const HTTP_SPACING = 160; // Равномерный отступ между HTTP эндпоинтами
     const NODE_SPACING = 140; // Increased spacing between HTTP endpoints
-    const LANE_GAP_Y = 180; // Дополнительный зазор между классами
+    const LANE_GAP_Y = 60; // Дополнительный зазор между классами
 
     const newNodes = [];
     
@@ -605,7 +599,11 @@ export default function NewProject() {
     const sortedEndpoints = endpointsList.sort((a, b) => {
       const methodA = a.value?.split(' ')[0] || 'GET';
       const methodB = b.value?.split(' ')[0] || 'GET';
-      return methodOrder.indexOf(methodA) - methodOrder.indexOf(methodB);
+      const orderDiff = methodOrder.indexOf(methodA) - methodOrder.indexOf(methodB);
+      if (orderDiff !== 0) return orderDiff;
+      const pathA = a.value?.split(' ')[1] || a.key || '';
+      const pathB = b.value?.split(' ')[1] || b.key || '';
+      return pathA.localeCompare(pathB);
     });
 
     sortedEndpoints.forEach(({ key, value }, idx) => {
@@ -616,7 +614,7 @@ export default function NewProject() {
       newNodes.push({
         id: key,
         type: 'default',
-        position: { x: laneX.http, y: START_Y + idx * NODE_SPACING },
+        position: { x: laneX.http, y: START_Y + idx * HTTP_SPACING },
         data: {
           label: (
             <div style={{ padding: '10px 14px' }}>
@@ -861,17 +859,11 @@ export default function NewProject() {
                 <div className={styles.fileText}>
                   <div className={styles.fileTitle}>{file ? 'Файл выбран' : 'Загрузить проект (ZIP)'}</div>
                   <div className={styles.fileHint}>
-                    {file ? file.name : 'Перетащите архив сюда или нажмите, чтобы выбрать'}
+                    {file ? `${file.name} • ${formatFileSize(file.size)}` : 'Перетащите архив сюда или нажмите, чтобы выбрать'}
                   </div>
                 </div>
                 <div className={styles.fileBadge}>ZIP</div>
               </label>
-              {file && (
-                <div className={styles.fileMeta}>
-                  <span className={styles.fileChip}>{file.name}</span>
-                  <span className={styles.fileSize}>{formatFileSize(file.size)}</span>
-                </div>
-              )}
             </div>
             <small className={styles.fileNote}>Загрузите ZIP-архив с проектом (обязательно)</small>
           </div>
