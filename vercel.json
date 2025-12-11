@@ -4,6 +4,14 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/grpc/:path*",
+      "destination": "http://78.153.139.47:8080/:path*"
+    },
+    {
+      "source": "/core.api.FrontendStreamService/:path*",
+      "destination": "http://78.153.139.47:8080/core.api.FrontendStreamService/:path*"
+    },
+    {
       "source": "/v1/:path*",
       "destination": "http://78.153.139.47:8000/v1/:path*"
     },
