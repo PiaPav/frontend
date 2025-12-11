@@ -31,12 +31,24 @@ export function buildGraph({
     return { nodes: [], edges: [], summary: {} };
   }
 
-  const LAYER_GAP = 620;
+  const median = (arr) => {
+    if (!arr || arr.length === 0) return null;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  };
+
+  const LAYER_GAP = 560;
   const START_X = 120;
   const START_Y = 80;
-  const HTTP_SPACING = 160;
-  const LANE_OFFSET_X = 320;
-  const LANE_BASE_GAP_Y = 100;
+  const HTTP_SPACING = 120;
+  const LAYER_ANCHOR_SPACING = 110;
+  const LANE_BASE_GAP_Y = 80;
+  const LANE_MIN_GAP = 50;
+  const LANE_COLUMN_GAP = 320; // расстояние между колонками внутри слоя
+  const LANE_ROW_SHIFT = LANE_COLUMN_GAP / 2; // смещение нечётных рядов для шахматного вида
+  const LANE_ROW_HEIGHT = 260; // фиксированная базовая высота ряда для ровных линий
+  const LANE_CARD_WIDTH = 240;
 
   const dependencyMap = new Map(); // node -> nodes that depend on it
   const reverseDependencyMap = new Map(); // node -> nodes it depends on (children)
@@ -235,7 +247,9 @@ export function buildGraph({
     return pathA.localeCompare(pathB);
   });
 
+  const endpointIndexMap = new Map();
   sortedEndpoints.forEach(({ key, value }, idx) => {
+    endpointIndexMap.set(key, idx);
     const method = value?.split(' ')[0] || 'GET';
     const path = value?.split(' ')[1] || '';
     const color = methodColors[method] || methodColors.GET;
@@ -280,33 +294,86 @@ export function buildGraph({
     });
   });
 
-  const renderLaneNodes = (layerKey, xPos) => {
+  const computeAnchors = (layerKey, classMap, upstreamAnchors) => {
+    const anchors = {};
+    Object.entries(classMap || {}).forEach(([className, methods], idx) => {
+      const hits = [];
+
+      if (layerKey === 2) {
+        // Расставляем хендлеры по средней позиции их входящих HTTP эндпоинтов
+        Object.keys(endpoints).forEach((endpointKey) => {
+          const children = reverseDependencyMap.get(endpointKey);
+          if (!children) return;
+          children.forEach((childName) => {
+            const meta = methodMeta.get(childName);
+            if (meta?.className === className) {
+              const endpointIdx = endpointIndexMap.get(endpointKey);
+              if (typeof endpointIdx === 'number') hits.push(endpointIdx);
+            }
+          });
+        });
+      }
+
+      if (layerKey === 3) {
+        // Инфраструктуру якорим около слоёв, которые её вызывают
+        methods.forEach((methodName) => {
+          const parents = dependencyMap.get(methodName);
+          if (!parents) return;
+          parents.forEach((parentName) => {
+            const meta = methodMeta.get(parentName);
+            if (meta?.layer === 2 && upstreamAnchors?.[meta.className] !== undefined) {
+              hits.push(upstreamAnchors[meta.className]);
+            }
+          });
+        });
+      }
+
+      const anchor = hits.length ? median(hits) : idx + 0.5;
+      anchors[className] = anchor;
+    });
+    return anchors;
+  };
+
+  const handlerAnchors = computeAnchors(2, classByLayer[2], null);
+  const infraAnchors = computeAnchors(3, classByLayer[3], handlerAnchors);
+
+  const renderLaneNodes = (layerKey, xPos, anchors) => {
     const cards = Object.entries(classByLayer[layerKey] || {})
       .filter(([, methods]) => methods?.length)
       .map(([className, methods]) => {
         const classColor = serviceColors[className]?.color || '#64748b';
         const preview = methods.map((m) => m.split('.').pop() || m);
-        const estimatedHeight = 180 + preview.length * 28;
-        return { className, methods, classColor, preview, estimatedHeight };
-      });
+        const estimatedHeight = 130 + preview.length * 22;
+        return { className, methods, classColor, preview, estimatedHeight, anchor: anchors?.[className] ?? 0 };
+      })
+      .sort((a, b) => a.anchor - b.anchor);
 
-    let rowY = START_Y;
-    const rowStepMin = Math.max(HTTP_SPACING, LANE_BASE_GAP_Y);
-    for (let i = 0; i < cards.length; i += 2) {
-      const left = cards[i];
-      const right = cards[i + 1];
+    if (cards.length === 0) return;
+
+    const columns = layerKey === 2 ? 4 : 3;
+    const maxCardHeight = cards.reduce((max, c) => Math.max(max, c.estimatedHeight), LANE_ROW_HEIGHT);
+    const baseRowHeight = layerKey === 2 ? LANE_ROW_HEIGHT : LANE_ROW_HEIGHT - 10;
+    const rowHeight = Math.max(baseRowHeight, maxCardHeight + LANE_BASE_GAP_Y);
+
+    cards.forEach((card, idx) => {
+      const col = idx % columns;
+      const row = Math.floor(idx / columns);
+      const xShift = row % 2 ? LANE_ROW_SHIFT : 0; // шахматный сдвиг по X
+
+      const targetX = xPos + col * LANE_COLUMN_GAP + xShift;
+      const targetY = START_Y + row * rowHeight;
 
       newNodes.push({
-        id: `lane-${layerKey}-${left.className}`,
+        id: `lane-${layerKey}-${card.className}`,
         type: 'default',
-        position: { x: xPos, y: rowY },
+        position: { x: targetX, y: targetY },
         data: {
           label: (
             <div style={{ padding: '12px 14px' }}>
-              <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{left.className}</div>
-              <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{left.methods.length} методов</div>
+              <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{card.className}</div>
+              <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{card.methods.length} методов</div>
               <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
-                {left.preview.map((m) => (
+                {card.preview.map((m) => (
                   <div
                     key={m}
                     style={{
@@ -315,7 +382,7 @@ export function buildGraph({
                       padding: '6px 8px',
                       fontSize: '11px',
                       color: '#0f172a',
-                      border: `1px solid ${left.classColor}33`,
+                      border: `1px solid ${card.classColor}33`,
                     }}
                   >
                     {m}
@@ -327,65 +394,19 @@ export function buildGraph({
         },
         style: {
           background: 'white',
-          border: `2px solid ${left.classColor}`,
+          border: `2px solid ${card.classColor}`,
           borderRadius: '14px',
-          width: 260,
-          boxShadow: `0 10px 24px ${left.classColor}25`,
+          width: LANE_CARD_WIDTH,
+          boxShadow: `0 10px 24px ${card.classColor}25`,
         },
         sourcePosition: 'right',
         targetPosition: 'left',
       });
-
-      if (right) {
-        newNodes.push({
-          id: `lane-${layerKey}-${right.className}`,
-          type: 'default',
-          position: { x: xPos + LANE_OFFSET_X, y: rowY + 40 },
-          data: {
-            label: (
-              <div style={{ padding: '12px 14px' }}>
-                <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{right.className}</div>
-                <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{right.methods.length} методов</div>
-                <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
-                  {right.preview.map((m) => (
-                    <div
-                      key={m}
-                      style={{
-                        background: '#f8fafc',
-                        borderRadius: '8px',
-                        padding: '6px 8px',
-                        fontSize: '11px',
-                        color: '#0f172a',
-                        border: `1px solid ${right.classColor}33`,
-                      }}
-                    >
-                      {m}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ),
-          },
-          style: {
-            background: 'white',
-            border: `2px solid ${right.classColor}`,
-            borderRadius: '14px',
-            width: 260,
-            boxShadow: `0 10px 24px ${right.classColor}25`,
-          },
-          sourcePosition: 'right',
-          targetPosition: 'left',
-        });
-      }
-
-      const rowHeight = Math.max(left.estimatedHeight, right ? right.estimatedHeight + 40 : 0);
-      const rowStep = Math.max(rowHeight + LANE_BASE_GAP_Y, rowStepMin);
-      rowY += rowStep;
-    }
+    });
   };
 
-  renderLaneNodes(2, laneX.handlers);
-  renderLaneNodes(3, laneX.db);
+  renderLaneNodes(2, laneX.handlers, handlerAnchors);
+  renderLaneNodes(3, laneX.db, infraAnchors);
 
   const getLaneId = (layer, className) => `lane-${layer}-${className}`;
 
@@ -403,9 +424,10 @@ export function buildGraph({
       id: key,
       source,
       target,
-      type: 'smoothstep',
+      type: 'step',
       markerEnd: { type: MarkerType.ArrowClosed, color: options?.color || '#94a3b8' },
-      style: { stroke: options?.color || '#94a3b8', strokeWidth: options?.strokeWidth || 2 },
+      pathOptions: { offset: 200, borderRadius: 18 },
+      style: { stroke: options?.color || '#94a3b8', strokeWidth: options?.strokeWidth || 2, opacity: options?.opacity || 1 },
       animated: options?.animated || false,
       label: options?.label,
       labelStyle: options?.labelStyle,
