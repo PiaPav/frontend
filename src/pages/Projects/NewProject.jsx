@@ -365,7 +365,7 @@ export default function NewProject() {
     const START_X = 120;
     const START_Y = 80;
     const NODE_SPACING = 140; // Increased spacing between HTTP endpoints
-    const LANE_GAP_Y = 60;
+    const LANE_GAP_Y = 180; // Дополнительный зазор между классами
 
     const newNodes = [];
     
@@ -660,7 +660,7 @@ export default function NewProject() {
 
         const preview = methods.map(m => m.split('.').pop() || m);
         const overflow = null;
-        const estimatedHeight = 120 + preview.length * 22;
+        const estimatedHeight = 180 + preview.length * 28;
 
         newNodes.push({
           id: `lane-${layerKey}-${className}`,
