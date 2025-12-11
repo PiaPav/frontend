@@ -38,17 +38,17 @@ export function buildGraph({
     return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
   };
 
-  const LAYER_GAP = 560;
+  const LAYER_GAP = 900;
   const START_X = 120;
   const START_Y = 80;
-  const HTTP_SPACING = 120;
-  const LAYER_ANCHOR_SPACING = 110;
-  const LANE_BASE_GAP_Y = 80;
-  const LANE_MIN_GAP = 50;
-  const LANE_COLUMN_GAP = 320; // расстояние между колонками внутри слоя
-  const LANE_ROW_SHIFT = LANE_COLUMN_GAP / 2; // смещение нечётных рядов для шахматного вида
-  const LANE_ROW_HEIGHT = 260; // фиксированная базовая высота ряда для ровных линий
-  const LANE_CARD_WIDTH = 240;
+  const HTTP_SPACING = 110;
+  const LAYER_ANCHOR_SPACING = 40;
+  const LANE_COLUMN_GAP = 380; // расстояние между карточками внутри слоя
+  const LANE_CARD_WIDTH = 360;
+  const LANE_BASE_GAP_Y = 30;
+  const LANE_ROW_HEIGHT = 180; // базовая высота ряда; увеличиваем динамически под самый высокий блок
+  const MAX_ROWS_LAYER2 = 4;
+  const MAX_ROWS_LAYER3 = 4;
 
   const dependencyMap = new Map(); // node -> nodes that depend on it
   const reverseDependencyMap = new Map(); // node -> nodes it depends on (children)
@@ -350,17 +350,14 @@ export function buildGraph({
 
     if (cards.length === 0) return;
 
-    const columns = layerKey === 2 ? 4 : 3;
+    const maxRows = layerKey === 2 ? MAX_ROWS_LAYER2 : MAX_ROWS_LAYER3;
     const maxCardHeight = cards.reduce((max, c) => Math.max(max, c.estimatedHeight), LANE_ROW_HEIGHT);
-    const baseRowHeight = layerKey === 2 ? LANE_ROW_HEIGHT : LANE_ROW_HEIGHT - 10;
-    const rowHeight = Math.max(baseRowHeight, maxCardHeight + LANE_BASE_GAP_Y);
+    const rowHeight = Math.max(LANE_ROW_HEIGHT, maxCardHeight + LANE_BASE_GAP_Y);
 
     cards.forEach((card, idx) => {
-      const col = idx % columns;
-      const row = Math.floor(idx / columns);
-      const xShift = row % 2 ? LANE_ROW_SHIFT : 0; // шахматный сдвиг по X
-
-      const targetX = xPos + col * LANE_COLUMN_GAP + xShift;
+      const row = idx % maxRows;
+      const col = Math.floor(idx / maxRows);
+      const targetX = xPos + col * LANE_COLUMN_GAP;
       const targetY = START_Y + row * rowHeight;
 
       newNodes.push({
@@ -426,7 +423,7 @@ export function buildGraph({
       target,
       type: 'step',
       markerEnd: { type: MarkerType.ArrowClosed, color: options?.color || '#94a3b8' },
-      pathOptions: { offset: 200, borderRadius: 18 },
+      pathOptions: { offset: 220, borderRadius: 18 },
       style: { stroke: options?.color || '#94a3b8', strokeWidth: options?.strokeWidth || 2, opacity: options?.opacity || 1 },
       animated: options?.animated || false,
       label: options?.label,
