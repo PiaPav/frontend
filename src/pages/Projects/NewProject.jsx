@@ -568,7 +568,7 @@ export default function NewProject() {
       db: START_X + LAYER_GAP * 2,
     };
 
-    const lanePreviewLimit = 8;
+    const lanePreviewLimit = Infinity;
     const laneGapY = 30;
 
     // === LAYER 0: Requirements (Dependencies) ===
@@ -633,8 +633,8 @@ export default function NewProject() {
               }}>
                 {method}
               </div>
-              <div style={{ fontSize: '12px', fontWeight: '600', marginTop: '6px', color: '#1f2937' }}>{path}</div>
-              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>{key}</div>
+              <div style={{ fontSize: '13px', fontWeight: '700', marginTop: '6px', color: '#0f172a' }}>{key}</div>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', wordBreak: 'break-all' }}>{path}</div>
             </div>
           ),
         },
@@ -658,9 +658,9 @@ export default function NewProject() {
         if (!methods?.length) return;
         const classColor = serviceColors[className]?.color || '#64748b';
 
-        const preview = methods.slice(0, lanePreviewLimit).map(m => m.split('.').pop() || m);
-        const overflow = methods.length > lanePreviewLimit ? `+${methods.length - lanePreviewLimit} еще` : null;
-        const estimatedHeight = 120 + preview.length * 22 + (overflow ? 22 : 0);
+        const preview = methods.map(m => m.split('.').pop() || m);
+        const overflow = null;
+        const estimatedHeight = 120 + preview.length * 22;
 
         newNodes.push({
           id: `lane-${layerKey}-${className}`,
