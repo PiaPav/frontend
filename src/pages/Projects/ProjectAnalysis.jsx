@@ -76,11 +76,11 @@ export default function ProjectAnalysis() {
           setError(null);
         }
         
-        console.log('🌐 Загрузка проекта через REST, ID:', id);
+        console.log('[load] Loading project via REST, ID:', id);
         
-        // 1. Получаем данные через REST API
+        // 1. REST: fetch project data
         const projectData = await projectsAPI.getById(id);
-        console.log('📥 REST /project response:', {
+        console.log('[REST] /project response:', {
           id: projectData?.id,
           name: projectData?.name,
           description: projectData?.description,
@@ -97,56 +97,81 @@ export default function ProjectAnalysis() {
           rawArchitecture: projectData?.architecture,
         });
         if (cancelled) return;
-        
-        setProject(projectData);
-        
-        // Если архитектура уже есть - показываем её
-        if (projectData.architecture && projectData.architecture.requirements && projectData.architecture.requirements.length > 0) {
-          console.log('✅ Архитектура уже загружена, пропускаем gRPC');
-          
-          const arch = projectData.architecture;
-          setRequirements(arch.requirements || []);
-          
-          // Endpoints
+
+        let archFromApi = projectData.architecture;
+        if (typeof archFromApi === 'string') {
+          try {
+            archFromApi = JSON.parse(archFromApi);
+          } catch (parseError) {
+            console.warn('[ui] Failed to parse architecture from API response', parseError);
+            archFromApi = null;
+          }
+        }
+
+        if (archFromApi && typeof archFromApi === "object") {
+          const requirementsList = Array.isArray(archFromApi.requirements) ? archFromApi.requirements : [];
+
           let endpointsObj = {};
-          if (arch.endpoints) {
-            if (Array.isArray(arch.endpoints)) {
-              arch.endpoints.forEach(endpoint => {
+          if (archFromApi.endpoints) {
+            if (Array.isArray(archFromApi.endpoints)) {
+              archFromApi.endpoints.forEach(endpoint => {
                 Object.entries(endpoint).forEach(([key, value]) => {
                   endpointsObj[key] = value;
                 });
               });
-            } else if (typeof arch.endpoints === 'object') {
-              endpointsObj = arch.endpoints;
+            } else if (typeof archFromApi.endpoints === "object") {
+              endpointsObj = archFromApi.endpoints;
             }
           }
-          setEndpoints(endpointsObj);
-          
-          // Architecture data
-          if (arch.data && typeof arch.data === 'object') {
-            const archArray = Object.entries(arch.data).map(([parent, children]) => ({
+
+          const dataObj = archFromApi.data && typeof archFromApi.data === "object" ? archFromApi.data : {};
+
+          const hasArchitectureFromApi = (
+            requirementsList.length > 0 ||
+            Object.keys(endpointsObj).length > 0 ||
+            Object.keys(dataObj).length > 0
+          );
+
+          setProject({
+            ...projectData,
+            architecture: {
+              ...archFromApi,
+              requirements: requirementsList,
+              endpoints: endpointsObj,
+              data: dataObj
+            }
+          });
+
+          if (hasArchitectureFromApi) {
+            console.log('[ui] Architecture received via GET, skip gRPC stream');
+            setRequirements(requirementsList);
+            setEndpoints(endpointsObj);
+
+            const archArray = Object.entries(dataObj).map(([parent, children]) => ({
               parent,
               children: Array.isArray(children) ? children : []
             }));
             setArchitectureData(archArray);
-            console.log('📊 Архитектура из REST (нормализовано):', {
-              requirements: arch.requirements?.length || 0,
+            console.log('[REST] Architecture from GET:', {
+              requirements: requirementsList.length,
               endpoints: Object.keys(endpointsObj).length,
               nodes: archArray.length,
             });
+
+            setStreamComplete(true);
+            setLoading(false);
+            setIsFirstLoad(false);
+            return;
           }
-          
-          setStreamComplete(true);
-          setLoading(false);
-          setIsFirstLoad(false);
-          return;
+        } else {
+          setProject(projectData);
         }
-        
-        // 2. Если архитектуры нет - запускаем gRPC stream
+
+        // 2. If no architecture came from REST - start gRPC stream
         setLoading(false);
         setIsFirstLoad(false);
         
-        // Проверяем, не запущен ли уже gRPC stream
+        // Guard: do not start gRPC stream twice
         if (grpcStarted || streamControllerRef.current) {
           console.log('⚠️ gRPC stream уже запущен или есть активный controller, пропускаем повторный вызов');
           return;
