@@ -210,6 +210,8 @@
     width: 100%;
     aspect-ratio: 16 / 9;
     overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.22));
 }
 
 .projectImage img {
@@ -223,6 +225,68 @@
     height: 100%;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     opacity: 0.7;
+}
+
+.projectPreview {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    background: radial-gradient(circle at 30% 40%, rgba(255,255,255,0.08), transparent 38%), linear-gradient(145deg, rgba(10, 16, 38, 0.9), rgba(14, 16, 46, 0.9));
+    isolation: isolate;
+}
+
+.previewBackdrop {
+    position: absolute;
+    inset: 0;
+    filter: blur(8px);
+    transform: scale(1.05);
+    transition: transform 0.7s ease;
+}
+
+.previewCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    mix-blend-mode: screen;
+}
+
+.previewLink {
+    opacity: 0.8;
+    animation: dashFlow 8s linear infinite;
+}
+
+.previewNode {
+    filter: drop-shadow(0 0 12px rgba(255,255,255,0.25));
+    animation: pulseNode 4s ease-in-out infinite;
+    transform-origin: center;
+}
+
+.previewBadge {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.14);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+}
+
+.projectCard:hover .previewBackdrop {
+    transform: scale(1.08);
+}
+
+.projectCard:hover .previewNode {
+    transform: translateY(-1px) scale(1.03);
 }
 
 .projectInfo {
@@ -276,13 +340,77 @@
 
 .actionBtnPrimary {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-color: transparent;
+    color: #eef2ff;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    isolation: isolate;
 }
 
-.actionBtnPrimary:hover {
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+.actionBtnPrimary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, rgba(255,255,255,0.22), rgba(255,255,255,0));
+    opacity: 0;
+    transform: translateX(-10%);
+    transition: opacity 0.3s ease, transform 0.4s ease;
+    z-index: 0;
+}
+
+.previewButton {
+    letter-spacing: 0.3px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.previewButton:hover {
+    box-shadow: 0 12px 30px rgba(102, 126, 234, 0.55);
     transform: translateY(-2px);
+}
+
+.previewButton:hover::before {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.actionBtnIcon {
+    font-size: 18px;
+    z-index: 1;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.2));
+}
+
+.actionBtnLabel {
+    position: relative;
+    z-index: 1;
+    font-weight: 700;
+}
+
+.actionBtnRipple {
+    position: absolute;
+    width: 160%;
+    height: 160%;
+    top: 50%;
+    left: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35), transparent 55%), radial-gradient(circle at 70% 70%, rgba(255,255,255,0.2), transparent 60%);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+    transition: opacity 0.35s ease, transform 0.45s ease;
+    z-index: 0;
+}
+
+.previewButton:hover .actionBtnRipple {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+}
+
+.previewButton:focus-visible {
+    outline: 3px solid rgba(255,255,255,0.6);
+    outline-offset: 3px;
 }
 
 .newBadge {
@@ -697,6 +825,17 @@
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
+}
+
+@keyframes dashFlow {
+    0% { stroke-dashoffset: 60; opacity: 0.9; }
+    50% { opacity: 0.65; }
+    100% { stroke-dashoffset: 0; opacity: 0.9; }
+}
+
+@keyframes pulseNode {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.12); opacity: 1; }
 }
 
 /* Modal styles for Premium purchase */
