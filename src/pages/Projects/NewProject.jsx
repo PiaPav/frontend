@@ -563,7 +563,8 @@ export default function NewProject() {
     };
 
     const lanePreviewLimit = Infinity;
-    const laneGapY = 30;
+    const laneOffsetX = 320; // горизонтальный сдвиг для шахматного порядка
+    const laneGapY = 80;     // вертикальный зазор между рядами карточек
 
     // === LAYER 0: Requirements (Dependencies) ===
     const requirementsList = classByLayer[0].Requirements || [];
@@ -651,50 +652,87 @@ export default function NewProject() {
 
     // Helper to render one lane-card node
     const renderLaneNodes = (layerKey, xPos) => {
-      let cursorY = START_Y;
-      Object.entries(classByLayer[layerKey]).forEach(([className, methods]) => {
-        if (!methods?.length) return;
-        const classColor = serviceColors[className]?.color || '#64748b';
+      const cards = Object.entries(classByLayer[layerKey] || {})
+        .filter(([, methods]) => methods?.length)
+        .map(([className, methods]) => {
+          const classColor = serviceColors[className]?.color || '#64748b';
+          const preview = methods.map(m => m.split('.').pop() || m);
+          const estimatedHeight = 180 + preview.length * 28;
+          return { className, methods, classColor, preview, estimatedHeight };
+        });
 
-        const preview = methods.map(m => m.split('.').pop() || m);
-        const overflow = null;
-        const estimatedHeight = 180 + preview.length * 28;
+      let rowY = START_Y;
+      for (let i = 0; i < cards.length; i += 2) {
+        const left = cards[i];
+        const right = cards[i + 1];
 
+        // Левая карточка
         newNodes.push({
-          id: `lane-${layerKey}-${className}`,
+          id: `lane-${layerKey}-${left.className}`,
           type: 'default',
-          position: { x: xPos, y: cursorY },
+          position: { x: xPos, y: rowY },
           data: {
             label: (
               <div style={{ padding: '12px 14px' }}>
-                <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{className}</div>
-                <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{methods.length} методов</div>
+                <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{left.className}</div>
+                <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{left.methods.length} методов</div>
                 <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
-                  {preview.map(m => (
-                    <div key={m} style={{ background: '#f8fafc', borderRadius: '8px', padding: '6px 8px', fontSize: '11px', color: '#0f172a', border: `1px solid ${classColor}33` }}>
+                  {left.preview.map(m => (
+                    <div key={m} style={{ background: '#f8fafc', borderRadius: '8px', padding: '6px 8px', fontSize: '11px', color: '#0f172a', border: `1px solid ${left.classColor}33` }}>
                       {m}
                     </div>
                   ))}
-                  {overflow && (
-                    <div style={{ fontSize: '10px', color: '#475569' }}>{overflow}</div>
-                  )}
                 </div>
               </div>
             ),
           },
           style: {
             background: 'white',
-            border: `2px solid ${classColor}`,
+            border: `2px solid ${left.classColor}`,
             borderRadius: '14px',
             width: 260,
-            boxShadow: `0 10px 24px ${classColor}25`,
+            boxShadow: `0 10px 24px ${left.classColor}25`,
           },
           sourcePosition: 'right',
           targetPosition: 'left',
         });
 
-        cursorY += estimatedHeight + LANE_GAP_Y;
-      });
+        // Правая карточка (шахматный сдвиг)
+        if (right) {
+          newNodes.push({
+            id: `lane-${layerKey}-${right.className}`,
+            type: 'default',
+            position: { x: xPos + laneOffsetX, y: rowY + 40 },
+            data: {
+              label: (
+                <div style={{ padding: '12px 14px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{right.className}</div>
+                  <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{right.methods.length} методов</div>
+                  <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
+                    {right.preview.map(m => (
+                      <div key={m} style={{ background: '#f8fafc', borderRadius: '8px', padding: '6px 8px', fontSize: '11px', color: '#0f172a', border: `1px solid ${right.classColor}33` }}>
+                        {m}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ),
+            },
+            style: {
+              background: 'white',
+              border: `2px solid ${right.classColor}`,
+              borderRadius: '14px',
+              width: 260,
+              boxShadow: `0 10px 24px ${right.classColor}25`,
+            },
+            sourcePosition: 'right',
+            targetPosition: 'left',
+          });
+        }
+
+        const rowHeight = Math.max(left.estimatedHeight, right ? right.estimatedHeight + 40 : 0);
+        rowY += rowHeight + laneGapY;
+      }
     };
 
     // === LAYER 2: Handlers (FastAPI + доменные методы) ===
