@@ -6,12 +6,17 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
 } from 'reactflow';
+import { SmartStepEdge } from '@tisoap/react-flow-smart-edge';
 import 'reactflow/dist/style.css';
 import styles from './ProjectAnalysis.module.css';
 import { projectsAPI } from '../../services/api';
 import grpcClient from '../../services/grpcClient';
 import buildGraph from '../../utils/buildGraph';
 import { useAuth } from '../../context/AuthContext';
+
+const edgeTypes = {
+  smart: SmartStepEdge,
+};
 
 export default function ProjectAnalysis() {
   const { id } = useParams();
@@ -669,6 +674,7 @@ export default function ProjectAnalysis() {
           <ReactFlow
             nodes={nodes}
             edges={edges}
+            edgeTypes={edgeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}

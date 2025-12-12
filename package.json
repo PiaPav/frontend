@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tisoap/react-flow-smart-edge": "^3.0.0",
     "axios": "^1.13.1",
     "google-protobuf": "^4.0.1",
     "grpc-web": "^2.0.2",

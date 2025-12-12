@@ -7,12 +7,17 @@ import ReactFlow, {
   useEdgesState,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { SmartStepEdge } from '@tisoap/react-flow-smart-edge'; // npm install @tisoap/react-flow-smart-edge
 import { projectsAPI } from '../../services/api';
 import grpcClient from '../../services/grpcClient';
 import buildGraph from '../../utils/buildGraph';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Projects.module.css';
 import analysisStyles from './ProjectAnalysis.module.css';
+
+const edgeTypes = {
+  smart: SmartStepEdge,
+};
 
 export default function NewProject() {
   const [form, setForm] = useState({
@@ -513,6 +518,7 @@ export default function NewProject() {
             <ReactFlow
               nodes={nodes}
               edges={edges}
+              edgeTypes={edgeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               minZoom={0.05}
