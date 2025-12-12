@@ -5,26 +5,48 @@ import { accountAPI } from '../../services/api';
 import styles from './Settings.module.css';
 
 export default function Settings() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
-  
+
   const [accountData, setAccountData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  // Email management
+
+  const [profileForm, setProfileForm] = useState({ name: '', surname: '', login: '' });
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteInput, setDeleteInput] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const [email, setEmail] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [isLinkingEmail, setIsLinkingEmail] = useState(false);
   const [isUnlinkingEmail, setIsUnlinkingEmail] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
-  const [verifyType, setVerifyType] = useState('LINK'); // 'LINK' или 'UNLINK'
+  const [verifyType, setVerifyType] = useState('LINK');
   const [successMessage, setSuccessMessage] = useState('');
   const [emailJustLinked, setEmailJustLinked] = useState(false);
+
+  const accountLogin = accountData?.login || user?.login || '';
+  const deletePhrase = accountLogin ? `удалить мой аккаунт ${accountLogin}` : '';
 
   useEffect(() => {
     loadAccountData();
   }, []);
+
+  useEffect(() => {
+    if (accountData || user) {
+      setProfileForm({
+        name: accountData?.name ?? user?.name ?? '',
+        surname: accountData?.surname ?? user?.surname ?? '',
+        login: accountLogin,
+      });
+    }
+  }, [accountData, user, accountLogin]);
 
   async function loadAccountData() {
     try {
@@ -34,9 +56,94 @@ export default function Settings() {
       setAccountData(data);
     } catch (err) {
       console.error('Ошибка загрузки данных аккаунта:', err);
-      setError(err.response?.data?.message || 'Не удалось загрузить данные аккаунта');
+      setError(err.response?.data?.message || 'Не удалось загрузить профиль');
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handleProfileChange(field, value) {
+    setProfileForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function resetProfileForm() {
+    setProfileForm({
+      name: accountData?.name ?? user?.name ?? '',
+      surname: accountData?.surname ?? user?.surname ?? '',
+      login: accountLogin,
+    });
+    setProfileError('');
+    setProfileSuccess('');
+  }
+
+  async function handleUpdateProfile(e) {
+    e.preventDefault();
+
+    const payload = {
+      name: profileForm.name.trim(),
+      surname: profileForm.surname.trim(),
+      login: profileForm.login.trim(),
+    };
+
+    if (!payload.name || !payload.surname || !payload.login) {
+      setProfileError('Заполните имя, фамилию и логин');
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+      setProfileError('');
+      setProfileSuccess('');
+
+      const updated = await accountAPI.updateAccount(payload);
+      setAccountData(updated);
+      setProfileSuccess('Данные профиля обновлены');
+
+      if (updateUser) {
+        updateUser({
+          id: updated.id,
+          login: updated.login,
+          name: updated.name,
+          surname: updated.surname,
+          email: updated.email,
+        });
+      }
+    } catch (err) {
+      const message = err.response?.data?.message || 'Не удалось обновить профиль';
+      setProfileError(message);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
+  function openDeleteModal() {
+    setDeleteInput('');
+    setDeleteError('');
+    setShowDeleteModal(true);
+  }
+
+  function closeDeleteModal() {
+    setDeleteInput('');
+    setDeleteError('');
+    setShowDeleteModal(false);
+  }
+
+  async function handleDeleteAccount() {
+    if (!deletePhrase || deleteInput.trim() !== deletePhrase) {
+      setDeleteError('Введите точную фразу подтверждения');
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setDeleteError('');
+      await accountAPI.deleteAccount();
+      logout();
+      navigate('/login');
+    } catch (err) {
+      const message = err.response?.data?.message || 'Не удалось удалить аккаунт';
+      setDeleteError(message);
+      setIsDeleting(false);
     }
   }
 
@@ -57,19 +164,19 @@ export default function Settings() {
       
       setShowVerification(true);
       setVerifyType('LINK');
-      setSuccessMessage('Код подтверждения отправлен на ' + email);
+      setSuccessMessage(`Код отправлен на ${email}`);
     } catch (err) {
       console.error('Ошибка привязки email:', err);
       const errorData = err.response?.data;
       
       if (errorData?.type === 'EMAIL_ALREADY_LINKED') {
-        setError('Email уже привязан к другому аккаунту');
+        setError('Email уже привязан к аккаунту');
       } else if (errorData?.type === 'EMAIL_ALREADY_EXISTS') {
-        setError('Email уже занят');
+        setError('Email уже используется');
       } else if (errorData?.type === 'EMAIL_SEND_CRASH') {
-        setError('Сервис временно недоступен. Проводятся технические работы. Пожалуйста, попробуйте позже.');
+        setError('Не удалось отправить письмо. Попробуйте снова или позже.');
       } else {
-        setError(errorData?.message || 'Ошибка привязки email');
+        setError(errorData?.message || 'Не удалось привязать email');
       }
     } finally {
       setIsLinkingEmail(false);
@@ -77,7 +184,7 @@ export default function Settings() {
   }
 
   async function handleUnlinkEmail() {
-    if (!window.confirm('Вы уверены, что хотите отвязать email?')) {
+    if (!window.confirm('Точно отвязать email?')) {
       return;
     }
 
@@ -90,17 +197,17 @@ export default function Settings() {
       
       setShowVerification(true);
       setVerifyType('UNLINK');
-      setSuccessMessage('Код подтверждения отправлен на ваш email');
+      setSuccessMessage('Код отправлен на текущий email');
     } catch (err) {
       console.error('Ошибка отвязки email:', err);
       const errorData = err.response?.data;
       
       if (errorData?.type === 'EMAIL_DONT_LINKED') {
-        setError('Email не привязан к аккаунту');
+        setError('Email не привязан');
       } else if (errorData?.type === 'EMAIL_SEND_CRASH') {
-        setError('Сервис временно недоступен. Проводятся технические работы. Пожалуйста, попробуйте позже.');
+        setError('Не удалось отправить письмо. Попробуйте снова или позже.');
       } else {
-        setError(errorData?.message || 'Ошибка отвязки email');
+        setError(errorData?.message || 'Не удалось отвязать email');
       }
     } finally {
       setIsUnlinkingEmail(false);
@@ -121,33 +228,31 @@ export default function Settings() {
       
       const emailToVerify = verifyType === 'LINK' ? email : accountData?.email;
       
-      await accountAPI.verifyEmail(emailToVerify, verifyType, parseInt(verificationCode));
+      await accountAPI.verifyEmail(emailToVerify, verifyType, parseInt(verificationCode, 10));
       
       setSuccessMessage(
         verifyType === 'LINK' 
-          ? 'Email успешно привязан!' 
-          : 'Email успешно отвязан!'
+          ? 'Email подтвержден!' 
+          : 'Отвязка email подтверждена!'
       );
       
       setShowVerification(false);
       setEmail('');
       setVerificationCode('');
       
-      // Устанавливаем флаг, что email только что был привязан
       if (verifyType === 'LINK') {
         setEmailJustLinked(true);
       }
       
-      // Перезагружаем данные аккаунта
       await loadAccountData();
     } catch (err) {
-      console.error('Ошибка верификации:', err);
+      console.error('Ошибка подтверждения email:', err);
       const errorData = err.response?.data;
       
       if (errorData?.type === 'INVALID_VERIFICATION_CODE') {
         setError('Неверный код подтверждения');
       } else {
-        setError(errorData?.message || 'Ошибка верификации');
+        setError(errorData?.message || 'Не удалось подтвердить email');
       }
     }
   }
@@ -166,26 +271,72 @@ export default function Settings() {
         <button className={styles.backBtn} onClick={() => navigate('/projects')}>
           ← Назад
         </button>
-        <h1>Настройки</h1>
+        <h1>Настройки аккаунта</h1>
       </header>
 
       <main className={styles.main}>
         <div className={styles.section}>
-          <h2>Информация о пользователе</h2>
-          <div className={styles.infoGrid}>
-            <div className={styles.infoItem}>
-              <span className={styles.label}>Логин:</span>
-              <span className={styles.value}>{accountData?.login || user?.login || '—'}</span>
+          <h2>Профиль</h2>
+          {profileError && <div className={styles.error}>{profileError}</div>}
+          {profileSuccess && <div className={styles.success}>{profileSuccess}</div>}
+
+          <form onSubmit={handleUpdateProfile} className={styles.profileForm}>
+            <label className={styles.fieldGroup}>
+              <span className={styles.label}>Логин</span>
+              <input
+                type="text"
+                value={profileForm.login}
+                onChange={(e) => handleProfileChange('login', e.target.value)}
+                className={styles.input}
+                placeholder="Ваш логин"
+                required
+              />
+            </label>
+
+            <div className={styles.dualRow}>
+              <label className={styles.fieldGroup}>
+                <span className={styles.label}>Имя</span>
+                <input
+                  type="text"
+                  value={profileForm.name}
+                  onChange={(e) => handleProfileChange('name', e.target.value)}
+                  className={styles.input}
+                  placeholder="Ваше имя"
+                  required
+                />
+              </label>
+
+              <label className={styles.fieldGroup}>
+                <span className={styles.label}>Фамилия</span>
+                <input
+                  type="text"
+                  value={profileForm.surname}
+                  onChange={(e) => handleProfileChange('surname', e.target.value)}
+                  className={styles.input}
+                  placeholder="Ваша фамилия"
+                  required
+                />
+              </label>
             </div>
-            <div className={styles.infoItem}>
-              <span className={styles.label}>Имя:</span>
-              <span className={styles.value}>{accountData?.name || user?.name || '—'}</span>
+
+            <div className={styles.btnGroup}>
+              <button 
+                type="submit" 
+                className={styles.btnPrimary}
+                disabled={isSavingProfile}
+              >
+                {isSavingProfile ? 'Сохранение...' : 'Сохранить изменения'}
+              </button>
+              <button 
+                type="button" 
+                className={styles.btnSecondary}
+                onClick={resetProfileForm}
+                disabled={isSavingProfile}
+              >
+                Сбросить
+              </button>
             </div>
-            <div className={styles.infoItem}>
-              <span className={styles.label}>Фамилия:</span>
-              <span className={styles.value}>{accountData?.surname || user?.surname || '—'}</span>
-            </div>
-          </div>
+          </form>
         </div>
 
         <div className={styles.section}>
@@ -200,7 +351,7 @@ export default function Settings() {
                 <span className={styles.label}>Текущий email:</span>
                 <span className={styles.value}>{accountData.email}</span>
                 {accountData.verify_email && (
-                  <span className={styles.verified}>✓ Подтвержден</span>
+                  <span className={styles.verified}>Почта подтверждена</span>
                 )}
               </div>
               
@@ -210,7 +361,7 @@ export default function Settings() {
                   onClick={handleUnlinkEmail}
                   disabled={isUnlinkingEmail}
                 >
-                  {isUnlinkingEmail ? 'Отправка кода...' : 'Отвязать email'}
+                  {isUnlinkingEmail ? 'Отвязываем...' : 'Отвязать email'}
                 </button>
               )}
             </div>
@@ -230,7 +381,7 @@ export default function Settings() {
                   className={styles.btnPrimary}
                   disabled={isLinkingEmail}
                 >
-                  {isLinkingEmail ? 'Отправка кода...' : 'Привязать email'}
+                  {isLinkingEmail ? 'Отправляем код...' : 'Привязать email'}
                 </button>
               </form>
             )
@@ -269,7 +420,60 @@ export default function Settings() {
             </form>
           )}
         </div>
+
+        <div className={`${styles.section} ${styles.dangerSection}`}>
+          <div className={styles.dangerHeader}>
+            <div>
+              <h2>Удаление аккаунта</h2>
+              <p className={styles.dangerText}>Действие необратимо. Все данные будут удалены.</p>
+            </div>
+            <button 
+              className={styles.btnDanger}
+              onClick={openDeleteModal}
+              disabled={!accountLogin}
+            >
+              Удалить аккаунт
+            </button>
+          </div>
+        </div>
       </main>
+
+      {showDeleteModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal}>
+            <h3>Подтвердите удаление</h3>
+            <p className={styles.modalText}>
+              Чтобы удалить аккаунт, введите <span className={styles.modalPhrase}>{deletePhrase || 'удалить мой аккаунт {логин}'}</span>.
+            </p>
+            {deleteError && <div className={styles.error}>{deleteError}</div>}
+            <input
+              type="text"
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.target.value)}
+              className={styles.input}
+              placeholder={deletePhrase || 'удалить мой аккаунт {логин}'}
+            />
+            <div className={styles.modalActions}>
+              <button 
+                type="button" 
+                className={styles.btnSecondary}
+                onClick={closeDeleteModal}
+                disabled={isDeleting}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className={styles.btnDanger}
+                onClick={handleDeleteAccount}
+                disabled={!deletePhrase || deleteInput.trim() !== deletePhrase || isDeleting}
+              >
+                {isDeleting ? 'Удаляем...' : 'Удалить аккаунт'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

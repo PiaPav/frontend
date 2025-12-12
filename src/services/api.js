@@ -137,6 +137,16 @@ export const accountAPI = {
     return response.data;
   },
 
+  updateAccount: async (payload) => {
+    const response = await api.patch('/account', payload);
+    return response.data;
+  },
+
+  deleteAccount: async () => {
+    const response = await api.delete('/account');
+    return response.data;
+  },
+
   // Привязать email
   linkEmail: async (email) => {
     const response = await api.post('/account/email', null, {

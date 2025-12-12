@@ -7,6 +7,15 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const updateUser = (updatedUser) => {
+    if (updatedUser) {
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    } else {
+      localStorage.removeItem('user');
+    }
+    setUser(updatedUser);
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     const userData = localStorage.getItem('user');
@@ -34,14 +43,12 @@ export const AuthProvider = ({ children }) => {
           surname: accountData.surname,
           email: accountData.email
         };
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
+        updateUser(userData);
       } catch (homeError) {
         console.error('Error fetching user from home endpoint:', homeError);
         // Fallback: сохраняем хотя бы логин
         const userData = { login: credentials.login };
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
+        updateUser(userData);
       }
       
       return { success: true };
@@ -134,12 +141,11 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
-    setUser(null);
+    updateUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

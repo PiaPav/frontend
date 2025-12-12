@@ -162,23 +162,24 @@ export default function ProjectsList() {
                     <p className={styles.projectDescription}>{project.description}</p>
                   </div>
                   <div className={styles.projectActions}>
-                    <button
-                      type="button"
-                      className={`${styles.actionBtn} ${styles.dangerBtn}`}
-                      onClick={() => handleDeleteProject(project.id)}
-                      disabled={deletingId === project.id}
-                    >
-                      <span className={styles.actionBtnLabel}>
-                        {deletingId === project.id ? 'Удаление...' : 'Удалить'}
-                      </span>
-                    </button>
                     <Link 
                       to={`/projects/${project.id}/architecture`} 
                       className={`${styles.actionBtnPrimary} ${styles.previewButton}`} 
-                      style={{ width: '100%' }}
                     >
                       <span className={styles.actionBtnLabel}>Просмотр</span>
                     </Link>
+                    <button
+                      type="button"
+                      className={`${styles.actionBtn} ${styles.dangerBtn} ${styles.deleteCompact}`}
+                      onClick={() => handleDeleteProject(project.id)}
+                      disabled={deletingId === project.id}
+                      aria-label="Удалить проект"
+                    >
+                      <span className={styles.trashIcon} aria-hidden="true">🗑️</span>
+                      <span className={styles.actionBtnLabel}>
+                        {deletingId === project.id ? '...' : ''}
+                      </span>
+                    </button>
                   </div>
                 </div>
               );

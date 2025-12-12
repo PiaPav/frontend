@@ -250,11 +250,15 @@
     display: flex;
     gap: 10px;
     padding: 0 20px 20px 20px;
+    justify-content: flex-start;
+    align-items: center;
 }
 
 .actionBtn,
 .actionBtnPrimary {
-    flex: 1;
+    flex: 0 0 32%;
+    min-width: 140px;
+    max-width: 240px;
     padding: 12px 20px;
     border-radius: 10px;
     font-size: 14px;
@@ -278,16 +282,18 @@
 }
 
 .actionBtnPrimary {
-    background: linear-gradient(135deg, rgba(98, 120, 255, 0.6), rgba(128, 94, 255, 0.58));
-    color: #f8fbff;
-    border: 1px solid rgba(255, 255, 255, 0.32);
+    background: linear-gradient(135deg, #5a6fd6 0%, #6b8fe8 100%);
+    color: #ffffff;
+    border: 1px solid #4c63d9;
+    flex: 1 1 auto;
+    min-width: 50%;
     position: relative;
     overflow: hidden;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    box-shadow: 0 12px 30px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 14px 28px rgba(90, 111, 214, 0.35);
     isolation: isolate;
     backdrop-filter: blur(12px);
 }
@@ -306,10 +312,12 @@
 .previewButton {
     letter-spacing: 0.3px;
     text-shadow: 0 1px 6px rgba(0,0,0,0.2);
+    border: 1px solid #4c63d9;
+    margin: 0 auto;
 }
 
 .previewButton:hover {
-    box-shadow: 0 14px 34px rgba(102, 126, 234, 0.5);
+    box-shadow: 0 16px 36px rgba(90, 111, 214, 0.45);
     transform: translateY(-2px);
 }
 
@@ -319,18 +327,17 @@
 }
 
 .dangerBtn {
-    background: #fff1f2;
+    background: linear-gradient(135deg, #fee2e2 0%, #fecdd3 100%);
     color: #b91c1c;
-    border-color: #fecdd3;
-    box-shadow: 0 10px 20px rgba(248, 113, 113, 0.15);
+    border-color: #fca5a5;
+    box-shadow: 0 10px 22px rgba(248, 113, 113, 0.18);
 }
 
 .dangerBtn:hover {
-    background: #ffe4e6;
-    border-color: #fca5a5;
-    color: #991b1b;
+    background: linear-gradient(135deg, #fecaca 0%, #f9a8d4 100%);
+    border-color: #f87171;
     transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(248, 113, 113, 0.25);
+    box-shadow: 0 12px 26px rgba(248, 113, 113, 0.25);
 }
 
 .dangerBtn:disabled {
@@ -338,6 +345,23 @@
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+}
+
+.deleteCompact {
+    flex: 0 0 auto;
+    min-width: 44px;
+    max-width: 44px;
+    padding: 10px 0;
+    margin-left: auto;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+}
+
+.trashIcon {
+    font-size: 18px;
+    line-height: 1;
 }
 
 .actionBtnLabel {

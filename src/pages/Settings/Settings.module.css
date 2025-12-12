@@ -92,6 +92,27 @@
   font-weight: 600;
 }
 
+.profileForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dualRow {
+  display: flex;
+  gap: 16px;
+}
+
+.dualRow .fieldGroup {
+  flex: 1;
+}
+
 .error {
   background: #fee;
   border: 1px solid #fcc;
@@ -219,6 +240,82 @@
   transform: none;
 }
 
+.dangerSection {
+  border: 1px solid #fecaca;
+  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 70%);
+}
+
+.dangerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dangerText {
+  margin: 8px 0 0 0;
+  color: #b91c1c;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 10;
+}
+
+.modal {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal h3 {
+  margin: 0 0 10px 0;
+  color: #111827;
+  font-size: 20px;
+}
+
+.modalText {
+  margin: 0 0 6px 0;
+  color: #374151;
+}
+
+.modalPhrase {
+  color: #111827;
+  font-weight: 700;
+  background: #e5e7eb;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.modalHint {
+  margin: 0 0 12px 0;
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.code {
+  background: #707174;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .verificationText {
   color: #666;
   margin: 0 0 10px 0;
@@ -239,6 +336,15 @@
   }
 
   .currentEmail {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dualRow {
+    flex-direction: column;
+  }
+
+  .dangerHeader {
     flex-direction: column;
     align-items: flex-start;
   }
