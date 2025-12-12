@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { homeAPI } from '../../services/api';
+import { homeAPI, projectsAPI } from '../../services/api';
 import styles from './Projects.module.css';
 
 export default function ProjectsList() {
@@ -9,6 +9,7 @@ export default function ProjectsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userName, setUserName] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -47,6 +48,34 @@ export default function ProjectsList() {
 
   const handleCreateProject = () => {
     navigate('/projects/new');
+  };
+
+  const handleDeleteProject = async (projectId) => {
+    if (!projectId || deletingId) return;
+
+    const confirmDelete = window.confirm('Удалить проект? Это действие нельзя отменить.');
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingId(projectId);
+      setError('');
+      await projectsAPI.delete(projectId);
+      setProjects((prev) => prev.filter((project) => project.id !== projectId));
+    } catch (err) {
+      console.error('Ошибка при удалении проекта:', err);
+      const status = err.response?.status;
+      const backendMessage = err.response?.data?.message || err.response?.data?.detail;
+
+      if (status === 404) {
+        setError('Проект не найден или нет прав доступа.');
+      } else if (status === 401) {
+        setError('Неверный токен.');
+      } else {
+        setError(backendMessage || 'Не удалось удалить проект. Попробуйте еще раз.');
+      }
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (loading) {
@@ -133,6 +162,16 @@ export default function ProjectsList() {
                     <p className={styles.projectDescription}>{project.description}</p>
                   </div>
                   <div className={styles.projectActions}>
+                    <button
+                      type="button"
+                      className={`${styles.actionBtn} ${styles.dangerBtn}`}
+                      onClick={() => handleDeleteProject(project.id)}
+                      disabled={deletingId === project.id}
+                    >
+                      <span className={styles.actionBtnLabel}>
+                        {deletingId === project.id ? 'Удаление...' : 'Удалить'}
+                      </span>
+                    </button>
                     <Link 
                       to={`/projects/${project.id}/architecture`} 
                       className={`${styles.actionBtnPrimary} ${styles.previewButton}`} 

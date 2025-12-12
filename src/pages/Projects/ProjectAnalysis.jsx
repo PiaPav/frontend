@@ -16,7 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 export default function ProjectAnalysis() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -30,6 +30,8 @@ export default function ProjectAnalysis() {
   const [requirements, setRequirements] = useState([]);
   const [endpoints, setEndpoints] = useState({});
   const [architectureData, setArchitectureData] = useState([]);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isDemoProject, setIsDemoProject] = useState(false);
   const [streamComplete, setStreamComplete] = useState(false);
@@ -47,6 +49,8 @@ export default function ProjectAnalysis() {
     setArchitectureData([]);
     setStreamComplete(false);
     setGrpcStarted(false);
+    setDeleteError('');
+    setDeleting(false);
     setError(null);
     setIsFirstLoad(true);
     setLoading(true);
@@ -333,6 +337,36 @@ export default function ProjectAnalysis() {
     };
   }, [id, user]);
 
+  const handleDeleteProject = async () => {
+    if (!id || deleting) return;
+
+    const confirmed = window.confirm('Удалить проект? Это действие нельзя отменить.');
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      setDeleteError('');
+      await projectsAPI.delete(id);
+      navigate('/projects');
+    } catch (err) {
+      console.error('Ошибка при удалении проекта:', err);
+      const status = err.response?.status;
+      const backendMessage = err.response?.data?.message || err.response?.data?.detail;
+
+      if (status === 404) {
+        setDeleteError('Проект не найден или нет прав доступа.');
+      } else if (status === 401) {
+        setDeleteError('Неверный токен. Войдите заново.');
+        logout?.();
+        navigate('/login');
+      } else {
+        setDeleteError(backendMessage || 'Не удалось удалить проект. Попробуйте позже.');
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // Построение графа с единой схемой (как при создании проекта)
   useEffect(() => {
     if (!project) return;
@@ -525,7 +559,17 @@ export default function ProjectAnalysis() {
               </p>
             )}
           </div>
+          <button
+            onClick={handleDeleteProject}
+            className={styles.deleteBtn}
+            disabled={deleting}
+          >
+            {deleting ? 'Удаление...' : 'Удалить проект'}
+          </button>
         </div>
+        {deleteError && (
+          <div className={styles.errorBanner}>{deleteError}</div>
+        )}
         <div className={styles.flowWrapper}>
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner}></div>
@@ -582,7 +626,18 @@ export default function ProjectAnalysis() {
             </p>
           )}
         </div>
+        <button
+          onClick={handleDeleteProject}
+          className={styles.deleteBtn}
+          disabled={deleting}
+        >
+          {deleting ? 'Удаление...' : 'Удалить проект'}
+        </button>
       </div>
+
+      {deleteError && (
+        <div className={styles.errorBanner}>{deleteError}</div>
+      )}
 
       {/* Info Panel */}
       {(requirements.length > 0 || Object.keys(endpoints).length > 0 || architectureData.length > 0) && (

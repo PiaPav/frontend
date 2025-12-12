@@ -318,6 +318,28 @@
     transform: translateX(0);
 }
 
+.dangerBtn {
+    background: #fff1f2;
+    color: #b91c1c;
+    border-color: #fecdd3;
+    box-shadow: 0 10px 20px rgba(248, 113, 113, 0.15);
+}
+
+.dangerBtn:hover {
+    background: #ffe4e6;
+    border-color: #fca5a5;
+    color: #991b1b;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(248, 113, 113, 0.25);
+}
+
+.dangerBtn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
 .actionBtnLabel {
     position: relative;
     z-index: 1;
