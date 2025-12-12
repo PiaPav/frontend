@@ -78,8 +78,13 @@ export function buildGraph({
     }
   };
 
+  // Сначала добавляем все endpoints
   Object.keys(endpoints).forEach((endpointKey) => {
-    traverse(endpointKey);
+    connectedNodes.add(endpointKey);
+  });
+
+  // Затем обходим граф от endpoints и связанных с ними родителей
+  Object.keys(endpoints).forEach((endpointKey) => {
     architectureData.forEach(({ parent }) => {
       const endpointName = endpointKey.toLowerCase().replace(/_/g, '');
       const parentName = parent.toLowerCase().replace(/[._]/g, '');
@@ -344,7 +349,10 @@ export function buildGraph({
         const classColor = serviceColors[className]?.color || '#64748b';
         const preview = methods.map((m) => m.split('.').pop() || m);
         const rowsCount = Math.max(preview.length, 3);
-        const estimatedHeight = 120 + rowsCount * 26; // примерно под список методов
+        // Улучшенный расчёт высоты: базовая высота + высота на каждый метод
+        const methodItemHeight = 28; // высота одного элемента метода с отступами
+        const baseHeight = 120; // заголовок и отступы
+        const estimatedHeight = baseHeight + preview.length * methodItemHeight;
         return { className, methods, classColor, preview, estimatedHeight, anchor: anchors?.[className] ?? 0 };
       })
       .sort((a, b) => a.anchor - b.anchor);
@@ -356,8 +364,8 @@ export function buildGraph({
 
     cards.forEach((card, idx) => {
       const row = idx % maxRows;
-      const extra = card.methods.length > 10 ? 60 : 0;
-      const cardHeight = card.estimatedHeight + LANE_BASE_GAP_Y + extra;
+      // Полная высота карточки включая все методы и отступы
+      const cardHeight = card.estimatedHeight + LANE_BASE_GAP_Y;
       rowHeights[row] = Math.max(rowHeights[row], cardHeight);
     });
 
@@ -487,14 +495,30 @@ export function buildGraph({
     });
   });
 
+  // Фильтруем узлы: оставляем только те, которые:
+  // 1. Являются endpoints (HTTP layer)
+  // 2. Имеют исходящие рёбра (от них кто-то зависит)
+  // Узлы только с входящими рёбрами (куда что-то входит, но сами никуда не идут) удаляются
   const filteredNodes = newNodes.filter((node) => {
-    const hasEdges = nodesWithIncomingEdges.has(node.id) || nodesWithOutgoingEdges.has(node.id);
-    return hasEdges;
+    // Endpoints всегда оставляем
+    if (endpoints[node.id]) {
+      return true;
+    }
+    // Для остальных узлов: оставляем только если от них есть исходящие рёбра
+    return nodesWithOutgoingEdges.has(node.id);
+  });
+
+  // Создаём Set из ID отфильтрованных узлов для быстрой проверки
+  const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
+
+  // Фильтруем рёбра: оставляем только те, у которых оба конца существуют в отфильтрованных узлах
+  const filteredEdges = newEdges.filter((edge) => {
+    return filteredNodeIds.has(edge.source) && filteredNodeIds.has(edge.target);
   });
 
   const summary = {
     nodes: filteredNodes.length,
-    edges: newEdges.length,
+    edges: filteredEdges.length,
     requirements: requirements.length,
     endpoints: Object.keys(endpoints).length,
     lanes: {
@@ -504,7 +528,7 @@ export function buildGraph({
     },
   };
 
-  return { nodes: filteredNodes, edges: newEdges, summary };
+  return { nodes: filteredNodes, edges: filteredEdges, summary };
 }
 
 export default buildGraph;
