@@ -17,6 +17,8 @@ const defaultServiceColors = {
   CoreService: { color: '#f59e0b', icon: '⚙️', label: 'Core' },
 };
 
+const normalizeName = (name) => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
 /**
  * Build React Flow nodes/edges based on requirements, endpoints and architecture data.
  */
@@ -85,9 +87,10 @@ export function buildGraph({
 
   // Затем обходим граф от endpoints и связанных с ними родителей
   Object.keys(endpoints).forEach((endpointKey) => {
+    const endpointName = normalizeName(endpointKey);
     architectureData.forEach(({ parent }) => {
-      const endpointName = endpointKey.toLowerCase().replace(/_/g, '');
-      const parentName = parent.toLowerCase().replace(/[._]/g, '');
+      const parentName = normalizeName(parent);
+      if (!endpointName || !parentName) return;
       if (parentName.includes(endpointName) || endpointName.includes(parentName)) {
         traverse(parent);
       }
@@ -457,12 +460,26 @@ export function buildGraph({
   };
 
   Object.keys(endpoints).forEach((endpointKey) => {
-    if (!reverseDependencyMap.has(endpointKey)) return;
-
     const method = endpoints[endpointKey]?.split(' ')[0] || 'GET';
     const color = methodColors[method]?.border || '#3b82f6';
+    const endpointName = normalizeName(endpointKey);
 
-    reverseDependencyMap.get(endpointKey).forEach((target) => {
+    const matchedChildren = new Set();
+    if (reverseDependencyMap.has(endpointKey)) {
+      reverseDependencyMap.get(endpointKey).forEach((child) => matchedChildren.add(child));
+    }
+    architectureData.forEach(({ parent, children = [] }) => {
+      const parentName = normalizeName(parent);
+      if (!endpointName || !parentName) return;
+      if (parentName.includes(endpointName) || endpointName.includes(parentName)) {
+        children.forEach((childRaw) => {
+          const child = childRaw.split('/').pop();
+          if (child) matchedChildren.add(child);
+        });
+      }
+    });
+
+    matchedChildren.forEach((target) => {
       const meta = methodMeta.get(target);
       if (!meta) return;
       const targetId = meta.layer === 1 ? target : getLaneId(meta.layer, meta.className);
@@ -495,17 +512,14 @@ export function buildGraph({
     });
   });
 
-  // Фильтруем узлы: оставляем только те, которые:
-  // 1. Являются endpoints (HTTP layer)
-  // 2. Имеют исходящие рёбра (от них кто-то зависит)
-  // Узлы только с входящими рёбрами (куда что-то входит, но сами никуда не идут) удаляются
+  // Фильтруем узлы: оставляем только те, которые участвуют в рёбрах
+  // (хотя бы один вход/выход) + сами endpoints.
+  // Иначе стрелки от endpoints пропадали, если зависимые узлы были конечными.
   const filteredNodes = newNodes.filter((node) => {
-    // Endpoints всегда оставляем
     if (endpoints[node.id]) {
       return true;
     }
-    // Для остальных узлов: оставляем только если от них есть исходящие рёбра
-    return nodesWithOutgoingEdges.has(node.id);
+    return nodesWithOutgoingEdges.has(node.id) || nodesWithIncomingEdges.has(node.id);
   });
 
   // Создаём Set из ID отфильтрованных узлов для быстрой проверки
