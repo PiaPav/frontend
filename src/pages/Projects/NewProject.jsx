@@ -45,6 +45,7 @@ export default function NewProject() {
   const architectureDataRef = useRef([]);
   const streamControllerRef = useRef(null);
   const isSavingRef = useRef(false);
+  const formRef = useRef(null);
 
   const buildArchitecturePayload = () => ({
     requirements,
@@ -143,6 +144,26 @@ export default function NewProject() {
     }
     setError('');
   }
+
+  const submitFormProgrammatically = () => {
+    if (!formRef.current) return;
+    if (typeof formRef.current.requestSubmit === 'function') {
+      formRef.current.requestSubmit();
+    } else {
+      formRef.current.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+  };
+
+  const handleFormKeyDown = (event) => {
+    if (event.key !== 'Enter') return;
+    if (showPremiumModal || showGraph || loading) return;
+
+    const tagName = event.target?.tagName?.toLowerCase();
+    if (tagName === 'textarea') return;
+
+    event.preventDefault();
+    submitFormProgrammatically();
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -405,98 +426,103 @@ export default function NewProject() {
       {/* Форма создания проекта */}
       {!showGraph && (
         <div className={styles.newProjectWrapper}>
-          <form className={styles.newProjectForm} onSubmit={handleSubmit}>
-          <h1>Создать новый проект</h1>
+          <form
+            ref={formRef}
+            className={styles.newProjectForm}
+            onSubmit={handleSubmit}
+            onKeyDown={handleFormKeyDown}
+          >
+            <h1>Создать новый проект</h1>
 
-          <div className={styles.inputGroup}>
-            <label htmlFor="name">Название проекта</label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="Введите название"
-              disabled={loading}
-              maxLength={100}
-            />
-          </div>
-
-          <div className={styles.inputGroup}>
-            <label htmlFor="description">Описание</label>
-            <textarea
-              id="description"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              placeholder="Опишите ваш проект"
-              rows={4}
-              disabled={loading}
-              maxLength={500}
-            />
-          </div>
-
-          <div className={styles.inputGroup}>
-            <label htmlFor="file">Архитектура / файл *</label>
-            <div className={styles.fileUpload}>
+            <div className={styles.inputGroup}>
+              <label htmlFor="name">Название проекта</label>
               <input
-                id="file"
-                name="file"
-                type="file"
-                onChange={handleFileChange}
+                id="name"
+                name="name"
+                type="text"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="Введите название"
                 disabled={loading}
-                accept=".zip,application/zip,application/x-zip-compressed"
-                required
-                className={styles.fileInput}
+                maxLength={100}
               />
-              <label htmlFor="file" className={styles.fileLabel} aria-disabled={loading}>
-                <div className={styles.fileIcon}>📦</div>
-                <div className={styles.fileText}>
-                  <div className={styles.fileTitle}>{file ? 'Файл выбран' : 'Загрузить проект (ZIP)'}</div>
-                  <div className={styles.fileHint}>
-                    {file ? `${file.name} • ${formatFileSize(file.size)}` : 'Перетащите архив сюда или нажмите, чтобы выбрать'}
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label htmlFor="description">Описание</label>
+              <textarea
+                id="description"
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                placeholder="Опишите ваш проект"
+                rows={4}
+                disabled={loading}
+                maxLength={500}
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label htmlFor="file">Архитектура / файл *</label>
+              <div className={styles.fileUpload}>
+                <input
+                  id="file"
+                  name="file"
+                  type="file"
+                  onChange={handleFileChange}
+                  disabled={loading}
+                  accept=".zip,application/zip,application/x-zip-compressed"
+                  required
+                  className={styles.fileInput}
+                />
+                <label htmlFor="file" className={styles.fileLabel} aria-disabled={loading}>
+                  <div className={styles.fileIcon}>📦</div>
+                  <div className={styles.fileText}>
+                    <div className={styles.fileTitle}>{file ? 'Файл выбран' : 'Загрузить проект (ZIP)'}</div>
+                    <div className={styles.fileHint}>
+                      {file ? `${file.name} • ${formatFileSize(file.size)}` : 'Перетащите архив сюда или нажмите, чтобы выбрать'}
+                    </div>
                   </div>
-                </div>
-                <div className={styles.fileBadge}>ZIP</div>
-              </label>
+                  <div className={styles.fileBadge}>ZIP</div>
+                </label>
+              </div>
+              <small className={styles.fileNote}>Загрузите ZIP-архив с проектом (обязательно)</small>
             </div>
-            <small className={styles.fileNote}>Загрузите ZIP-архив с проектом (обязательно)</small>
-          </div>
 
-          {/* Ошибка */}
-          {error && (
-            <div className={styles.error}>
-              {error}
+            {/* Ошибка */}
+            {error && (
+              <div className={styles.error}>
+                {error}
+              </div>
+            )}
+
+            {/* Статус анализа */}
+            {analysisStatus && !error && (
+              <div className={styles.analysisStatus}>
+                {analysisStatus === 'creating' && '📤 Создание проекта...'}
+                {analysisStatus === 'analyzing' && '📡 Анализ проекта в реальном времени...'}
+                {analysisStatus === 'completed' && '✅ Анализ завершён!'}
+              </div>
+            )}
+
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={() => navigate('/projects')}
+                disabled={loading}
+              >
+                Отмена
+              </button>
+              <button 
+                type="submit" 
+                className={styles.createProjectBtn} 
+                disabled={loading}
+              >
+                {loading ? 'Создание...' : 'Создать'}
+              </button>
             </div>
-          )}
-
-          {/* Статус анализа */}
-          {analysisStatus && !error && (
-            <div className={styles.analysisStatus}>
-              {analysisStatus === 'creating' && '📤 Создание проекта...'}
-              {analysisStatus === 'analyzing' && '📡 Анализ проекта в реальном времени...'}
-              {analysisStatus === 'completed' && '✅ Анализ завершён!'}
-            </div>
-          )}
-
-          <div className={styles.formActions}>
-            <button
-              type="button"
-              className={styles.cancelBtn}
-              onClick={() => navigate('/projects')}
-              disabled={loading}
-            >
-              Отмена
-            </button>
-            <button 
-              type="submit" 
-              className={styles.createProjectBtn} 
-              disabled={loading}
-            >
-              {loading ? 'Создание...' : 'Создать'}
-            </button>
-          </div>
-        </form>
+          </form>
         </div>
       )}
 
