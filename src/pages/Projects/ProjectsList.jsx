@@ -161,28 +161,32 @@ export default function ProjectsList() {
                   className={styles.projectCard}
                   style={menuOpenId === project.id ? { zIndex: 30 } : undefined}
                 >
-                  <div className={styles.projectImage}>
-                    {project.picture_url ? (
-                      <img src={project.picture_url} alt={project.name} />
-                    ) : (
-                      <div className={styles.projectImagePlaceholder} aria-hidden="true" />
-                    )}
-                  </div>
+                  {/* Preview temporarily disabled */}
+                  {false && (
+                    <div className={styles.projectImage}>
+                      {project.picture_url ? (
+                        <img src={project.picture_url} alt={project.name} />
+                      ) : (
+                        <div className={styles.projectImagePlaceholder} aria-hidden="true" />
+                      )}
+                    </div>
+                  )}
                   <div className={styles.projectInfo}>
                     <h2 className={styles.projectName}>{project.name}</h2>
                     <p className={styles.projectDescription}>{project.description}</p>
                   </div>
+                  {/* Actions */}
                   <div className={styles.projectActions}>
                     <Link 
-                      to={`/projects/${project.id}/architecture`} 
-                      className={`${styles.actionBtnPrimary} ${styles.previewButton}`} 
-                    >
+                        to={`/projects/${project.id}/architecture`} 
+                        className={`${styles.actionBtnPrimary} ${styles.previewButton}`} 
+                      >
                       <span className={styles.actionBtnLabel}>Просмотр</span>
-                    </Link>
-                    <div 
+                      </Link>
+                      <div 
                       className={styles.moreMenuWrapper}
                       onClick={(e) => e.stopPropagation()}
-                    >
+                      >
                       <button
                         type="button"
                         className={styles.moreBtn}
@@ -220,8 +224,8 @@ export default function ProjectsList() {
                           </button>
                         </div>
                       )}
+                      </div>
                     </div>
-                  </div>
                 </div>
               );
             })}
@@ -231,3 +235,5 @@ export default function ProjectsList() {
     </div>
   );
 }
+
+
