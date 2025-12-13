@@ -131,12 +131,9 @@ export function buildGraph({
   const START_X = 120;
   const START_Y = 80;
   const HTTP_SPACING = 110;
-  const LANE_COLUMN_GAP = 380; // расстояние между карточками внутри слоя
+  const LANE_COLUMN_GAP = 450; // расстояние между колонками классов
   const LANE_CARD_WIDTH = 360;
-  const LANE_BASE_GAP_Y = 80; // добавляем побольше вертикального зазора
-  const LANE_ROW_HEIGHT = 200; // базовая высота ряда; увеличиваем динамически под самый высокий блок
-  const MAX_ROWS_LAYER2 = 4;
-  const MAX_ROWS_LAYER3 = 4;
+  const LANE_VERTICAL_GAP = 120; // вертикальный зазор между карточками
 
   const dependencyMap = new Map(); // node -> nodes that depend on it
   const reverseDependencyMap = new Map(); // node -> nodes it depends on (children)
@@ -445,89 +442,166 @@ export function buildGraph({
   const handlerAnchors = computeAnchors(2, classByLayer[2], null);
   const infraAnchors = computeAnchors(3, classByLayer[3], handlerAnchors);
 
-  const renderLaneNodes = (layerKey, xPos, anchors) => {
+  // Функция для вычисления уровня зависимости класса (топологическая сортировка)
+  const computeClassDependencyLevels = (layerKey) => {
+    const classMap = classByLayer[layerKey] || {};
+    const classNames = Object.keys(classMap).filter(cn => classMap[cn]?.length);
+    
+    // Строим граф зависимостей между классами
+    const classDeps = new Map(); // className -> Set of classes it depends on
+    const classReverseDeps = new Map(); // className -> Set of classes that depend on it
+    
+    classNames.forEach(cn => {
+      classDeps.set(cn, new Set());
+      classReverseDeps.set(cn, new Set());
+    });
+    
+    // Анализируем зависимости между классами через методы
+    classNames.forEach(sourceClass => {
+      const methods = classMap[sourceClass] || [];
+      methods.forEach(methodName => {
+        const children = reverseDependencyMap.get(methodName) || new Set();
+        children.forEach(childName => {
+          const childMeta = methodMeta.get(childName);
+          if (childMeta?.layer === layerKey) {
+            const targetClass = childMeta.className;
+            if (targetClass && targetClass !== sourceClass && classNames.includes(targetClass)) {
+              classDeps.get(sourceClass).add(targetClass);
+              classReverseDeps.get(targetClass).add(sourceClass);
+            }
+          }
+        });
+      });
+    });
+    
+    // Топологическая сортировка (Kahn's algorithm)
+    const levels = new Map();
+    const inDegree = new Map();
+    
+    classNames.forEach(cn => {
+      inDegree.set(cn, classDeps.get(cn).size);
+    });
+    
+    let currentLevel = 0;
+    let remaining = new Set(classNames);
+    
+    while (remaining.size > 0) {
+      // Находим классы без зависимостей (или все зависимости уже размещены)
+      const nodesAtLevel = Array.from(remaining).filter(cn => {
+        const deps = classDeps.get(cn);
+        return Array.from(deps).every(dep => levels.has(dep));
+      });
+      
+      if (nodesAtLevel.length === 0) {
+        // Циклические зависимости или изолированные узлы - размещаем оставшиеся
+        nodesAtLevel.push(...Array.from(remaining));
+      }
+      
+      nodesAtLevel.forEach(cn => {
+        levels.set(cn, currentLevel);
+        remaining.delete(cn);
+      });
+      
+      currentLevel++;
+    }
+    
+    return levels;
+  };
+
+  const renderLaneNodes = (layerKey, baseXPos, anchors) => {
     const cards = Object.entries(classByLayer[layerKey] || {})
       .filter(([, methods]) => methods?.length)
       .map(([className, methods]) => {
         const classColor = serviceColors[className]?.color || '#64748b';
         const preview = methods.map((m) => m.split('.').pop() || m);
-        const rowsCount = Math.max(preview.length, 3);
-        // Улучшенный расчёт высоты: базовая высота + высота на каждый метод
-        const methodItemHeight = 28; // высота одного элемента метода с отступами
-        const baseHeight = 120; // заголовок и отступы
+        const methodItemHeight = 28;
+        const baseHeight = 120;
         const estimatedHeight = baseHeight + preview.length * methodItemHeight;
-        return { className, methods, classColor, preview, estimatedHeight, anchor: anchors?.[className] ?? 0 };
-      })
-      .sort((a, b) => a.anchor - b.anchor);
+        return { 
+          className, 
+          methods, 
+          classColor, 
+          preview, 
+          estimatedHeight, 
+          anchor: anchors?.[className] ?? 0 
+        };
+      });
 
     if (cards.length === 0) return;
 
-    const maxRows = layerKey === 2 ? MAX_ROWS_LAYER2 : MAX_ROWS_LAYER3;
-    const rowHeights = Array(maxRows).fill(LANE_ROW_HEIGHT);
-
-    cards.forEach((card, idx) => {
-      const row = idx % maxRows;
-      // Полная высота карточки включая все методы и отступы
-      const cardHeight = card.estimatedHeight + LANE_BASE_GAP_Y;
-      rowHeights[row] = Math.max(rowHeights[row], cardHeight);
+    // Вычисляем уровни зависимостей для классов
+    const dependencyLevels = computeClassDependencyLevels(layerKey);
+    
+    // Группируем карточки по уровням
+    const cardsByLevel = new Map();
+    cards.forEach(card => {
+      const level = dependencyLevels.get(card.className) ?? 0;
+      if (!cardsByLevel.has(level)) {
+        cardsByLevel.set(level, []);
+      }
+      cardsByLevel.get(level).push(card);
     });
-
-    const rowOffsets = [];
-    let yCursor = START_Y;
-    rowHeights.forEach((h) => {
-      rowOffsets.push(yCursor);
-      yCursor += h;
+    
+    // Сортируем карточки внутри каждого уровня по anchor
+    cardsByLevel.forEach(levelCards => {
+      levelCards.sort((a, b) => a.anchor - b.anchor);
     });
-
-    cards.forEach((card, idx) => {
-      const row = idx % maxRows;
-      const col = Math.floor(idx / maxRows);
-      const targetX = xPos + col * LANE_COLUMN_GAP;
-      const targetY = rowOffsets[row] ?? START_Y;
-
-      newNodes.push({
-        id: `lane-${layerKey}-${card.className}`,
-        type: 'default',
-        position: { x: targetX, y: targetY },
-        data: {
-          label: (
-            <div style={{ padding: '12px 14px' }}>
-              <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{card.className}</div>
-              <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{card.methods.length} методов</div>
-              <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
-                {card.preview.map((m) => (
-                  <div
-                    key={m}
-                    style={{
-                      background: '#f8fafc',
-                      borderRadius: '8px',
-                      padding: '6px 8px',
-                      fontSize: '11px',
-                      color: '#0f172a',
-                      border: `1px solid ${card.classColor}33`,
-                    }}
-                  >
-                    {m}
-                  </div>
-                ))}
+    
+    // Размещаем карточки
+    const sortedLevels = Array.from(cardsByLevel.keys()).sort((a, b) => a - b);
+    
+    sortedLevels.forEach((level, levelIdx) => {
+      const levelCards = cardsByLevel.get(level);
+      const xPos = baseXPos + levelIdx * LANE_COLUMN_GAP;
+      
+      let yOffset = START_Y;
+      levelCards.forEach((card, cardIdx) => {
+        newNodes.push({
+          id: `lane-${layerKey}-${card.className}`,
+          type: 'default',
+          position: { x: xPos, y: yOffset },
+          data: {
+            label: (
+              <div style={{ padding: '12px 14px' }}>
+                <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{card.className}</div>
+                <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{card.methods.length} методов</div>
+                <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
+                  {card.preview.map((m) => (
+                    <div
+                      key={m}
+                      style={{
+                        background: '#f8fafc',
+                        borderRadius: '8px',
+                        padding: '6px 8px',
+                        fontSize: '11px',
+                        color: '#0f172a',
+                        border: `1px solid ${card.classColor}33`,
+                      }}
+                    >
+                      {m}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ),
-          meta: {
-            layer: layerKey,
-            kind: 'lane',
-            className: card.className,
+            ),
+            meta: {
+              layer: layerKey,
+              kind: 'lane',
+              className: card.className,
+            },
           },
-        },
-        style: {
-          background: 'white',
-          border: `2px solid ${card.classColor}`,
-          borderRadius: '14px',
-          width: LANE_CARD_WIDTH,
-          boxShadow: `0 10px 24px ${card.classColor}25`,
-        },
-        sourcePosition: 'right',
-        targetPosition: 'left',
+          style: {
+            background: 'white',
+            border: `2px solid ${card.classColor}`,
+            borderRadius: '14px',
+            width: LANE_CARD_WIDTH,
+            boxShadow: `0 10px 24px ${card.classColor}25`,
+          },
+          sourcePosition: 'right',
+          targetPosition: 'left',
+        });
+        
+        yOffset += card.estimatedHeight + LANE_VERTICAL_GAP;
       });
     });
   };
