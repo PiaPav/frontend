@@ -44,7 +44,6 @@ export function buildGraph({
   const START_X = 120;
   const START_Y = 80;
   const HTTP_SPACING = 110;
-  const LAYER_ANCHOR_SPACING = 40;
   const LANE_COLUMN_GAP = 380; // расстояние между карточками внутри слоя
   const LANE_CARD_WIDTH = 360;
   const LANE_BASE_GAP_Y = 80; // добавляем побольше вертикального зазора
@@ -495,7 +494,6 @@ export function buildGraph({
       registerEdge(endpointKey, targetId, {
         color,
         strokeWidth: 3,
-        animated: true,
         kind: 'http',
       });
     });
@@ -537,6 +535,12 @@ export function buildGraph({
     const labelBg = baseColor;
     const labelColor = kind === 'internal' ? '#0f172a' : '#f8fafc';
     const labelYOffset = hasLabel ? -10 : 0;
+    const baseStyle = {
+      stroke: baseColor,
+      strokeWidth,
+      opacity,
+      strokeDasharray: kind === 'internal' ? '4 4' : undefined,
+    };
 
     newEdges.push({
       id: key,
@@ -544,13 +548,8 @@ export function buildGraph({
       target,
       type: 'smart',
       markerEnd: { type: MarkerType.ArrowClosed, color: baseColor },
-      style: {
-        stroke: baseColor,
-        strokeWidth,
-        opacity,
-        strokeDasharray: kind === 'internal' ? '4 4' : undefined,
-      },
-      animated: options?.animated || false,
+      style: baseStyle,
+      animated: Boolean(options?.animated),
       label,
       labelStyle: hasLabel
         ? {
@@ -577,6 +576,7 @@ export function buildGraph({
       data: {
         ...(options?.data || {}),
         aggCount: count,
+        baseStyle,
       },
     });
   });

@@ -29,7 +29,8 @@ export default function ProjectAnalysis() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [hoveredNode, setHoveredNode] = useState(null);
+  const [pinnedSourceId, setPinnedSourceId] = useState(null);
+  const [hoverSourceId, setHoverSourceId] = useState(null);
   
   // Данные проекта с сервера
   const [project, setProject] = useState(null);
@@ -44,6 +45,7 @@ export default function ProjectAnalysis() {
   const [streamComplete, setStreamComplete] = useState(false);
   const [grpcStarted, setGrpcStarted] = useState(false);
   const streamControllerRef = useRef(null);
+  const activeHighlightRef = useRef(null);
   const requirementsRef = useRef([]);
   const endpointsRef = useRef({});
   const architectureDataRef = useRef([]);
@@ -74,6 +76,83 @@ export default function ProjectAnalysis() {
   useEffect(() => {
     architectureDataRef.current = architectureData;
   }, [architectureData]);
+
+  useEffect(() => {
+    const active = hoverSourceId || pinnedSourceId;
+    activeHighlightRef.current = active;
+  }, [hoverSourceId, pinnedSourceId]);
+
+  // Поддержка анимации только по цепочке от зафиксированного узла
+  const applyEdgeHighlights = useCallback((edgesList, sourceId) => {
+    if (!Array.isArray(edgesList) || edgesList.length === 0) {
+      return Array.isArray(edgesList) ? edgesList : [];
+    }
+
+    const preparedEdges = edgesList.map((edge) => {
+      const baseStyle = edge?.data?.baseStyle || edge.style || {};
+      return { edge, baseStyle };
+    });
+
+    if (!sourceId) {
+      return preparedEdges.map(({ edge, baseStyle }) => ({
+        ...edge,
+        animated: false,
+        style: { ...baseStyle, filter: 'none' },
+      }));
+    }
+
+    const adjacency = new Map();
+    preparedEdges.forEach(({ edge }) => {
+      if (!adjacency.has(edge.source)) adjacency.set(edge.source, []);
+      adjacency.get(edge.source).push(edge);
+    });
+
+    const stack = [sourceId];
+    const visitedNodes = new Set();
+    const activeEdgeIds = new Set();
+
+    while (stack.length) {
+      const current = stack.pop();
+      if (visitedNodes.has(current)) continue;
+      visitedNodes.add(current);
+      const outgoing = adjacency.get(current);
+      if (!outgoing) continue;
+      outgoing.forEach((edge) => {
+        activeEdgeIds.add(edge.id);
+        stack.push(edge.target);
+      });
+    }
+
+    const hasActiveEdges = activeEdgeIds.size > 0;
+
+    return preparedEdges.map(({ edge, baseStyle }) => {
+      const isActive = activeEdgeIds.has(edge.id);
+      const baseOpacity = typeof baseStyle.opacity === 'number' ? baseStyle.opacity : 1;
+      const dimmedOpacity = Math.max(0.12, baseOpacity * 0.35);
+      const baseWidth = baseStyle.strokeWidth;
+      const targetOpacity = !hasActiveEdges
+        ? baseOpacity
+        : isActive
+          ? baseOpacity
+          : dimmedOpacity;
+
+      return {
+        ...edge,
+        animated: isActive && hasActiveEdges,
+        style: {
+          ...baseStyle,
+          opacity: targetOpacity,
+          strokeWidth: isActive && hasActiveEdges && baseWidth ? baseWidth + 0.8 : baseWidth,
+          filter: isActive && hasActiveEdges ? 'drop-shadow(0 0 8px currentColor)' : 'none',
+        },
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    const activeSourceId = hoverSourceId || pinnedSourceId;
+    setEdges((eds) => applyEdgeHighlights(eds, activeSourceId));
+  }, [hoverSourceId, pinnedSourceId, setEdges, applyEdgeHighlights]);
 
   // Загрузка проекта через REST + gRPC stream
   useEffect(() => {
@@ -406,80 +485,38 @@ export default function ProjectAnalysis() {
 
     layoutWithElk(builtNodes, builtEdges, 'RIGHT')
       .then(({ nodes: layoutNodes, edges: layoutEdges }) => {
+        const highlightedEdges = applyEdgeHighlights(layoutEdges, activeHighlightRef.current);
         setNodes(layoutNodes);
-        setEdges(layoutEdges);
+        setEdges(highlightedEdges);
       })
       .catch((err) => {
         console.error('ELK layout error:', err);
+        const fallbackEdges = applyEdgeHighlights(builtEdges, activeHighlightRef.current);
         setNodes(builtNodes);
-        setEdges(builtEdges);
+        setEdges(fallbackEdges);
       });
     if (isFirstLoad && builtNodes.length > 0) {
       setIsFirstLoad(false);
     }
-  }, [project, requirements, endpoints, architectureData, setNodes, setEdges, isFirstLoad]);
+  }, [project, requirements, endpoints, architectureData, setNodes, setEdges, isFirstLoad, applyEdgeHighlights]);
 
-  // Обработчик наведения на узел - подсвечиваем исходящие стрелки
   const onNodeMouseEnter = useCallback((event, node) => {
-    setHoveredNode(node.id);
-    
-    // Обновляем стрелки: делаем ярче те, которые исходят из этого узла
-    setEdges((eds) => 
-      eds.map((edge) => {
-        if (edge.source === node.id) {
-          // Подсвечиваем исходящие стрелки
-          const baseWidth = edge.style?.strokeWidth || 2;
-          return {
-            ...edge,
-            style: { 
-              ...edge.style, 
-              strokeWidth: baseWidth + 1.5, 
-              opacity: 1,
-              filter: 'drop-shadow(0 0 8px currentColor)'
-            },
-            animated: true,
-            zIndex: 1000
-          };
-        } else {
-          // Делаем остальные стрелки полупрозрачными
-          return {
-            ...edge,
-            style: { 
-              ...edge.style, 
-              opacity: 0.15,
-              filter: 'none'
-            },
-            animated: false
-          };
-        }
-      })
-    );
-  }, [setEdges]);
+    setHoverSourceId(node.id);
+  }, []);
 
   const onNodeMouseLeave = useCallback(() => {
-    setHoveredNode(null);
-    
-    // Возвращаем стрелкам исходный вид
-    setEdges((eds) => 
-      eds.map((edge) => ({
-        ...edge,
-        style: { 
-          ...edge.style,
-          opacity: 1,
-          filter: 'none'
-        },
-        animated: false,
-        zIndex: undefined
-      }))
-    );
-  }, [setEdges]);
+    setHoverSourceId(null);
+  }, []);
 
   const onNodeClick = useCallback((event, node) => {
-    setSelectedNode(node);
+    setSelectedNode((prev) => (prev?.id === node.id ? null : node));
+    setPinnedSourceId((prev) => (prev === node.id ? null : node.id));
   }, []);
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
+    setPinnedSourceId(null);
+    setHoverSourceId(null);
   }, []);
 
   const nodesCount = nodes.length;
