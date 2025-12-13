@@ -28,15 +28,20 @@ export default function Login() {
       return;
     }
 
-    const result = await login(form);
+    try {
+      const result = await login(form);
 
-    if (result.success) {
-      navigate('/projects');
-    } else {
-      setError(result.error);
+      if (result?.success) {
+        navigate('/projects');
+      } else {
+        setError(result?.error || 'Не удалось авторизоваться.');
+      }
+    } catch (submitError) {
+      console.error('Submit login error:', submitError);
+      setError('Не удалось авторизоваться. Попробуйте ещё раз.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (

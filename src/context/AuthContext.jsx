@@ -54,6 +54,10 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
+      const status = error.response?.status;
+      const backendMessage = error.response?.data?.message;
+      const backendType = error.response?.data?.type;
+      const detail = error.response?.data?.detail;
       
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         return {
@@ -62,22 +66,30 @@ export const AuthProvider = ({ children }) => {
         };
       }
       
-      const detail = error.response?.data?.detail;
-      let errorMessage = backendMessage || '?????? ???????????.';
+      let errorMessage = backendMessage;
       
-      if (typeof detail === 'string') {
-        errorMessage = detail;
-      } else if (Array.isArray(detail)) {
-        errorMessage = detail.map(err => err.msg).join(', ');
+      if (!errorMessage) {
+        if (typeof detail === 'string') {
+          errorMessage = detail;
+        } else if (Array.isArray(detail)) {
+          errorMessage = detail.map(err => err.msg).join(', ');
+        }
       }
-      if (!backendMessage && backendType) {
-        errorMessage = `${backendType}${errorMessage ? ': ' + errorMessage : ''}`;
+
+      if (!errorMessage && backendType) {
+        errorMessage = backendType === 'INVALID_LOGIN'
+          ? 'Неверный логин'
+          : backendType === 'INVALID_PASSWORD'
+            ? 'Неверный пароль'
+            : backendType;
       }
-      if (backendMessage) {
+
+      if (status === 401 && backendMessage) {
         errorMessage = backendMessage;
       }
-      if (status === 409 && backendMessage) {
-        errorMessage = backendMessage;
+
+      if (!errorMessage) {
+        errorMessage = 'Не удалось авторизоваться.';
       }
       
       return {

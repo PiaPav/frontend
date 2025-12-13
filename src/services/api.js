@@ -27,8 +27,17 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const isAuthRequest =
+      originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/registration') ||
+      originalRequest?.url?.includes('/auth/refresh');
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Для запросов авторизации возвращаем ошибку сразу, чтобы отобразить ответ бэка
+    if (isAuthRequest) {
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
