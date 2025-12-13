@@ -444,28 +444,24 @@ export function buildGraph({
 
   const getLaneId = (layer, className) => `lane-${layer}-${className}`;
 
-  const newEdges = [];
   const nodeIds = new Set(newNodes.map((n) => n.id));
+  const edgeStats = new Map();
   const nodesWithIncomingEdges = new Set();
   const nodesWithOutgoingEdges = new Set();
-  const edgeKeys = new Set();
 
-  const pushEdge = (source, target, options) => {
+  const registerEdge = (source, target, options = {}) => {
     const key = `${source}->${target}`;
-    if (edgeKeys.has(key)) return;
-    edgeKeys.add(key);
-    newEdges.push({
-      id: key,
-      source,
-      target,
-      type: 'smart',
-      markerEnd: { type: MarkerType.ArrowClosed, color: options?.color || '#94a3b8' },
-      style: { stroke: options?.color || '#94a3b8', strokeWidth: options?.strokeWidth || 2, opacity: options?.opacity || 1 },
-      animated: options?.animated || false,
-      label: options?.label,
-      labelStyle: options?.labelStyle,
-      labelBgStyle: options?.labelBgStyle,
-    });
+    const existing = edgeStats.get(key);
+    if (!existing) {
+      edgeStats.set(key, { source, target, options: { ...options }, count: 1 });
+    } else {
+      edgeStats.set(key, {
+        source,
+        target,
+        options: { ...existing.options, ...options },
+        count: existing.count + 1,
+      });
+    }
     nodesWithOutgoingEdges.add(source);
     nodesWithIncomingEdges.add(target);
   };
@@ -496,10 +492,11 @@ export function buildGraph({
       const targetId = meta.layer === 1 ? target : getLaneId(meta.layer, meta.className);
       if (!nodeIds.has(targetId)) return;
 
-      pushEdge(endpointKey, targetId, {
+      registerEdge(endpointKey, targetId, {
         color,
         strokeWidth: 3,
         animated: true,
+        kind: 'http',
       });
     });
   });
@@ -519,7 +516,68 @@ export function buildGraph({
       const targetId = childMeta.layer === 1 ? child : getLaneId(childMeta.layer, childMeta.className);
       if (!nodeIds.has(targetId)) return;
 
-      pushEdge(sourceId, targetId, { color: '#94a3b8' });
+      registerEdge(sourceId, targetId, {
+        color: '#cbd5f5',
+        opacity: 0.7,
+        kind: 'internal',
+      });
+    });
+  });
+
+  const newEdges = [];
+  edgeStats.forEach(({ source, target, options, count }, key) => {
+    const baseColor = options?.color || '#94a3b8';
+    const kind = options?.kind;
+    const weight = Math.min(count, 4);
+    const baseWidth = options?.strokeWidth ?? (kind === 'http' ? 2.6 : 2.0);
+    const strokeWidth = baseWidth + (weight - 1) * 0.6;
+    const opacity = options?.opacity ?? (kind === 'http' ? 0.95 : 0.8);
+    const label = count > 1 ? options?.label ?? `×${count}` : options?.label;
+    const hasLabel = Boolean(label);
+    const labelBg = baseColor;
+    const labelColor = kind === 'internal' ? '#0f172a' : '#f8fafc';
+    const labelYOffset = hasLabel ? -10 : 0;
+
+    newEdges.push({
+      id: key,
+      source,
+      target,
+      type: 'smart',
+      markerEnd: { type: MarkerType.ArrowClosed, color: baseColor },
+      style: {
+        stroke: baseColor,
+        strokeWidth,
+        opacity,
+        strokeDasharray: kind === 'internal' ? '4 4' : undefined,
+      },
+      animated: options?.animated || false,
+      label,
+      labelStyle: hasLabel
+        ? {
+            fontSize: 10,
+            fontWeight: 600,
+            transform: `translateY(${labelYOffset}px)`,
+            position: 'relative',
+            zIndex: 5,
+            ...options?.labelStyle,
+          }
+        : undefined,
+      labelBgStyle: hasLabel
+        ? {
+            fill: labelBg,
+            color: labelColor,
+            borderRadius: 999,
+            padding: 4,
+            transform: `translateY(${labelYOffset}px)`,
+            position: 'relative',
+            zIndex: 4,
+            ...options?.labelBgStyle,
+          }
+        : undefined,
+      data: {
+        ...(options?.data || {}),
+        aggCount: count,
+      },
     });
   });
 

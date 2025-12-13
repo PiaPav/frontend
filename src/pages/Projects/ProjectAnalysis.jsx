@@ -428,11 +428,12 @@ export default function ProjectAnalysis() {
       eds.map((edge) => {
         if (edge.source === node.id) {
           // Подсвечиваем исходящие стрелки
+          const baseWidth = edge.style?.strokeWidth || 2;
           return {
             ...edge,
             style: { 
               ...edge.style, 
-              strokeWidth: 4, 
+              strokeWidth: baseWidth + 1.5, 
               opacity: 1,
               filter: 'drop-shadow(0 0 8px currentColor)'
             },
@@ -445,7 +446,8 @@ export default function ProjectAnalysis() {
             ...edge,
             style: { 
               ...edge.style, 
-              opacity: 0.15
+              opacity: 0.15,
+              filter: 'none'
             },
             animated: false
           };
@@ -462,12 +464,12 @@ export default function ProjectAnalysis() {
       eds.map((edge) => ({
         ...edge,
         style: { 
-          stroke: edge.style.stroke, 
-          strokeWidth: edge.id.includes('edge-main-') ? 2.5 : 2,
+          ...edge.style,
           opacity: 1,
           filter: 'none'
         },
-        animated: false
+        animated: false,
+        zIndex: undefined
       }))
     );
   }, [setEdges]);
