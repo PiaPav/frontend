@@ -18,6 +18,93 @@ const defaultServiceColors = {
 };
 
 const normalizeName = (name) => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const getBaseName = (name = '') => (name || '').split('/').pop() || '';
+
+// Skip framework/built-in nodes so they don't create fake lanes on the graph
+const IGNORED_EXACT_NODES = new Set(
+  [
+    'depends',
+    '__init__',
+    'init',
+    'super',
+    'file',
+    'httpexception',
+    'print',
+    'len',
+    'list',
+    'dict',
+    'set',
+    'tuple',
+    'type',
+    'str',
+    'int',
+    'float',
+    'items',
+    'setattr',
+    'getattr',
+    'hasattr',
+    'where',
+    'select',
+    'all',
+    'any',
+    'first',
+    'scalars',
+    'execute',
+    'result',
+    'data',
+    'valueerror',
+    'runtimeerror',
+    'notimplementederror',
+    'keyerror',
+    'attributeerror',
+    'indexerror',
+  ].map((v) => v.toLowerCase())
+);
+
+const IGNORED_DOT_PREFIXES = new Set(
+  [
+    'log',
+    'logger',
+    'router',
+    'session',
+    'result',
+    'conn',
+    'connection',
+    'context',
+    'channel',
+    'queue',
+    'message',
+    'data',
+    'patch_data',
+    'password',
+    'hashed',
+    'start_date',
+    'end_date',
+    'datetime',
+    'json',
+    'os',
+  ].map((v) => v.toLowerCase())
+);
+
+const IGNORED_EXCEPTION_PATTERNS = [/(exception)$/i, /(error)$/i, /(notfound)$/i, /(notexists?)$/i, /(doesnotexist)$/i];
+
+const shouldIgnoreNodeName = (name = '') => {
+  const baseName = getBaseName(name);
+  if (!baseName) return true;
+
+  const normalized = baseName.toLowerCase();
+
+  if (IGNORED_EXACT_NODES.has(normalized)) return true;
+
+  const dotPrefix = normalized.split('.')[0];
+  if (dotPrefix && IGNORED_DOT_PREFIXES.has(dotPrefix)) return true;
+
+  if (normalized.startsWith('__') && normalized.endsWith('__')) return true;
+
+  if (IGNORED_EXCEPTION_PATTERNS.some((pattern) => pattern.test(baseName))) return true;
+
+  return false;
+};
 
 /**
  * Build React Flow nodes/edges based on requirements, endpoints and architecture data.
@@ -54,9 +141,12 @@ export function buildGraph({
   const dependencyMap = new Map(); // node -> nodes that depend on it
   const reverseDependencyMap = new Map(); // node -> nodes it depends on (children)
 
-  architectureData.forEach(({ parent, children }) => {
+  architectureData.forEach(({ parent, children = [] }) => {
+    if (shouldIgnoreNodeName(parent)) return;
+
     children.forEach((child) => {
-      const cleanChild = child.split('/').pop();
+      const cleanChild = getBaseName(child);
+      if (shouldIgnoreNodeName(cleanChild)) return;
 
       if (!dependencyMap.has(cleanChild)) {
         dependencyMap.set(cleanChild, new Set());
@@ -72,6 +162,7 @@ export function buildGraph({
 
   const connectedNodes = new Set();
   const traverse = (node) => {
+    if (shouldIgnoreNodeName(node)) return;
     if (connectedNodes.has(node)) return;
     connectedNodes.add(node);
     if (reverseDependencyMap.has(node)) {
@@ -99,40 +190,45 @@ export function buildGraph({
   const getNodeType = (nodeName) => {
     if (!connectedNodes.has(nodeName)) return null;
 
+    if (shouldIgnoreNodeName(nodeName)) return null;
+
+    const baseName = getBaseName(nodeName);
+    const nameForCheck = baseName || nodeName;
+    const lowerName = nameForCheck.toLowerCase();
+
     if (endpoints[nodeName]) {
       return { type: 'endpoint', layer: 1, class: 'HTTP' };
     }
 
     if (
-      nodeName.startsWith('DatabaseManager') ||
-      nodeName.startsWith('init_db') ||
-      nodeName.includes('Exception') ||
-      nodeName.includes('Broker') ||
-      nodeName.includes('Storage') ||
-      nodeName.includes('Consumer') ||
-      nodeName.includes('Producer') ||
-      nodeName.includes('Connection') ||
-      nodeName.includes('TaskSession') ||
-      nodeName.includes('TaskManager') ||
-      nodeName.includes('StreamService') ||
-      nodeName.includes('grpc') ||
-      nodeName.includes('Servicer') ||
-      nodeName.includes('Stub')
+      lowerName.startsWith('databasemanager') ||
+      lowerName.startsWith('init_db') ||
+      lowerName.includes('broker') ||
+      lowerName.includes('storage') ||
+      lowerName.includes('consumer') ||
+      lowerName.includes('producer') ||
+      lowerName.includes('connection') ||
+      lowerName.includes('tasksession') ||
+      lowerName.includes('taskmanager') ||
+      lowerName.includes('streamservice') ||
+      lowerName.includes('grpc') ||
+      lowerName.includes('servicer') ||
+      lowerName.includes('stub')
     ) {
       let className = 'Database';
-      if (nodeName.startsWith('DatabaseManager')) className = 'DatabaseManager';
-      else if (nodeName.includes('Exception')) className = 'Exceptions';
-      else if (nodeName.includes('Broker')) className = 'MessageBroker';
-      else if (nodeName.includes('Storage')) className = 'ObjectStorage';
-      else if (nodeName.includes('Consumer') || nodeName.includes('Producer')) className = 'MessageQueue';
-      else if (nodeName.includes('TaskSession') || nodeName.includes('TaskManager')) className = 'TaskManager';
-      else if (nodeName.includes('StreamService') || nodeName.includes('grpc') || nodeName.includes('Servicer') || nodeName.includes('Stub')) className = 'CoreServer';
+      if (nameForCheck.startsWith('DatabaseManager') || lowerName.startsWith('databasemanager')) className = 'DatabaseManager';
+      else if (lowerName.includes('broker')) className = 'MessageBroker';
+      else if (lowerName.includes('storage')) className = 'ObjectStorage';
+      else if (lowerName.includes('consumer') || lowerName.includes('producer')) className = 'MessageQueue';
+      else if (lowerName.includes('tasksession') || lowerName.includes('taskmanager')) className = 'TaskManager';
+      else if (lowerName.includes('streamservice') || lowerName.includes('grpc') || lowerName.includes('servicer') || lowerName.includes('stub'))
+        className = 'CoreServer';
 
       return { type: 'database', layer: 3, class: className };
     }
 
-    if (nodeName.includes('.')) {
-      const className = nodeName.split('.')[0];
+    if (nameForCheck.includes('.')) {
+      const className = nameForCheck.split('.')[0];
       return { type: 'domain', layer: 2, class: className };
     }
 
@@ -155,23 +251,21 @@ export function buildGraph({
       'run_frontend_test',
     ];
 
-    const isHandler =
-      handlerPatterns.some((pattern) => nodeName.includes(pattern)) ||
-      (!nodeName.includes('.') && !nodeName.includes('Manager') && !nodeName.includes('Service'));
+    const isHandler = handlerPatterns.some((pattern) => lowerName.includes(pattern));
 
     if (isHandler) {
-      let className = 'Core';
-      if (nodeName.includes('account')) className = 'Account';
-      else if (nodeName.includes('project')) className = 'Project';
+      let className = 'Other';
+      if (lowerName.includes('account')) className = 'Account';
+      else if (lowerName.includes('project')) className = 'Project';
       else if (
-        nodeName.includes('login') ||
-        nodeName.includes('auth') ||
-        nodeName.includes('registration') ||
-        nodeName.includes('refresh')
+        lowerName.includes('login') ||
+        lowerName.includes('auth') ||
+        lowerName.includes('registration') ||
+        lowerName.includes('refresh')
       )
         className = 'Auth';
-      else if (nodeName.includes('home') || nodeName.includes('health')) className = 'System';
-      else if (nodeName.includes('config') || nodeName.includes('logger')) className = 'Config';
+      else if (lowerName.includes('home') || lowerName.includes('health')) className = 'System';
+      else if (lowerName.includes('config') || lowerName.includes('logger')) className = 'Config';
 
       return { type: 'handler', layer: 2, class: className };
     }
@@ -475,12 +569,13 @@ export function buildGraph({
       reverseDependencyMap.get(endpointKey).forEach((child) => matchedChildren.add(child));
     }
     architectureData.forEach(({ parent, children = [] }) => {
+      if (shouldIgnoreNodeName(parent)) return;
       const parentName = normalizeName(parent);
       if (!endpointName || !parentName) return;
       if (parentName.includes(endpointName) || endpointName.includes(parentName)) {
         children.forEach((childRaw) => {
-          const child = childRaw.split('/').pop();
-          if (child) matchedChildren.add(child);
+          const child = getBaseName(childRaw);
+          if (child && !shouldIgnoreNodeName(child)) matchedChildren.add(child);
         });
       }
     });
@@ -499,7 +594,7 @@ export function buildGraph({
     });
   });
 
-  architectureData.forEach(({ parent, children }) => {
+  architectureData.forEach(({ parent, children = [] }) => {
     const parentMeta = methodMeta.get(parent);
     if (!parentMeta) return;
 
@@ -507,7 +602,8 @@ export function buildGraph({
     if (!nodeIds.has(sourceId)) return;
 
     children.forEach((childRaw) => {
-      const child = childRaw.split('/').pop();
+      const child = getBaseName(childRaw);
+      if (shouldIgnoreNodeName(child)) return;
       const childMeta = methodMeta.get(child);
       if (!childMeta) return;
 
