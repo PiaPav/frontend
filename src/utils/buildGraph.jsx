@@ -228,6 +228,7 @@ export function buildGraph({
             <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280' }}>{reqName}</div>
           </div>
         ),
+        meta: { layer: 0, kind: 'requirement' },
       },
       style: {
         background: 'white',
@@ -288,6 +289,12 @@ export function buildGraph({
             <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', wordBreak: 'break-all' }}>{path}</div>
           </div>
         ),
+        meta: {
+          layer: 1,
+          kind: 'endpoint',
+          method,
+          path,
+        },
       },
       style: {
         background: 'white',
@@ -413,6 +420,11 @@ export function buildGraph({
               </div>
             </div>
           ),
+          meta: {
+            layer: layerKey,
+            kind: 'lane',
+            className: card.className,
+          },
         },
         style: {
           background: 'white',

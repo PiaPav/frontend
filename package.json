@@ -12,6 +12,7 @@
   "dependencies": {
     "@tisoap/react-flow-smart-edge": "^3.0.0",
     "axios": "^1.13.1",
+    "elkjs": "^0.11.0",
     "google-protobuf": "^4.0.1",
     "grpc-web": "^2.0.2",
     "react": "^19.1.1",

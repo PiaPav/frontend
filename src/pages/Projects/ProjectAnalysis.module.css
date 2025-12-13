@@ -9,6 +9,119 @@
   overflow: hidden;
 }
 
+.graphOverlay {
+  position: fixed;
+  inset: 0;
+  background: #f5f5f5;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.graphHeader {
+  padding: 16px 20px;
+  background: white;
+  border-bottom: 2px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+.graphHeaderLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.graphTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.graphMeta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.graphActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.moreWrapper {
+  position: relative;
+}
+
+.moreBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.moreBtn:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.moreMenu {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  min-width: 180px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  z-index: 20;
+}
+
+.closeBtn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.closeBtn:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3);
+}
+
+.closeBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+}
+
+.graphBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Animation for new nodes appearing */
 @keyframes fadeInScale {
   0% {
@@ -76,7 +189,13 @@
 }
 
 .deleteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 10px 16px;
+  min-width: 44px;
+  min-height: 44px;
   background: #fff1f2;
   color: #b91c1c;
   border: 1px solid #fecdd3;
@@ -86,6 +205,13 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 8px 18px rgba(248, 113, 113, 0.18);
+}
+
+.deleteIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
 }
 
 .deleteBtn:hover {

@@ -12,7 +12,10 @@ import styles from './ProjectAnalysis.module.css';
 import { projectsAPI } from '../../services/api';
 import grpcClient from '../../services/grpcClient';
 import buildGraph from '../../utils/buildGraph';
+import { layoutWithElk } from '../../utils/layoutWithElk';
 import { useAuth } from '../../context/AuthContext';
+import trashBinIcon from '../../assets/img/trash-bin.png';
+import GraphHeader from './GraphHeader';
 
 const edgeTypes = {
   smart: SmartStepEdge,
@@ -38,7 +41,6 @@ export default function ProjectAnalysis() {
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
-  const [isDemoProject, setIsDemoProject] = useState(false);
   const [streamComplete, setStreamComplete] = useState(false);
   const [grpcStarted, setGrpcStarted] = useState(false);
   const streamControllerRef = useRef(null);
@@ -400,10 +402,18 @@ export default function ProjectAnalysis() {
       serviceColors,
     });
 
-    console.log('✅ Граф отрисован (просмотр):', summary);
+    console.log('✅ Граф отрисован (просмотр, до layout):', summary);
 
-    setNodes(builtNodes);
-    setEdges(builtEdges);
+    layoutWithElk(builtNodes, builtEdges, 'RIGHT')
+      .then(({ nodes: layoutNodes, edges: layoutEdges }) => {
+        setNodes(layoutNodes);
+        setEdges(layoutEdges);
+      })
+      .catch((err) => {
+        console.error('ELK layout error:', err);
+        setNodes(builtNodes);
+        setEdges(builtEdges);
+      });
     if (isFirstLoad && builtNodes.length > 0) {
       setIsFirstLoad(false);
     }
@@ -470,21 +480,27 @@ export default function ProjectAnalysis() {
     setSelectedNode(null);
   }, []);
 
+  const nodesCount = nodes.length;
+  const edgesCount = edges.length;
+  const requirementsCount = requirements.length;
+  const endpointsCount = Object.keys(endpoints || {}).length;
+
   // Отображение статуса загрузки или ошибки
   if (loading) {
     return (
       <div className={styles.container}>
-        <div className={styles.controlBar}>
-          <button onClick={() => navigate('/projects')} className={styles.backBtn}>
-            ← Назад
-          </button>
-          <div className={styles.titleContainer}>
-            <h1 className={styles.title}>Анализ проекта #{id}</h1>
-          </div>
-        </div>
+        <GraphHeader
+          title="Project Architecture"
+          nodesCount={nodesCount}
+          edgesCount={edgesCount}
+          requirementsCount={requirementsCount}
+          endpointsCount={endpointsCount}
+          onClose={() => navigate('/projects')}
+          closeLabel="Close"
+        />
         <div className={styles.flowWrapper}>
           <div className={styles.loadingState}>
-            <div className={styles.spinner} />
+            <div className={styles.loadingSpinner} />
             <p>Загрузка проекта...</p>
           </div>
         </div>
@@ -495,14 +511,15 @@ export default function ProjectAnalysis() {
   if (error) {
     return (
       <div className={styles.container}>
-        <div className={styles.controlBar}>
-          <button onClick={() => navigate('/projects')} className={styles.backBtn}>
-            ← Назад
-          </button>
-          <div className={styles.titleContainer}>
-            <h1 className={styles.title}>Анализ проекта #{id}</h1>
-          </div>
-        </div>
+        <GraphHeader
+          title="Project Architecture"
+          nodesCount={nodesCount}
+          edgesCount={edgesCount}
+          requirementsCount={requirementsCount}
+          endpointsCount={endpointsCount}
+          onClose={() => navigate('/projects')}
+          closeLabel="Close"
+        />
         <div className={styles.flowWrapper}>
           <div className={styles.loadingState}>
             <p style={{ color: '#ef4444' }}>⚠️ {error}</p>
@@ -536,51 +553,28 @@ export default function ProjectAnalysis() {
   if (!loading && !hasArchitectureData) {
     return (
       <div className={styles.container}>
-        <div className={styles.controlBar}>
-          <button onClick={() => navigate('/projects')} className={styles.backBtn}>
-            ← Назад
-          </button>
-          <div className={styles.titleContainer}>
-            <h1 className={styles.title}>
-              {project?.name || `Проект #${id}`}
-              {isDemoProject && (
-                <span style={{
-                  marginLeft: '12px',
-                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                  color: 'white',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.4)'
-                }}>
-                  🎮 DEMO
-                </span>
-              )}
-            </h1>
-            {project?.description && (
-              <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>
-                {project.description}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={handleDeleteProject}
-            className={styles.deleteBtn}
-            disabled={deleting}
-          >
-            {deleting ? 'Удаление...' : 'Удалить проект'}
-          </button>
-        </div>
+        <GraphHeader
+          title="Project Architecture"
+          nodesCount={nodesCount}
+          edgesCount={edgesCount}
+          requirementsCount={requirementsCount}
+          endpointsCount={endpointsCount}
+          onClose={() => navigate('/projects')}
+          closeLabel="Close"
+          onDelete={handleDeleteProject}
+          deleteLabel={deleting ? 'Deleting...' : 'Delete project'}
+          deleteIcon={trashBinIcon}
+          deleting={deleting}
+        />
         {deleteError && (
           <div className={styles.errorBanner}>{deleteError}</div>
         )}
         <div className={styles.flowWrapper}>
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner}></div>
-            <h2>Анализ архитектуры проекта...</h2>
+            <h2>Открываем проект...</h2>
             <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '30px', maxWidth: '400px', textAlign: 'center' }}>
-              Пожалуйста, подождите. Это может занять несколько минут.
+              Подготавливаем сохранённую визуализацию. Это займёт несколько секунд.
             </p>
             <div className={styles.progressBar} style={{ width: '400px', height: '8px', background: 'rgba(90, 111, 214, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
               <div 
@@ -602,70 +596,22 @@ export default function ProjectAnalysis() {
 
   return (
     <div className={styles.container}>
-      {/* Control Bar */}
-      <div className={styles.controlBar}>
-        <button onClick={() => navigate('/projects')} className={styles.backBtn}>
-          ← Назад
-        </button>
-        <div className={styles.titleContainer}>
-          <h1 className={styles.title}>
-            {project?.name || `Проект #${id}`}
-            {isDemoProject && (
-              <span style={{
-                marginLeft: '12px',
-                background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                color: 'white',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: '0 2px 8px rgba(102, 126, 234, 0.4)'
-              }}>
-                🎮 DEMO
-              </span>
-            )}
-          </h1>
-          {project?.description && (
-            <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>
-              {project.description}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={handleDeleteProject}
-          className={styles.deleteBtn}
-          disabled={deleting}
-        >
-          {deleting ? 'Удаление...' : 'Удалить проект'}
-        </button>
-      </div>
+      <GraphHeader
+        title="Project Architecture"
+        nodesCount={nodesCount}
+        edgesCount={edgesCount}
+        requirementsCount={requirementsCount}
+        endpointsCount={endpointsCount}
+        onClose={() => navigate('/projects')}
+        closeLabel="Close"
+        onDelete={handleDeleteProject}
+        deleteLabel={deleting ? 'Deleting...' : 'Delete project'}
+        deleteIcon={trashBinIcon}
+        deleting={deleting}
+      />
 
       {deleteError && (
         <div className={styles.errorBanner}>{deleteError}</div>
-      )}
-
-      {/* Info Panel */}
-      {(requirements.length > 0 || Object.keys(endpoints).length > 0 || architectureData.length > 0) && (
-        <div className={styles.infoBar}>
-          {requirements.length > 0 && (
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>📦 Зависимости:</span>
-              <span className={styles.infoValue}>{requirements.length}</span>
-            </div>
-          )}
-          {Object.keys(endpoints).length > 0 && (
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>🔗 Эндпоинты:</span>
-              <span className={styles.infoValue}>{Object.keys(endpoints).length}</span>
-            </div>
-          )}
-          {architectureData.length > 0 && (
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>🏗️ Компоненты:</span>
-              <span className={styles.infoValue}>{architectureData.length}</span>
-            </div>
-          )}
-        </div>
       )}
 
       {/* Graph */}
@@ -710,7 +656,7 @@ export default function ProjectAnalysis() {
           </ReactFlow>
         ) : (
           <div className={styles.loadingState}>
-            <div className={styles.spinner} />
+            <div className={styles.loadingSpinner} />
             <p>Построение графа архитектуры...</p>
           </div>
         )}

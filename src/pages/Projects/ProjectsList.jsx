@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { homeAPI, projectsAPI } from '../../services/api';
 import styles from './Projects.module.css';
+import trashBinIcon from '../../assets/img/trash-bin.png';
 
 export default function ProjectsList() {
   const [projects, setProjects] = useState([]);
@@ -10,6 +11,7 @@ export default function ProjectsList() {
   const [error, setError] = useState('');
   const [userName, setUserName] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+  const [menuOpenId, setMenuOpenId] = useState(null);
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -45,6 +47,14 @@ export default function ProjectsList() {
     logout();
     navigate('/login');
   };
+
+  useEffect(() => {
+    if (!menuOpenId) return;
+
+    const handleClickOutside = () => setMenuOpenId(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [menuOpenId]);
 
   const handleCreateProject = () => {
     navigate('/projects/new');
@@ -149,6 +159,7 @@ export default function ProjectsList() {
                 <div 
                   key={project.id} 
                   className={styles.projectCard}
+                  style={menuOpenId === project.id ? { zIndex: 30 } : undefined}
                 >
                   <div className={styles.projectImage}>
                     {project.picture_url ? (
@@ -168,18 +179,48 @@ export default function ProjectsList() {
                     >
                       <span className={styles.actionBtnLabel}>Просмотр</span>
                     </Link>
-                    <button
-                      type="button"
-                      className={`${styles.actionBtn} ${styles.dangerBtn} ${styles.deleteCompact}`}
-                      onClick={() => handleDeleteProject(project.id)}
-                      disabled={deletingId === project.id}
-                      aria-label="Удалить проект"
+                    <div 
+                      className={styles.moreMenuWrapper}
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <span className={styles.trashIcon} aria-hidden="true">🗑️</span>
-                      <span className={styles.actionBtnLabel}>
-                        {deletingId === project.id ? '...' : ''}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        className={styles.moreBtn}
+                        aria-haspopup="menu"
+                        aria-expanded={menuOpenId === project.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuOpenId(menuOpenId === project.id ? null : project.id);
+                        }}
+                      >
+                        ⋯
+                      </button>
+                      {menuOpenId === project.id && (
+                        <div className={styles.moreMenu} role="menu">
+                          <button
+                            type="button"
+                            className={styles.moreMenuItem}
+                            role="menuitem"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(null);
+                              handleDeleteProject(project.id);
+                            }}
+                            disabled={deletingId === project.id}
+                          >
+                            <img
+                              src={trashBinIcon}
+                              alt=""
+                              aria-hidden="true"
+                              className={styles.trashIcon}
+                            />
+                            <span className={styles.moreMenuLabel}>
+                              {deletingId === project.id ? 'Удаление...' : 'Удалить'}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

@@ -11,9 +11,11 @@ import { SmartStepEdge } from '@tisoap/react-flow-smart-edge'; // npm install @t
 import { projectsAPI } from '../../services/api';
 import grpcClient from '../../services/grpcClient';
 import buildGraph from '../../utils/buildGraph';
+import { layoutWithElk } from '../../utils/layoutWithElk';
 import { useAuth } from '../../context/AuthContext';
 import styles from './Projects.module.css';
 import analysisStyles from './ProjectAnalysis.module.css';
+import GraphHeader from './GraphHeader';
 
 const edgeTypes = {
   smart: SmartStepEdge,
@@ -382,10 +384,20 @@ export default function NewProject() {
       serviceColors
     });
 
-    console.log('✅ Граф отрисован (итог):', summary);
+    console.log('✅ Граф отрисован (итог, до layout):', summary);
 
-    setNodes(builtNodes);
-    setEdges(builtEdges);
+    // Асинхронно применяем ELK-лэйаут
+    layoutWithElk(builtNodes, builtEdges, 'RIGHT')
+      .then(({ nodes: layoutNodes, edges: layoutEdges }) => {
+        setNodes(layoutNodes);
+        setEdges(layoutEdges);
+      })
+      .catch((err) => {
+        console.error('ELK layout error:', err);
+        // fallback: если ELK сломался, показываем как было
+        setNodes(builtNodes);
+        setEdges(builtEdges);
+      });
   }, [architectureData, endpoints, setNodes, setEdges]);
 
   return (
@@ -490,45 +502,33 @@ export default function NewProject() {
 
       {/* Граф в реальном времени на весь экран */}
       {showGraph && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#f5f5f5', zIndex: 1000 }}>
-          <div style={{ padding: '16px 20px', background: 'white', borderBottom: '2px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#111' }}>📊 Project Architecture</h2>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                Nodes: {nodes.length} | Edges: {edges.length} | Requirements: {requirements.length} | Endpoints: {Object.keys(endpoints).length}
-              </div>
+        <div className={analysisStyles.graphOverlay}>
+          <GraphHeader
+            title="Project Architecture"
+            nodesCount={nodes.length}
+            edgesCount={edges.length}
+            requirementsCount={requirements.length}
+            endpointsCount={Object.keys(endpoints).length}
+            onClose={() => { setShowGraph(false); navigate('/projects'); }}
+            closeLabel="Close"
+          />
+          <div className={analysisStyles.graphBody}>
+            <div className={analysisStyles.flowWrapper}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                edgeTypes={edgeTypes}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                minZoom={0.05}
+                maxZoom={2}
+                fitView
+                fitViewOptions={{ padding: 0.15 }}
+              >
+                <Background color="#d1d5db" gap={20} />
+                <Controls />
+              </ReactFlow>
             </div>
-            <button 
-              onClick={() => { setShowGraph(false); navigate('/projects'); }}
-              style={{ 
-                background: '#ef4444', 
-                color: 'white', 
-                border: 'none', 
-                padding: '8px 16px', 
-                borderRadius: '6px', 
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600'
-              }}
-            >
-              Close
-            </button>
-          </div>
-          <div style={{ height: 'calc(100vh - 80px)' }}>
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              edgeTypes={edgeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              minZoom={0.05}
-              maxZoom={2}
-              fitView
-              fitViewOptions={{ padding: 0.15 }}
-            >
-              <Background color="#d1d5db" gap={20} />
-              <Controls />
-            </ReactFlow>
           </div>
         </div>
       )}
