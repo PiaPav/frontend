@@ -42,6 +42,7 @@ export default function NewProject() {
   const [architectureData, setArchitectureData] = useState([]);
   const [showGraph, setShowGraph] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
+  const [depsCollapsed, setDepsCollapsed] = useState(false);
   const architectureDataRef = useRef([]);
   const streamControllerRef = useRef(null);
   const isSavingRef = useRef(false);
@@ -117,6 +118,12 @@ export default function NewProject() {
   useEffect(() => {
     architectureDataRef.current = architectureData;
   }, [architectureData]);
+
+  useEffect(() => {
+    if (showGraph) {
+      setDepsCollapsed(false);
+    }
+  }, [showGraph]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -421,6 +428,15 @@ export default function NewProject() {
       });
   }, [architectureData, endpoints, setNodes, setEdges]);
 
+  const requirementsCount = requirements.length;
+  const endpointsCount = Object.keys(endpoints).length;
+  const dependenciesSubtitle =
+    requirementsCount > 0
+      ? `${requirementsCount} package${requirementsCount === 1 ? '' : 's'}`
+      : analysisStatus !== 'completed'
+      ? 'Waiting for stream...'
+      : 'No dependencies found';
+
   return (
     <div className={styles.container}>
       {/* Форма создания проекта */}
@@ -533,27 +549,67 @@ export default function NewProject() {
             title="Project Architecture"
             nodesCount={nodes.length}
             edgesCount={edges.length}
-            requirementsCount={requirements.length}
-            endpointsCount={Object.keys(endpoints).length}
+            requirementsCount={requirementsCount}
+            endpointsCount={endpointsCount}
             onClose={() => { setShowGraph(false); navigate('/projects'); }}
             closeLabel="Close"
           />
           <div className={analysisStyles.graphBody}>
-            <div className={analysisStyles.flowWrapper}>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                edgeTypes={edgeTypes}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                minZoom={0.05}
-                maxZoom={2}
-                fitView
-                fitViewOptions={{ padding: 0.15 }}
+            <div className={analysisStyles.visualLayout}>
+              <div className={analysisStyles.flowWrapper}>
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  edgeTypes={edgeTypes}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  minZoom={0.05}
+                  maxZoom={2}
+                  fitView
+                  fitViewOptions={{ padding: 0.15 }}
+                >
+                  <Background color="#d1d5db" gap={20} />
+                  <Controls />
+                </ReactFlow>
+              </div>
+
+              <aside
+                className={`${analysisStyles.dependenciesPanel} ${depsCollapsed ? analysisStyles.dependenciesCollapsed : ''}`}
+                aria-expanded={!depsCollapsed}
               >
-                <Background color="#d1d5db" gap={20} />
-                <Controls />
-              </ReactFlow>
+                <div className={analysisStyles.dependenciesHeader}>
+                  <div className={analysisStyles.dependenciesHeaderText}>
+                    <div className={analysisStyles.dependenciesTitle}>Dependencies</div>
+                    <div className={analysisStyles.dependenciesSubtitle}>{dependenciesSubtitle}</div>
+                  </div>
+                  <div className={analysisStyles.dependenciesHeaderActions}>
+                    <div className={analysisStyles.dependenciesBadge}>{requirementsCount}</div>
+                    <button
+                      type="button"
+                      className={analysisStyles.dependenciesToggle}
+                      onClick={() => setDepsCollapsed((prev) => !prev)}
+                      aria-label={depsCollapsed ? 'Expand dependencies' : 'Collapse dependencies'}
+                    >
+                      {depsCollapsed ? '>' : '<'}
+                    </button>
+                  </div>
+                </div>
+
+                {!depsCollapsed && (
+                  <div className={analysisStyles.dependenciesList}>
+                    {requirementsCount > 0 ? (
+                      requirements.map((req, idx) => (
+                        <div key={`${req}-${idx}`} className={analysisStyles.requirementItem}>
+                          <span className={analysisStyles.reqBullet} aria-hidden="true" />
+                          <span className={analysisStyles.reqName}>{req}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className={analysisStyles.emptyState}>Dependencies will appear once received.</div>
+                    )}
+                  </div>
+                )}
+              </aside>
             </div>
           </div>
         </div>

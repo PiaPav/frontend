@@ -47,6 +47,7 @@ export default function ProjectAnalysis() {
   const [pinnedSourceId, setPinnedSourceId] = useState(null);
   const [hoverNodeId, setHoverNodeId] = useState(null);
   const [hoverEdgeId, setHoverEdgeId] = useState(null);
+  const [depsCollapsed, setDepsCollapsed] = useState(false);
   
   // ðöð░ð¢ð¢ÐïðÁ ð┐ÐÇð¥ðÁð║Ðéð░ Ðü ÐüðÁÐÇð▓ðÁÐÇð░
   const [project, setProject] = useState(null);
@@ -84,6 +85,7 @@ export default function ProjectAnalysis() {
     setHoverNodeId(null);
     setHoverEdgeId(null);
     setLoading(true);
+    setDepsCollapsed(false);
   }, [id]);
 
   useEffect(() => {
@@ -466,6 +468,16 @@ export default function ProjectAnalysis() {
   const requirementsCount = requirements.length;
   const endpointsCount = Object.keys(endpoints || {}).length;
 
+  const dependenciesSubtitle = useMemo(() => {
+    if (requirementsCount > 0) {
+      return `${requirementsCount} package${requirementsCount === 1 ? '' : 's'}`;
+    }
+    if (!streamComplete) {
+      return 'Waiting for stream...';
+    }
+    return 'No dependencies found';
+  }, [requirementsCount, streamComplete]);
+
   // ð×Ðéð¥ð▒ÐÇð░ðÂðÁð¢ð©ðÁ ÐüÐéð░ÐéÐâÐüð░ ðÀð░ð│ÐÇÐâðÀð║ð© ð©ð╗ð© ð¥Ðêð©ð▒ð║ð©
   if (loading) {
     return (
@@ -595,65 +607,105 @@ export default function ProjectAnalysis() {
         <div className={styles.errorBanner}>{deleteError}</div>
       )}
 
-      {/* Graph */}
-      <div className={styles.flowWrapper}>
-        {nodes.length > 0 ? (
-          <ReactFlow
-            nodes={nodes}
-            edges={visibleEdges}
-            edgeTypes={edgeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onNodeClick={onNodeClick}
-            onNodeMouseEnter={onNodeMouseEnter}
-            onNodeMouseLeave={onNodeMouseLeave}
-            onEdgeMouseEnter={onEdgeMouseEnter}
-            onEdgeMouseLeave={onEdgeMouseLeave}
-            onPaneClick={onPaneClick}
-            fitView={isFirstLoad}
-            fitViewOptions={fitViewOptions}
-            minZoom={0.1}
-            maxZoom={2}
-            defaultViewport={defaultViewport}
-            proOptions={proOptions}
-            defaultEdgeOptions={defaultEdgeOptions}
-            onlyRenderVisibleElements
-            nodesDraggable={true}
-            nodesConnectable={false}
-            elementsSelectable={true}
-            panOnDrag={true}
-            panOnScroll={true}
-            zoomOnScroll={true}
-            zoomOnPinch={true}
-            zoomOnDoubleClick={false}
-            selectionOnDrag={false}
-            panActivationKeyCode={null}
-            preventScrolling={true}
-            attributionPosition="bottom-right"
-            nodeOrigin={[0.5, 0.5]}
-            selectNodesOnDrag={false}
-          >
-            <Background color="#f0f0f0" gap={20} size={1} />
-            <Controls className={styles.controls} />
-          </ReactFlow>
-        ) : (
-          <div className={styles.loadingState}>
-            <div className={styles.loadingSpinner} />
-            <p>ðƒð¥ÐüÐéÐÇð¥ðÁð¢ð©ðÁ ð│ÐÇð░Ðäð░ ð░ÐÇÐàð©ÐéðÁð║ÐéÐâÐÇÐï...</p>
+      <div className={styles.visualLayout}>
+        {/* Graph */}
+        <div className={styles.flowWrapper}>
+          {nodes.length > 0 ? (
+            <ReactFlow
+              nodes={nodes}
+              edges={visibleEdges}
+              edgeTypes={edgeTypes}
+              onNodesChange={onNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onNodeClick={onNodeClick}
+              onNodeMouseEnter={onNodeMouseEnter}
+              onNodeMouseLeave={onNodeMouseLeave}
+              onEdgeMouseEnter={onEdgeMouseEnter}
+              onEdgeMouseLeave={onEdgeMouseLeave}
+              onPaneClick={onPaneClick}
+              fitView={isFirstLoad}
+              fitViewOptions={fitViewOptions}
+              minZoom={0.1}
+              maxZoom={2}
+              defaultViewport={defaultViewport}
+              proOptions={proOptions}
+              defaultEdgeOptions={defaultEdgeOptions}
+              onlyRenderVisibleElements
+              nodesDraggable={true}
+              nodesConnectable={false}
+              elementsSelectable={true}
+              panOnDrag={true}
+              panOnScroll={true}
+              zoomOnScroll={true}
+              zoomOnPinch={true}
+              zoomOnDoubleClick={false}
+              selectionOnDrag={false}
+              panActivationKeyCode={null}
+              preventScrolling={true}
+              attributionPosition="bottom-right"
+              nodeOrigin={[0.5, 0.5]}
+              selectNodesOnDrag={false}
+            >
+              <Background color="#f0f0f0" gap={20} size={1} />
+              <Controls className={styles.controls} />
+            </ReactFlow>
+          ) : (
+            <div className={styles.loadingState}>
+              <div className={styles.loadingSpinner} />
+              <p>ðƒð¥ÐüÐéÐÇð¥ðÁð¢ð©ðÁ ð│ÐÇð░Ðäð░ ð░ÐÇÐàð©ÐéðÁð║ÐéÐâÐÇÐï...</p>
+            </div>
+          )}
+        </div>
+
+        {/* Dependencies Sidebar */}
+        <aside
+          className={`${styles.dependenciesPanel} ${depsCollapsed ? styles.dependenciesCollapsed : ''}`}
+          aria-expanded={!depsCollapsed}
+        >
+          <div className={styles.dependenciesHeader}>
+            <div className={styles.dependenciesHeaderText}>
+              <div className={styles.dependenciesTitle}>Dependencies</div>
+              <div className={styles.dependenciesSubtitle}>{dependenciesSubtitle}</div>
+            </div>
+            <div className={styles.dependenciesHeaderActions}>
+              <div className={styles.dependenciesBadge}>{requirementsCount}</div>
+              <button
+                type="button"
+                className={styles.dependenciesToggle}
+                onClick={() => setDepsCollapsed((prev) => !prev)}
+                aria-label={depsCollapsed ? 'Expand dependencies' : 'Collapse dependencies'}
+              >
+                {depsCollapsed ? '>' : '<'}
+              </button>
+            </div>
+          </div>
+          {!depsCollapsed && (
+            <div className={styles.dependenciesList}>
+              {requirementsCount > 0 ? (
+                requirements.map((req, idx) => (
+                  <div key={`${req}-${idx}`} className={styles.requirementItem}>
+                    <span className={styles.reqBullet} aria-hidden="true" />
+                    <span className={styles.reqName}>{req}</span>
+                  </div>
+                ))
+              ) : (
+                <div className={styles.emptyState}>Dependencies will appear once received.</div>
+              )}
+            </div>
+          )}
+        </aside>
+
+        {/* Node Details Tooltip */}
+        {selectedNode && (
+          <div className={styles.tooltip}>
+            <button className={styles.tooltipClose} onClick={() => setSelectedNode(null)}>
+              ├ù
+            </button>
+            <h3>{selectedNode.data.label}</h3>
+            <p><strong>ID:</strong> {selectedNode.id}</p>
           </div>
         )}
       </div>
-
-      {/* Node Details Tooltip */}
-      {selectedNode && (
-        <div className={styles.tooltip}>
-          <button className={styles.tooltipClose} onClick={() => setSelectedNode(null)}>
-            ├ù
-          </button>
-          <h3>{selectedNode.data.label}</h3>
-          <p><strong>ID:</strong> {selectedNode.id}</p>
-        </div>
-      )}
     </div>
   );
 }
