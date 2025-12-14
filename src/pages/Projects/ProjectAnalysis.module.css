@@ -3,7 +3,7 @@
 .container {
   width: 100%;
   height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf2 100%);
+  background: var(--page-gradient);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -12,7 +12,7 @@
 .graphOverlay {
   position: fixed;
   inset: 0;
-  background: #f5f5f5;
+  background: var(--page-gradient);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -20,8 +20,8 @@
 
 .graphHeader {
   padding: 16px 20px;
-  background: white;
-  border-bottom: 2px solid #e5e7eb;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border-strong);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -39,12 +39,12 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: #111827;
+  color: var(--text-primary);
 }
 
 .graphMeta {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-subtle);
 }
 
 .renderStatusOverlay {
@@ -65,18 +65,18 @@
   padding: 4px 10px;
   font-size: 12px;
   font-weight: 700;
-  color: #15803d;
-  background: #ecfdf3;
-  border: 1px solid #bbf7d0;
+  color: var(--success);
+  background: var(--success-soft);
+  border: 1px solid color-mix(in srgb, var(--success) 35%, transparent);
   border-radius: 9999px;
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
+  box-shadow: 0 4px 12px var(--shadow-soft);
 }
 
 .renderDoneDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--success);
   box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
 }
 
@@ -87,19 +87,19 @@
   padding: 6px 12px;
   font-size: 13px;
   font-weight: 700;
-  color: #9a3412;
-  background: #fef3c7;
-  border: 1px solid #facc15;
+  color: var(--warning-strong);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
   border-radius: 10px;
-  box-shadow: 0 6px 16px rgba(234, 179, 8, 0.18);
+  box-shadow: 0 6px 16px var(--shadow-soft);
 }
 
 .renderProgressDot {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #f97316;
-  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.18);
+  background: var(--warning);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 30%, transparent);
 }
 
 .graphActions {
@@ -116,9 +116,9 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #f8fafc;
-  color: #111827;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--text-primary);
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
@@ -129,7 +129,7 @@
 }
 
 .moreBtn:hover {
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   transform: translateY(-1px);
 }
@@ -139,8 +139,8 @@
   top: 44px;
   right: 0;
   min-width: 180px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   border-radius: 12px;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   padding: 8px;
@@ -148,7 +148,7 @@
 }
 
 .closeBtn {
-  background: #ef4444;
+  background: var(--danger);
   color: white;
   border: none;
   padding: 8px 16px;
@@ -175,6 +175,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: var(--graph-surface);
 }
 
 /* Animation for new nodes appearing */
@@ -197,8 +198,8 @@
 .layerHeader {
   position: relative;
   height: 60px;
-  background: white;
-  border-bottom: 2px solid #e2e8f0;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
   display: flex;
   align-items: center;
   padding: 0 20px;
@@ -210,19 +211,19 @@
   position: absolute;
   font-size: 16px;
   font-weight: 700;
-  color: #2d3748;
+  color: var(--text-primary);
   white-space: nowrap;
   letter-spacing: 0.3px;
 }
 
 /* Control Bar */
 .controlBar {
-  background: white;
+  background: var(--surface);
   padding: 16px 24px;
   display: flex;
   align-items: center;
   gap: 20px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   z-index: 5;
 }
 
@@ -251,15 +252,15 @@
   padding: 10px 16px;
   min-width: 44px;
   min-height: 44px;
-  background: #fff1f2;
-  color: #b91c1c;
-  border: 1px solid #fecdd3;
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 8px 18px rgba(248, 113, 113, 0.18);
+  box-shadow: 0 8px 18px var(--shadow-soft);
 }
 
 .deleteIcon {
@@ -270,11 +271,11 @@
 }
 
 .deleteBtn:hover {
-  background: #ffe4e6;
-  border-color: #fca5a5;
-  color: #991b1b;
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  border-color: var(--danger);
+  color: var(--danger-strong);
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(248, 113, 113, 0.28);
+  box-shadow: 0 10px 22px var(--shadow-strong);
 }
 
 .deleteBtn:disabled {
@@ -295,7 +296,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: #2d3748;
+  color: var(--text-primary);
 }
 
 .statusBadge {
@@ -315,11 +316,11 @@
 
 /* Info Bar */
 .infoBar {
-  background: white;
+  background: var(--surface);
   padding: 12px 24px;
   display: flex;
   gap: 30px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
@@ -331,7 +332,7 @@
 
 .infoLabel {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-subtle);
   font-weight: 600;
 }
 
@@ -340,21 +341,21 @@
   color: #5A6FD6;
   font-weight: 700;
   padding: 4px 10px;
-  background: #f1f5f9;
+  background: var(--surface-raised);
   border-radius: 6px;
 }
 
 .errorBanner {
   margin: 12px 24px 0 24px;
-  background: #fff1f2;
-  color: #b91c1c;
-  border: 1px solid #fecdd3;
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
   border-left: 4px solid #f43f5e;
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 10px 22px rgba(244, 63, 94, 0.08);
+  box-shadow: 0 10px 22px var(--shadow-soft);
 }
 
 /* Flow Wrapper */
@@ -362,7 +363,7 @@
   flex: 1;
   min-height: 0;
   position: relative;
-  background: #fafbfc;
+  background: var(--graph-surface);
   /* GPU ускорение */
   transform: translateZ(0);
   will-change: transform;
@@ -453,10 +454,10 @@
 
 .dependenciesPanel {
   width: 320px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 255, 0.9));
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: var(--graph-surface);
+  border: 1px solid var(--graph-node-border);
   border-radius: 16px;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 18px 40px var(--shadow-soft);
   backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
@@ -496,8 +497,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid #e2e8f0;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.05), rgba(90, 111, 214, 0.1));
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--graph-node-bg) 60%, transparent), color-mix(in srgb, var(--primary) 15%, transparent));
 }
 
 .dependenciesHeaderText {
@@ -516,14 +517,14 @@
   margin: 0;
   font-size: 15px;
   font-weight: 800;
-  color: #1f2937;
+  color: var(--text-primary);
   letter-spacing: 0.2px;
 }
 
 .dependenciesSubtitle {
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-subtle);
 }
 
 .dependenciesBadge {
@@ -546,8 +547,8 @@
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #111827 0%, #1f2937 35%, #0b1220 100%);
-  color: #e5e7eb;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-primary) 35%, #0b1220 100%);
+  color: var(--border-strong);
   font-weight: 800;
   font-size: 18px;
   line-height: 1;
@@ -595,7 +596,7 @@
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(236, 240, 252, 0.9));
+  background: var(--graph-surface);
 }
 
 .dependenciesList::-webkit-scrollbar {
@@ -620,17 +621,17 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: white;
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  background: var(--graph-node-bg);
+  border: 1px solid var(--graph-node-border);
   border-radius: 12px;
   transition: all 0.2s ease;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 24px var(--shadow-soft);
 }
 
 .requirementItem:hover {
-  border-color: #5A6FD6;
+  border-color: var(--primary);
   transform: translateX(2px) translateY(-1px);
-  box-shadow: 0 14px 28px rgba(90, 111, 214, 0.16);
+  box-shadow: 0 14px 28px var(--shadow-strong);
 }
 
 .reqBullet {
@@ -644,7 +645,7 @@
 
 .reqName {
   font-size: 13px;
-  color: #1f2937;
+  color: var(--text-primary);
   font-weight: 600;
   font-family: 'Courier New', monospace;
   word-break: break-word;
@@ -652,11 +653,11 @@
 
 .emptyState {
   text-align: center;
-  color: #94a3b8;
+  color: var(--text-subtle);
   font-size: 13px;
   padding: 30px 10px;
-  background: white;
-  border: 1px dashed #cbd5e1;
+  background: var(--graph-node-bg);
+  border: 1px dashed var(--graph-node-border);
   border-radius: 10px;
 }
 
@@ -675,7 +676,7 @@
   margin: 0;
   font-size: 24px;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--text-primary);
 }
 
 .loadingSpinner {
@@ -694,7 +695,7 @@
 .loadingState p {
   font-size: 16px;
   font-weight: 400;
-  color: #718096;
+  color: var(--text-subtle);
   margin: 0;
 }
 
@@ -777,36 +778,41 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 10px 22px var(--shadow-soft);
 }
 
 .endpointMethod {
   padding: 6px 12px;
   font-weight: 700;
   font-size: 11px;
-  color: white;
+  color: var(--text-inverse);
   letter-spacing: 0.5px;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px var(--shadow-soft);
   transition: all 0.2s ease;
 }
 
 .endpointMethod:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px var(--shadow-strong);
 }
 
 .endpointPath {
   font-size: 11px;
   font-family: 'Courier New', monospace;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
   word-break: break-all;
   line-height: 1.3;
 }
 
 .endpointKey {
   font-size: 10px;
-  color: #64748b;
+  color: var(--text-subtle);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -850,10 +856,10 @@
   position: absolute;
   top: 120px;
   right: 360px;
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px var(--shadow-soft);
   z-index: 1000;
   min-width: 250px;
   animation: slideIn 0.3s ease;
@@ -876,11 +882,11 @@
   right: 10px;
   width: 28px;
   height: 28px;
-  background: #f1f5f9;
+  background: var(--surface-raised);
   border: none;
   border-radius: 50%;
   font-size: 18px;
-  color: #64748b;
+  color: var(--text-subtle);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -889,32 +895,32 @@
 }
 
 .tooltipClose:hover {
-  background: #e2e8f0;
-  color: #1e293b;
+  background: var(--surface);
+  color: var(--text-primary);
 }
 
 .tooltip h3 {
   margin: 0 0 12px 0;
-  color: #1e293b;
+  color: var(--text-primary);
   font-size: 16px;
 }
 
 .tooltip p {
   margin: 6px 0;
-  color: #64748b;
+  color: var(--text-subtle);
   font-size: 13px;
 }
 
 .tooltip strong {
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 /* Controls */
 .controls {
-  background: white !important;
-  border: 1px solid #e2e8f0 !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 2px 8px var(--shadow-soft) !important;
 }
 
 /* Responsive */

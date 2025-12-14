@@ -98,7 +98,7 @@ export default function ProjectsList() {
         <div style={{ 
           textAlign: 'center', 
           padding: '100px 20px',
-          color: 'white',
+          color: 'var(--text-primary)',
           fontSize: '20px',
           fontWeight: '600'
         }}>
@@ -149,11 +149,11 @@ export default function ProjectsList() {
           <div style={{ 
             textAlign: 'center', 
             padding: '100px 20px',
-            background: 'rgba(255, 255, 255, 0.9)',
+            background: 'var(--glass-strong)',
             borderRadius: '20px',
-          color: '#666'
+            color: 'var(--text-muted)'
           }}>
-            <h2 style={{ marginBottom: '10px', color: '#1a1a1a' }}>{t('projects.list.emptyTitle', 'Проекты не найдены')}</h2>
+            <h2 style={{ marginBottom: '10px', color: 'var(--text-primary)' }}>{t('projects.list.emptyTitle', 'Проекты не найдены')}</h2>
             <p style={{ margin: 0 }}>{t('projects.list.emptySubtitle', 'Создайте новый проект, чтобы начать.')}</p>
           </div>
         ) : (
@@ -239,4 +239,3 @@ export default function ProjectsList() {
     </div>
   );
 }
-

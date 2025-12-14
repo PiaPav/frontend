@@ -3,15 +3,16 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--page-gradient);
     padding: 20px;
 }
 
 .formWrapper {
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--glass-strong);
     backdrop-filter: blur(10px);
     border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 20px 60px var(--shadow-strong);
+    border: 1px solid var(--glass-border);
     padding: 40px;
     width: 100%;
     max-width: 450px;
@@ -39,9 +40,9 @@
     text-align: center;
     font-size: 32px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: var(--text-primary);
     margin: 0 0 10px 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--primary-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -56,33 +57,33 @@
 .inputGroup label {
     font-size: 14px;
     font-weight: 600;
-    color: #444;
+    color: var(--text-secondary);
     margin-left: 4px;
 }
 
 .input {
     padding: 14px 16px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--border);
     border-radius: 12px;
     font-size: 15px;
     transition: all 0.3s ease;
-    background: white;
-    color: #1a1a1a;
+    background: var(--surface);
+    color: var(--text-primary);
 }
 
 .input:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
 }
 
 .input:disabled {
-    background: #f5f5f5;
+    background: var(--input-disabled);
     cursor: not-allowed;
 }
 
 .input::placeholder {
-    color: #aaa;
+    color: var(--text-subtle);
 }
 
 .passwordWrapper {
@@ -100,9 +101,9 @@
     position: absolute;
     right: 10px;
     padding: 8px 12px;
-    background: #f3f1ff;
-    border: 1px solid #e2defa;
-    color: #5b4abf;
+    background: var(--primary-soft);
+    border: 1px solid var(--border);
+    color: var(--primary);
     border-radius: 10px;
     font-size: 13px;
     font-weight: 700;
@@ -111,8 +112,8 @@
 }
 
 .togglePassword:hover:not(:disabled) {
-    background: #e8e5ff;
-    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.15);
+    background: var(--surface-raised);
+    box-shadow: 0 10px 20px var(--shadow-soft);
 }
 
 .togglePassword:disabled {
@@ -121,17 +122,17 @@
 }
 
 .togglePassword:focus-visible {
-    outline: 2px solid #667eea;
+    outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
 
 .error {
-    background: #fee;
-    color: #c33;
+    background: var(--danger-soft);
+    color: var(--danger-strong);
     padding: 12px 16px;
     border-radius: 10px;
     font-size: 14px;
-    border-left: 4px solid #c33;
+    border-left: 4px solid var(--danger-strong);
     margin: 0;
     animation: shake 0.3s ease;
 }
@@ -144,8 +145,8 @@
 
 .submitBtn {
     padding: 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--primary-gradient);
+    color: var(--text-inverse);
     border: none;
     border-radius: 12px;
     font-size: 16px;
@@ -157,7 +158,7 @@
 
 .submitBtn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 10px 25px var(--shadow-strong);
 }
 
 .submitBtn:active:not(:disabled) {
@@ -172,19 +173,19 @@
 .switch {
     text-align: center;
     font-size: 14px;
-    color: #666;
+    color: var(--text-muted);
     margin: 10px 0 0 0;
 }
 
 .switch a {
-    color: #667eea;
+    color: var(--primary);
     text-decoration: none;
     font-weight: 600;
     transition: color 0.2s ease;
 }
 
 .switch a:hover {
-    color: #764ba2;
+    color: var(--primary-2);
     text-decoration: underline;
 }
 

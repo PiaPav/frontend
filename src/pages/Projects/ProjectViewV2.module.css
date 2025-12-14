@@ -40,14 +40,14 @@
 .projectInfo h1 {
   margin: 0;
   font-size: 20px;
-  color: #2d3748;
+  color: var(--text-primary);
   font-weight: 700;
 }
 
 .projectInfo p {
   margin: 4px 0 0;
   font-size: 13px;
-  color: #718096;
+  color: var(--text-subtle);
 }
 
 .stats {
@@ -72,7 +72,7 @@
 
 .statLabel {
   font-size: 11px;
-  color: #718096;
+  color: var(--text-subtle);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -102,7 +102,7 @@
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: #2d3748;
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -139,7 +139,7 @@
 .folderName {
   font-size: 14px;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--text-primary);
 }
 
 .folderChildren {
@@ -174,7 +174,7 @@
 .fileName {
   flex: 1;
   font-size: 13px;
-  color: #2d3748;
+  color: var(--text-primary);
 }
 
 .fileLines {

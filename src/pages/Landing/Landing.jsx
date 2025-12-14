@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import styles from './Landing.module.css';
 import { Link, useNavigate } from 'react-router-dom';
 import logoImage from '../../assets/img/logo/deep-learning.png';
 import { useI18n } from '../../context/I18nContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const translations = {
     ru: {
@@ -189,31 +190,14 @@ export default function Landing() {
     const [activeFaq, setActiveFaq] = useState(null);
     const [showTrialModal, setShowTrialModal] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [theme, setTheme] = useState('light');
     const navigate = useNavigate();
     const { language: lang, setLanguage } = useI18n();
+    const { theme, toggleTheme } = useTheme();
 
     const t = translations[lang];
     const howItWorksSteps = t.howItWorksSteps;
     const faqs = t.faqs;
     const isDark = theme === 'dark';
-
-    useEffect(() => {
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const applyPreference = (eventOrMedia) => {
-            setTheme(eventOrMedia.matches ? 'dark' : 'light');
-        };
-
-        applyPreference(mediaQuery);
-
-        if (mediaQuery.addEventListener) {
-            mediaQuery.addEventListener('change', applyPreference);
-            return () => mediaQuery.removeEventListener('change', applyPreference);
-        }
-
-        mediaQuery.addListener(applyPreference);
-        return () => mediaQuery.removeListener(applyPreference);
-    }, []);
 
     const scrollToSection = (id) => {
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -239,7 +223,7 @@ export default function Landing() {
         <button
             type="button"
             className={`${styles.themeToggle} ${isDark ? styles.themeToggleActive : ''} ${className}`}
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            onClick={toggleTheme}
             aria-pressed={isDark}
             aria-label={isDark ? t.theme.toLight : t.theme.toDark}
             title={isDark ? t.theme.toLight : t.theme.toDark}

@@ -3,12 +3,34 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { accountAPI } from '../../services/api';
 import { useI18n } from '../../context/I18nContext';
+import { useTheme } from '../../context/ThemeContext';
 import styles from './Settings.module.css';
+
+const SunIcon = () => (
+  <svg className={styles.themeGlyph} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="5" />
+    <line x1="12" y1="1" x2="12" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="23" />
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+    <line x1="1" y1="12" x2="3" y2="12" />
+    <line x1="21" y1="12" x2="23" y2="12" />
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+  </svg>
+);
+
+const MoonIcon = () => (
+  <svg className={styles.themeGlyph} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+  </svg>
+);
 
 export default function Settings() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const { t, language, setLanguage, availableLanguages } = useI18n();
+  const { theme, toggleTheme } = useTheme();
 
   const [accountData, setAccountData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,6 +59,7 @@ export default function Settings() {
   const deletePhrase = accountLogin
     ? t('settings.delete.phrase', 'удалить мой аккаунт {{login}}', { login: accountLogin })
     : '';
+  const isDark = theme === 'dark';
 
   useEffect(() => {
     loadAccountData();
@@ -296,6 +319,27 @@ export default function Settings() {
                 {code.toUpperCase()} · {t(`common.lang.${code}`, code.toUpperCase())}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className={styles.section}>
+          <div className={styles.themeRow}>
+            <div>
+              <h2>{t('settings.theme.title', 'Тема')}</h2>
+              <p className={styles.langHint}>{t('settings.theme.subtitle', 'Выберите светлую или тёмную тему')}</p>
+            </div>
+            <button
+              type="button"
+              className={`${styles.themeToggle} ${isDark ? styles.themeToggleActive : ''}`}
+              onClick={toggleTheme}
+              aria-pressed={isDark}
+            >
+              {isDark ? <MoonIcon /> : <SunIcon />}
+              <span className={styles.themeMeta}>
+                <span className={styles.themeLabel}>{t('settings.theme.label', 'Текущая тема')}</span>
+                <span className={styles.themeState}>{isDark ? t('settings.theme.dark', 'Тёмная') : t('settings.theme.light', 'Светлая')}</span>
+              </span>
+            </button>
           </div>
         </div>
 

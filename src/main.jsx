@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import deepLearningFavicon from './assets/img/logo/deep-learning.png'
 import { I18nProvider } from './context/I18nContext.jsx'
+import { ThemeProvider } from './context/ThemeContext.jsx'
 
 const faviconElement =
   document.querySelector("link[rel~='icon']") || document.createElement('link')
@@ -16,8 +17,10 @@ if (!faviconElement.parentNode) {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <I18nProvider>
-      <App />
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <App />
+      </I18nProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

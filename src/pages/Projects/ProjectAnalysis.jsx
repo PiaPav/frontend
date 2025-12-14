@@ -18,11 +18,11 @@ import GraphHeader from './GraphHeader';
 import { useI18n } from '../../context/I18nContext';
 
 const METHOD_COLORS = {
-  GET: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
-  POST: { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' },
-  PATCH: { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706' },
-  PUT: { bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', border: '#7c3aed' },
-  DELETE: { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626' },
+  GET: { bg: 'linear-gradient(135deg, #22c39b 0%, #14b38a 100%)', border: '#14b38a' },
+  POST: { bg: 'linear-gradient(135deg, #4f8cf7 0%, #3366f0 100%)', border: '#3366f0' },
+  PATCH: { bg: 'linear-gradient(135deg, #f6c263 0%, #e09b2d 100%)', border: '#e09b2d' },
+  PUT: { bg: 'linear-gradient(135deg, #9b8cf6 0%, #7f6bec 100%)', border: '#7f6bec' },
+  DELETE: { bg: 'linear-gradient(135deg, #f98080 0%, #ef4444 100%)', border: '#ef4444' },
 };
 
 const SERVICE_COLORS = {

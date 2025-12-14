@@ -1,19 +1,114 @@
-* {
-    box-sizing: border-box;
-    font-family: Montserrat;
-    color: #FFF;
-    margin: 0;
+:root {
+  color-scheme: light;
+  --page-gradient: linear-gradient(135deg, #e8ecff 0%, #f4efff 40%, #e9f6ff 100%);
+  --page-solid: #f5f7fb;
+  --surface: #ffffff;
+  --surface-raised: #f8fafc;
+  --graph-surface: #edf2f7;
+  --graph-node-bg: #f6f8ff;
+  --graph-node-border: #d8e2f5;
+  --graph-chip-bg: #eef2ff;
+  --glass: rgba(255, 255, 255, 0.15);
+  --glass-strong: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --frost: rgba(255, 255, 255, 0.18);
+  --frost-strong: rgba(255, 255, 255, 0.28);
+  --text-primary: #0f172a;
+  --text-secondary: #1f2937;
+  --text-muted: #4b5563;
+  --text-subtle: #6b7280;
+  --text-inverse: #ffffff;
+  --primary: #667eea;
+  --primary-2: #764ba2;
+  --primary-strong: #4c63d9;
+  --primary-soft: #e0e7ff;
+  --primary-gradient: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --shadow-soft: rgba(15, 23, 42, 0.12);
+  --shadow-strong: rgba(15, 23, 42, 0.22);
+  --danger: #ef4444;
+  --danger-strong: #b91c1c;
+  --danger-soft: #fee2e2;
+  --warning: #f59e0b;
+  --warning-strong: #d97706;
+  --warning-soft: #fef3c7;
+  --success: #22c55e;
+  --success-soft: #ecfdf3;
+  --input-bg: #f8fafc;
+  --input-disabled: #f3f4f6;
+  --badge: #f3f4f6;
+  --link: #667eea;
 }
 
-/* Черный курсор везде - максимальный приоритет */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --page-gradient: radial-gradient(120% 120% at 20% 20%, #0b1221 0%, #0a0f1e 45%, #050a13 100%);
+  --page-solid: #050a13;
+  --surface: #0f172a;
+  --surface-raised: #0b1221;
+  --graph-surface: #0f1a2c;
+  --graph-node-bg: #14243a;
+  --graph-node-border: rgba(255, 255, 255, 0.1);
+  --graph-chip-bg: rgba(255, 255, 255, 0.08);
+  --glass: rgba(255, 255, 255, 0.08);
+  --glass-strong: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(148, 163, 184, 0.25);
+  --frost: rgba(255, 255, 255, 0.08);
+  --frost-strong: rgba(255, 255, 255, 0.14);
+  --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-subtle: #94a3b8;
+  --text-inverse: #0b1221;
+  --primary: #22d3ee;
+  --primary-2: #a855f7;
+  --primary-strong: #22d3ee;
+  --primary-soft: rgba(34, 211, 238, 0.16);
+  --primary-gradient: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+  --border: #1f2937;
+  --border-strong: #243044;
+  --shadow-soft: rgba(0, 0, 0, 0.35);
+  --shadow-strong: rgba(0, 0, 0, 0.55);
+  --danger: #f87171;
+  --danger-strong: #ef4444;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+  --warning: #fbbf24;
+  --warning-strong: #f59e0b;
+  --warning-soft: rgba(251, 191, 36, 0.14);
+  --success: #34d399;
+  --success-soft: rgba(52, 211, 153, 0.14);
+  --input-bg: #0b1221;
+  --input-disabled: #111827;
+  --badge: rgba(255, 255, 255, 0.08);
+  --link: #22d3ee;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: Montserrat, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: 0;
+}
+
+body {
+  background: var(--page-gradient);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+a {
+  color: var(--link);
+}
+
+/* Курорсы остаются кастомными */
 body,
 body *,
 #root,
 #root * {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>') 0 0, auto !important;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>') 0 0, auto !important;
 }
 
-/* ReactFlow специфичные курсоры */
 .react-flow,
 .react-flow *,
 .react-flow__renderer,
@@ -21,22 +116,21 @@ body *,
 .react-flow__pane,
 .react-flow__selectionpane,
 .react-flow__background {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M9 10v8h2v-8h4l-5-5-5 5h4zm5 4v4h4v-4h-4z"/></svg>') 12 12, grab !important;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M9 10v8h2v-8h4l-5-5-5 5h4zm5 4v4h4v-4h-4z"/></svg>') 12 12, grab !important;
 }
 
 .react-flow__pane:active,
 .react-flow__viewport:active {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M9 10v8h2v-8h4l-5-5-5 5h4zm5 4v4h4v-4h-4z"/></svg>') 12 12, grabbing !important;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M9 10v8h2v-8h4l-5-5-5 5h4zm5 4v4h4v-4h-4z"/></svg>') 12 12, grabbing !important;
 }
 
 .react-flow__node,
 .react-flow__node *,
 .react-flow__edge,
 .react-flow__edge * {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>') 12 12, pointer !important;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>') 12 12, pointer !important;
 }
 
 .react-flow__controls button {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>') 12 12, pointer !important;
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="black" stroke="white" stroke-width="1" d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/></svg>') 12 12, pointer !important;
 }
-

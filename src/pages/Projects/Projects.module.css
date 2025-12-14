@@ -1,7 +1,8 @@
 .container {
     min-height: 100vh;
-    background: linear-gradient(135deg, #a8c0ff 0%, #c0a8ff 50%, #a8e6ff 100%);
+    background: var(--page-gradient);
     padding: 20px;
+    color: var(--text-primary);
 }
 
 .header {
@@ -16,47 +17,48 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--glass-strong);
     backdrop-filter: blur(10px);
     border: none;
     padding: 12px 24px;
     border-radius: 16px;
     font-size: 16px;
     font-weight: 600;
-    color: #667eea;
+    color: var(--primary);
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px var(--shadow-soft);
+    border: 1px solid var(--glass-border);
 }
 
 .createBtn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
-    background: white;
+    box-shadow: 0 6px 20px var(--shadow-strong);
+    background: var(--surface);
 }
 
 .plusIcon {
     font-size: 20px;
     font-weight: bold;
-    color: #667eea;
+    color: var(--primary);
 }
 
 .centerTitle {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(102, 126, 234, 0.9);
+    background: var(--primary-gradient);
     backdrop-filter: blur(10px);
     padding: 12px 80px;
     border-radius: 16px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px var(--shadow-soft);
 }
 
 .centerTitle h1 {
     margin: 0;
     font-size: 24px;
     font-weight: 700;
-    color: white;
+    color: var(--text-inverse);
 }
 
 .userMenu {
@@ -67,20 +69,21 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--glass-strong);
     backdrop-filter: blur(10px);
     border: none;
     padding: 8px 16px 8px 8px;
     border-radius: 50px;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px var(--shadow-soft);
+    border: 1px solid var(--glass-border);
 }
 
 .userBtn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
-    background: white;
+    box-shadow: 0 6px 20px var(--shadow-strong);
+    background: var(--surface);
 }
 
 .userBtn:hover + .dropdown {
@@ -93,11 +96,11 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--primary-gradient);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: var(--text-inverse);
     font-weight: 700;
     font-size: 18px;
 }
@@ -105,21 +108,21 @@
 .userName {
     font-size: 16px;
     font-weight: 600;
-    color: #333;
+    color: var(--text-secondary);
 }
 
 .chevron {
     font-size: 12px;
-    color: #667eea;
+    color: var(--primary);
 }
 
 .dropdown {
     position: absolute;
     top: calc(100% + 10px);
     right: 0;
-    background: white;
+    background: var(--surface);
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 30px var(--shadow-soft);
     padding: 8px;
     min-width: 150px;
     opacity: 0;
@@ -127,6 +130,7 @@
     transform: translateY(-10px);
     transition: all 0.3s ease;
     z-index: 100;
+    border: 1px solid var(--border);
 }
 
 .userMenu:hover .dropdown {
@@ -143,15 +147,15 @@
     text-align: left;
     font-size: 14px;
     font-weight: 500;
-    color: #333;
+    color: var(--text-secondary);
     cursor: pointer;
     border-radius: 8px;
     transition: background 0.2s ease;
 }
 
 .dropdown button:hover {
-    background: #f5f5f5;
-    color: #c33;
+    background: var(--surface-raised);
+    color: var(--danger-strong);
 }
 
 .main {
@@ -166,20 +170,21 @@
 }
 
 .projectCard {
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--glass-strong);
     backdrop-filter: blur(10px);
     border-radius: 20px;
     overflow: visible;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px var(--shadow-soft);
     transition: all 0.3s ease;
     position: relative;
     z-index: 1;
+    border: 1px solid var(--glass-border);
 }
 
 /* Демо-карточка с особым стилем */
 .demoCard {
-    border: 2px solid #667eea;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border: 2px solid var(--primary);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 20%, transparent), color-mix(in srgb, var(--primary-2) 20%, transparent));
 }
 
 .demoCard::before {
@@ -187,14 +192,14 @@
     position: absolute;
     top: 10px;
     right: 10px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
+    background: var(--primary-gradient);
+    color: var(--text-inverse);
     padding: 6px 12px;
     border-radius: 20px;
     font-size: 12px;
     font-weight: 700;
     z-index: 10;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 2px 8px var(--shadow-soft);
 }
 
 .projectLink {
@@ -213,7 +218,7 @@
     overflow: hidden;
     position: relative;
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.18));
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--glass-border);
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
 }
@@ -227,8 +232,8 @@
 .projectImagePlaceholder {
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.08));
-    border: 1px dashed rgba(255,255,255,0.2);
+    background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.08));
+    border: 1px dashed var(--glass-border);
 }
 
 .projectInfo {
@@ -239,13 +244,13 @@
     margin: 0 0 10px 0;
     font-size: 22px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: var(--text-primary);
 }
 
 .projectDescription {
     margin: 0;
     font-size: 14px;
-    color: #666;
+    color: var(--text-muted);
     line-height: 1.5;
 }
 
@@ -269,25 +274,25 @@
     text-align: center;
     text-decoration: none;
     transition: all 0.3s ease;
-    border: 2px solid #e2e8f0;
+    border: 2px solid var(--border);
 }
 
 .actionBtn {
-    background: white;
-    color: #4a5568;
+    background: var(--surface);
+    color: var(--text-muted);
 }
 
 .actionBtn:hover {
-    background: #f7fafc;
-    border-color: #667eea;
-    color: #667eea;
+    background: var(--surface-raised);
+    border-color: var(--primary);
+    color: var(--primary);
     transform: translateY(-2px);
 }
 
 .actionBtnPrimary {
-    background: linear-gradient(135deg, #5a6fd6 0%, #6b8fe8 100%);
-    color: #ffffff;
-    border: 1px solid #4c63d9;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 90%, #fff 10%), color-mix(in srgb, var(--primary-2) 85%, #fff 15%));
+    color: var(--text-inverse);
+    border: 1px solid var(--primary-strong);
     flex: 1 1 auto;
     min-width: 50%;
     position: relative;
@@ -314,13 +319,13 @@
 
 .previewButton {
     letter-spacing: 0.3px;
-    text-shadow: 0 1px 6px rgba(0,0,0,0.2);
-    border: 1px solid #4c63d9;
+    text-shadow: 0 1px 6px var(--shadow-soft);
+    border: 1px solid var(--primary-strong);
     margin: 0 auto;
 }
 
 .previewButton:hover {
-    box-shadow: 0 16px 36px rgba(90, 111, 214, 0.45);
+    box-shadow: 0 16px 36px var(--shadow-strong);
     transform: translateY(-2px);
 }
 
@@ -330,17 +335,17 @@
 }
 
 .dangerBtn {
-    background: linear-gradient(135deg, #fee2e2 0%, #fecdd3 100%);
-    color: #b91c1c;
-    border-color: #fca5a5;
-    box-shadow: 0 10px 22px rgba(248, 113, 113, 0.18);
+    background: linear-gradient(135deg, var(--danger-soft), color-mix(in srgb, var(--danger) 18%, transparent));
+    color: var(--danger-strong);
+    border-color: var(--danger);
+    box-shadow: 0 10px 22px var(--shadow-soft);
 }
 
 .dangerBtn:hover {
-    background: linear-gradient(135deg, #fecaca 0%, #f9a8d4 100%);
-    border-color: #f87171;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--danger) 20%, transparent), color-mix(in srgb, var(--danger-strong) 20%, transparent));
+    border-color: var(--danger);
     transform: translateY(-2px);
-    box-shadow: 0 12px 26px rgba(248, 113, 113, 0.25);
+    box-shadow: 0 12px 26px var(--shadow-strong);
 }
 
 .dangerBtn:disabled {
@@ -365,23 +370,23 @@
 .moreBtn {
     width: 44px;
     height: 44px;
-    border: 1px solid rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
     border-radius: 12px;
-    background: rgba(255,255,255,0.9);
-    color: #4a5568;
+    background: var(--glass-strong);
+    color: var(--text-muted);
     font-size: 20px;
     font-weight: 700;
     line-height: 1;
     cursor: pointer;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 18px var(--shadow-soft);
     transition: all 0.2s ease;
 }
 
 .moreBtn:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 22px rgba(0,0,0,0.12);
-    border-color: #667eea;
-    color: #667eea;
+    box-shadow: 0 10px 22px var(--shadow-strong);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .moreMenu {
@@ -389,10 +394,10 @@
     top: calc(100% + 8px);
     right: 0;
     min-width: 160px;
-    background: white;
+    background: var(--surface);
     border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 16px 34px rgba(0,0,0,0.12);
+    border: 1px solid var(--border);
+    box-shadow: 0 16px 34px var(--shadow-soft);
     padding: 8px;
     z-index: 1000;
 }
@@ -408,13 +413,13 @@
     padding: 10px 12px;
     font-size: 14px;
     font-weight: 600;
-    color: #b91c1c;
+    color: var(--danger-strong);
     cursor: pointer;
     transition: background 0.2s ease;
 }
 
 .moreMenuItem:hover {
-    background: #fff1f2;
+    background: var(--danger-soft);
 }
 
 .moreMenuItem:disabled {
@@ -424,7 +429,7 @@
 
 .moreMenuLabel {
     font-weight: 700;
-    color: #b91c1c;
+    color: var(--danger-strong);
 }
 
 .actionBtnLabel {
@@ -442,8 +447,8 @@
     display: inline-block;
     margin-top: 12px;
     padding: 6px 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--primary-gradient);
+    color: var(--text-inverse);
     border-radius: 8px;
     font-size: 12px;
     font-weight: 600;
@@ -478,10 +483,11 @@
 .newProjectWrapper {
     max-width: 600px;
     margin: 0 auto;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--glass-strong);
     backdrop-filter: blur(10px);
     border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 20px 60px var(--shadow-strong);
+    border: 1px solid var(--glass-border);
     padding: 40px;
     animation: slideUp 0.4s ease-out;
 }
@@ -507,9 +513,9 @@
     margin: 0;
     font-size: 28px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: var(--text-primary);
     text-align: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--primary-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -524,27 +530,27 @@
 .newProjectForm label {
     font-size: 14px;
     font-weight: 600;
-    color: #444;
+    color: var(--text-secondary);
     margin-left: 4px;
 }
 
 .newProjectForm input,
 .newProjectForm textarea {
     padding: 14px 16px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--border);
     border-radius: 12px;
     font-size: 15px;
     transition: all 0.3s ease;
-    background: white;
-    color: #1a1a1a;
+    background: var(--surface);
+    color: var(--text-primary);
     font-family: inherit;
 }
 
 .newProjectForm input:focus,
 .newProjectForm textarea:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
 }
 
 .newProjectForm textarea {
@@ -566,8 +572,8 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.12));
-    border: 2px dashed rgba(102, 126, 234, 0.4);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary-2) 12%, transparent));
+    border: 2px dashed color-mix(in srgb, var(--primary) 35%, transparent);
     border-radius: 14px;
     padding: 14px 16px;
     cursor: pointer;
@@ -575,8 +581,8 @@
 }
 
 .fileLabel:hover {
-    border-color: #667eea;
-    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.15);
+    border-color: var(--primary);
+    box-shadow: 0 10px 25px var(--shadow-soft);
     transform: translateY(-1px);
 }
 
@@ -591,12 +597,12 @@
     width: 48px;
     height: 48px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--primary-gradient);
     display: grid;
     place-items: center;
     font-size: 24px;
-    color: white;
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+    color: var(--text-inverse);
+    box-shadow: 0 8px 20px var(--shadow-soft);
 }
 
 .fileText {
@@ -608,35 +614,35 @@
 
 .fileTitle {
     font-weight: 700;
-    color: #1f2937;
+    color: var(--text-primary);
     font-size: 15px;
 }
 
 .fileHint {
-    color: #6b7280;
+    color: var(--text-subtle);
     font-size: 13px;
 }
 
 .fileBadge {
-    background: white;
-    color: #667eea;
+    background: var(--surface);
+    color: var(--primary);
     padding: 8px 12px;
     border-radius: 12px;
     font-weight: 700;
     font-size: 12px;
-    border: 1px solid rgba(102, 126, 234, 0.3);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    box-shadow: 0 4px 12px var(--shadow-soft);
 }
 
 .fileMeta {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 10px 12px;
-    color: #374151;
+    color: var(--text-secondary);
     font-size: 13px;
     gap: 8px;
 }
@@ -646,9 +652,9 @@
     align-items: center;
     gap: 6px;
     padding: 8px 10px;
-    background: white;
+    background: var(--surface);
     border-radius: 10px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border);
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -657,12 +663,12 @@
 }
 
 .fileSize {
-    color: #6b7280;
+    color: var(--text-subtle);
     font-weight: 600;
 }
 
 .fileNote {
-    color: #6b7280;
+    color: var(--text-subtle);
 }
 
 .formActions {
@@ -684,22 +690,22 @@
 }
 
 .cancelBtn {
-    background: #f5f5f5;
-    color: #666;
+    background: var(--input-disabled);
+    color: var(--text-muted);
 }
 
 .cancelBtn:hover {
-    background: #e0e0e0;
+    background: var(--surface-raised);
 }
 
 .createProjectBtn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--primary-gradient);
+    color: var(--text-inverse);
 }
 
 .createProjectBtn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 10px 25px var(--shadow-strong);
 }
 
 .createProjectBtn:disabled {
@@ -709,23 +715,23 @@
 
 /* Стили для ошибок */
 .error {
-    background: #fee;
-    color: #c33;
+    background: var(--danger-soft);
+    color: var(--danger-strong);
     padding: 12px 16px;
     border-radius: 10px;
     font-size: 14px;
-    border-left: 4px solid #c33;
+    border-left: 4px solid var(--danger-strong);
     margin: 0;
     animation: shake 0.3s ease;
 }
 
 .analysisStatus {
-    background: #e3f2fd;
-    color: #1976d2;
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary);
     padding: 12px 16px;
     border-radius: 10px;
     font-size: 14px;
-    border-left: 4px solid #1976d2;
+    border-left: 4px solid var(--primary);
     margin: 0;
     animation: pulse 2s ease-in-out infinite;
 }
@@ -739,18 +745,18 @@
 /* Логи в реальном времени */
 .logsContainer {
     margin-top: 20px;
-    background: #f8f9fa;
+    background: var(--surface-raised);
     border-radius: 12px;
     padding: 16px;
     max-height: 400px;
     overflow-y: auto;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border);
 }
 
 .logsContainer h3 {
     margin: 0 0 12px 0;
     font-size: 16px;
-    color: #495057;
+    color: var(--text-secondary);
 }
 
 .logsList {
@@ -783,31 +789,31 @@
 }
 
 .logInfo {
-    background: #e3f2fd;
-    border-left-color: #2196f3;
-    color: #0d47a1;
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
+    border-left-color: var(--primary);
+    color: color-mix(in srgb, var(--primary) 80%, #0b1221 20%);
 }
 
 .logSuccess {
-    background: #e8f5e9;
-    border-left-color: #4caf50;
-    color: #1b5e20;
+    background: var(--success-soft);
+    border-left-color: var(--success);
+    color: color-mix(in srgb, var(--success) 75%, #0b1221 25%);
 }
 
 .logWarning {
-    background: #fff3e0;
-    border-left-color: #ff9800;
-    color: #e65100;
+    background: var(--warning-soft);
+    border-left-color: var(--warning);
+    color: var(--warning-strong);
 }
 
 .logError {
-    background: #ffebee;
-    border-left-color: #f44336;
-    color: #b71c1c;
+    background: var(--danger-soft);
+    border-left-color: var(--danger);
+    color: var(--danger-strong);
 }
 
 .logTime {
-    color: #6c757d;
+    color: var(--text-subtle);
     font-size: 11px;
     margin-right: 8px;
 }
@@ -834,17 +840,17 @@
 }
 
 .logsList::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: var(--surface-raised);
     border-radius: 4px;
 }
 
 .logsList::-webkit-scrollbar-thumb {
-    background: #888;
+    background: var(--text-subtle);
     border-radius: 4px;
 }
 
 .logsList::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: var(--text-muted);
 }
 
 @keyframes pulse {
@@ -868,22 +874,22 @@
 }
 
 .modalContent {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--primary-gradient);
+    color: var(--text-inverse);
     border-radius: 14px;
     padding: 24px;
     max-width: 480px;
     width: 92%;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    box-shadow: 0 20px 60px var(--shadow-strong);
 }
 
 .modalClose {
     position: absolute;
     right: 16px;
     top: 12px;
-    background: rgba(255,255,255,0.15);
+    background: var(--frost);
     border: none;
-    color: white;
+    color: var(--text-inverse);
     font-size: 20px;
     width: 36px;
     height: 36px;
@@ -903,7 +909,7 @@
     display: flex;
     gap: 10px;
     align-items: center;
-    color: white;
+    color: var(--text-inverse);
 }
 
 .modalActions {
@@ -914,8 +920,8 @@
 }
 
 .modalPrimaryBtn {
-    background: white;
-    color: #667eea;
+    background: var(--surface);
+    color: var(--primary);
     border: none;
     padding: 12px 16px;
     border-radius: 10px;
@@ -924,9 +930,9 @@
 }
 
 .modalSecondaryBtn {
-    background: rgba(255,255,255,0.15);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.2);
+    background: var(--frost);
+    color: var(--text-inverse);
+    border: 1px solid var(--glass-border);
     padding: 12px 16px;
     border-radius: 10px;
     cursor: pointer;

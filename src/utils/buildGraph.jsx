@@ -2,11 +2,11 @@ import { MarkerType } from 'reactflow';
 
 // Default colors for HTTP methods
 const defaultMethodColors = {
-  GET: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
-  POST: { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' },
-  PATCH: { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706' },
-  PUT: { bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', border: '#7c3aed' },
-  DELETE: { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626' },
+  GET: { bg: 'linear-gradient(135deg, #22c39b 0%, #14b38a 100%)', border: '#14b38a' },
+  POST: { bg: 'linear-gradient(135deg, #4f8cf7 0%, #3366f0 100%)', border: '#3366f0' },
+  PATCH: { bg: 'linear-gradient(135deg, #f6c263 0%, #e09b2d 100%)', border: '#e09b2d' },
+  PUT: { bg: 'linear-gradient(135deg, #9b8cf6 0%, #7f6bec 100%)', border: '#7f6bec' },
+  DELETE: { bg: 'linear-gradient(135deg, #f98080 0%, #ef4444 100%)', border: '#ef4444' },
 };
 
 // Default colors for services/classes
@@ -16,6 +16,12 @@ const defaultServiceColors = {
   ProjectService: { color: '#10b981', icon: '📁', label: 'Project' },
   CoreService: { color: '#f59e0b', icon: '⚙️', label: 'Core' },
 };
+
+const nodeBg = 'var(--graph-node-bg)';
+const nodeBorder = 'var(--graph-node-border)';
+const nodeChipBg = 'var(--graph-chip-bg)';
+const nodeText = 'var(--text-primary)';
+const nodeMuted = 'var(--text-subtle)';
 
 const normalizeName = (name) => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const getBaseName = (name = '') => (name || '').split('/').pop() || '';
@@ -315,18 +321,18 @@ export function buildGraph({
       data: {
         label: (
           <div style={{ padding: '6px 10px' }}>
-            <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280' }}>{reqName}</div>
+            <div style={{ fontSize: '10px', fontWeight: '600', color: nodeMuted }}>{reqName}</div>
           </div>
         ),
         meta: { layer: 0, kind: 'requirement' },
       },
       style: {
-        background: 'white',
-        border: '2px solid #e5e7eb',
+        background: nodeBg,
+        border: `2px solid ${nodeBorder}`,
         borderRadius: '8px',
         width: 140,
         fontSize: '10px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        boxShadow: '0 6px 14px var(--shadow-soft)',
       },
       sourcePosition: 'right',
       targetPosition: 'left',
@@ -363,7 +369,7 @@ export function buildGraph({
             <div
               style={{
                 background: color.bg,
-                color: 'white',
+                color: 'var(--text-inverse)',
                 padding: '4px 10px',
                 borderRadius: '6px',
                 fontSize: '11px',
@@ -375,8 +381,8 @@ export function buildGraph({
             >
               {method}
             </div>
-            <div style={{ fontSize: '13px', fontWeight: '700', marginTop: '6px', color: '#0f172a' }}>{key}</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', wordBreak: 'break-all' }}>{path}</div>
+            <div style={{ fontSize: '13px', fontWeight: '700', marginTop: '6px', color: nodeText }}>{key}</div>
+            <div style={{ fontSize: '11px', color: nodeMuted, marginTop: '4px', wordBreak: 'break-all' }}>{path}</div>
           </div>
         ),
         meta: {
@@ -387,12 +393,12 @@ export function buildGraph({
         },
       },
       style: {
-        background: 'white',
+        background: nodeBg,
         border: `3px solid ${color.border}`,
         borderRadius: '12px',
         width: 240,
         fontSize: '12px',
-        boxShadow: `0 4px 16px ${color.border}35`,
+        boxShadow: `0 6px 16px ${color.border}35`,
       },
       sourcePosition: 'right',
       targetPosition: 'left',
@@ -563,18 +569,18 @@ export function buildGraph({
           data: {
             label: (
               <div style={{ padding: '12px 14px' }}>
-                <div style={{ fontSize: '16px', fontWeight: '800', color: '#111' }}>{card.className}</div>
-                <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>{card.methods.length} методов</div>
+                <div style={{ fontSize: '16px', fontWeight: '800', color: nodeText }}>{card.className}</div>
+                <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px', color: nodeMuted }}>{card.methods.length} методов</div>
                 <div style={{ marginTop: '10px', display: 'grid', gap: '6px' }}>
                   {card.preview.map((m) => (
                     <div
                       key={m}
                       style={{
-                        background: '#f8fafc',
+                        background: nodeChipBg,
                         borderRadius: '8px',
                         padding: '6px 8px',
                         fontSize: '11px',
-                        color: '#0f172a',
+                        color: nodeText,
                         border: `1px solid ${card.classColor}33`,
                       }}
                     >
@@ -588,10 +594,10 @@ export function buildGraph({
               layer: layerKey,
               kind: 'lane',
               className: card.className,
+              },
             },
-          },
           style: {
-            background: 'white',
+            background: nodeBg,
             border: `2px solid ${card.classColor}`,
             borderRadius: '14px',
             width: LANE_CARD_WIDTH,
@@ -703,7 +709,7 @@ export function buildGraph({
     const label = count > 1 ? options?.label ?? `×${count}` : options?.label;
     const hasLabel = Boolean(label);
     const labelBg = baseColor;
-    const labelColor = kind === 'internal' ? '#0f172a' : '#f8fafc';
+    const labelColor = kind === 'internal' ? nodeText : 'var(--text-inverse)';
     const labelYOffset = hasLabel ? -10 : 0;
     const baseStyle = {
       stroke: baseColor,

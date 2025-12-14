@@ -39,12 +39,12 @@
 .projectInfo h1 {
     margin: 0 0 5px 0;
     font-size: 24px;
-    color: #1a1a1a;
+    color: var(--text-primary);
 }
 
 .projectInfo p {
     margin: 0;
-    color: #666;
+    color: var(--text-muted);
     font-size: 13px;
 }
 
@@ -61,7 +61,7 @@
 
 .statLabel {
     font-size: 11px;
-    color: #666;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -97,13 +97,13 @@
 
 .sidebarHeader {
     padding: 20px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--border);
 }
 
 .sidebarHeader h3 {
     margin: 0;
     font-size: 18px;
-    color: #1a1a1a;
+    color: var(--text-primary);
 }
 
 .tabs {
@@ -111,7 +111,7 @@
     flex-direction: column;
     padding: 10px;
     gap: 5px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--border);
 }
 
 .tab {
@@ -122,14 +122,14 @@
     text-align: left;
     font-size: 14px;
     font-weight: 500;
-    color: #666;
+    color: var(--text-muted);
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .tab:hover {
     background: #f7fafc;
-    color: #1a1a1a;
+    color: var(--text-primary);
 }
 
 .tabActive {
@@ -161,7 +161,7 @@
     align-items: center;
     gap: 8px;
     font-weight: 600;
-    color: #2d3748;
+    color: var(--text-primary);
     margin-bottom: 8px;
     font-size: 14px;
 }
@@ -178,10 +178,10 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    background: white;
+    background: var(--surface);
     border-radius: 6px;
     font-size: 13px;
-    color: #4a5568;
+    color: var(--text-muted);
     transition: all 0.2s ease;
 }
 
@@ -194,7 +194,7 @@
     margin-left: auto;
     font-size: 10px;
     padding: 2px 8px;
-    background: #e2e8f0;
+    background: var(--border);
     border-radius: 4px;
     color: #667eea;
     font-weight: 600;
@@ -213,7 +213,7 @@
     background: #f7fafc;
     border-radius: 8px;
     margin-bottom: 8px;
-    color: #2d3748;
+    color: var(--text-primary);
     font-size: 13px;
 }
 
@@ -222,11 +222,11 @@
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
-    background: white;
-    border: 2px solid #e2e8f0;
+    background: var(--surface);
+    border: 2px solid var(--border);
     border-radius: 8px;
     font-size: 13px;
-    color: #2d3748;
+    color: var(--text-primary);
     transition: all 0.2s ease;
 }
 
@@ -242,8 +242,8 @@
 /* Endpoints List */
 .endpointItem {
     padding: 12px;
-    background: white;
-    border: 2px solid #e2e8f0;
+    background: var(--surface);
+    border: 2px solid var(--border);
     border-radius: 8px;
     transition: all 0.2s ease;
 }
@@ -267,7 +267,7 @@
 .endpointPath {
     font-family: 'Courier New', monospace;
     font-size: 12px;
-    color: #4a5568;
+    color: var(--text-muted);
 }
 
 /* Architecture Info */
@@ -279,7 +279,7 @@
 
 .infoBlock {
     padding: 12px;
-    background: white;
+    background: var(--surface);
     border-left: 4px solid #667eea;
     border-radius: 8px;
 }
@@ -287,13 +287,13 @@
 .infoBlock h4 {
     margin: 0 0 6px 0;
     font-size: 14px;
-    color: #1a1a1a;
+    color: var(--text-primary);
 }
 
 .infoBlock p {
     margin: 0;
     font-size: 12px;
-    color: #666;
+    color: var(--text-muted);
 }
 
 /* Main Content */
@@ -306,7 +306,7 @@
 
 .flowWrapper {
     flex: 1;
-    background: white;
+    background: var(--surface);
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
     overflow: hidden;
@@ -327,14 +327,14 @@
 }
 
 :global(.react-flow__controls) {
-    background: white;
+    background: var(--surface);
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     border: none;
 }
 
 :global(.react-flow__controls-button) {
-    background: white;
+    background: var(--surface);
     border: none;
     border-bottom: 1px solid #e0e0e0;
 }

@@ -39,12 +39,12 @@
 .projectInfo h1 {
     margin: 0 0 5px 0;
     font-size: 24px;
-    color: #1a1a1a;
+    color: var(--text-primary);
 }
 
 .projectInfo p {
     margin: 0;
-    color: #666;
+    color: var(--text-muted);
     font-size: 14px;
 }
 
@@ -61,7 +61,7 @@
 
 .statLabel {
     font-size: 12px;
-    color: #666;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
@@ -88,7 +88,7 @@
 
 /* Custom Node Styles */
 .customNode {
-    background: white;
+    background: var(--surface);
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: all 0.3s ease;
@@ -131,7 +131,7 @@
 
 /* Node Styles */
 :global(.react-flow__node) {
-    background: white;
+    background: var(--surface);
     border: 2px solid #e0e0e0;
     border-radius: 12px;
     padding: 16px 20px;
@@ -189,7 +189,7 @@
 
 /* Util Node */
 .utilNode {
-    background: linear-gradient(135deg, #a0aec0 0%, #718096 100%) !important;
+    background: linear-gradient(135deg, #a0aec0 0%, var(--text-subtle) 100%) !important;
     color: white !important;
     border: none !important;
 }
@@ -215,22 +215,22 @@
 :global(.react-flow__edge-text) {
     font-size: 11px;
     font-weight: 600;
-    fill: #4a5568;
-    background: white;
+    fill: var(--text-muted);
+    background: var(--surface);
     padding: 2px 6px;
     border-radius: 4px;
 }
 
 /* Controls */
 :global(.react-flow__controls) {
-    background: white;
+    background: var(--surface);
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     border: none;
 }
 
 :global(.react-flow__controls-button) {
-    background: white;
+    background: var(--surface);
     border: none;
     border-bottom: 1px solid #e0e0e0;
     transition: all 0.2s ease;
@@ -246,7 +246,7 @@
 
 /* MiniMap */
 :global(.react-flow__minimap) {
-    background: white;
+    background: var(--surface);
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     border: 2px solid #e0e0e0;
@@ -266,7 +266,7 @@
     margin: 0 0 12px 0;
     font-size: 14px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: var(--text-primary);
 }
 
 .legendItem {
@@ -275,7 +275,7 @@
     gap: 10px;
     margin-bottom: 8px;
     font-size: 12px;
-    color: #4a5568;
+    color: var(--text-muted);
 }
 
 .legendColor {
@@ -291,7 +291,7 @@
     right: 20px;
     bottom: 20px;
     width: 350px;
-    background: white;
+    background: var(--surface);
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
     animation: slideIn 0.3s ease;
@@ -313,30 +313,30 @@
     justify-content: space-between;
     align-items: center;
     padding: 20px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--border);
 }
 
 .detailsHeader h2 {
     margin: 0;
     font-size: 18px;
-    color: #1a1a1a;
+    color: var(--text-primary);
 }
 
 .detailsHeader button {
-    background: #f0f0f0;
+    background: var(--border);
     border: none;
     width: 32px;
     height: 32px;
     border-radius: 8px;
     cursor: pointer;
     font-size: 18px;
-    color: #666;
+    color: var(--text-muted);
     transition: all 0.2s ease;
 }
 
 .detailsHeader button:hover {
     background: #e0e0e0;
-    color: #333;
+    color: var(--text-secondary);
 }
 
 .detailsContent {
@@ -354,7 +354,7 @@
 
 .detailLabel {
     font-size: 12px;
-    color: #666;
+    color: var(--text-muted);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -362,7 +362,7 @@
 
 .detailItem > span:last-child {
     font-size: 14px;
-    color: #1a1a1a;
+    color: var(--text-primary);
     font-weight: 500;
 }
 
