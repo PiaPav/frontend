@@ -376,6 +376,14 @@
 /* Отключаем анимацию при взаимодействии для производительности */
 .flowWrapper :global(.react-flow__node.dragging) {
   transition: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.flowWrapper :global(.react-flow__node.dragging * ) {
+  transition: none !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 /* Loading State */
