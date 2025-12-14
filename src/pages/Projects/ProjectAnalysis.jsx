@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Controls,
   Background,
   useNodesState,
-  useEdgesState,
 } from 'reactflow';
 import { SmartStepEdge } from '@tisoap/react-flow-smart-edge';
 import 'reactflow/dist/style.css';
@@ -17,6 +16,21 @@ import { useAuth } from '../../context/AuthContext';
 import trashBinIcon from '../../assets/img/trash-bin.png';
 import GraphHeader from './GraphHeader';
 
+const METHOD_COLORS = {
+  GET: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
+  POST: { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' },
+  PATCH: { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706' },
+  PUT: { bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', border: '#7c3aed' },
+  DELETE: { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626' },
+};
+
+const SERVICE_COLORS = {
+  AuthService: { color: '#8b5cf6', icon: 'A', label: 'Auth' },
+  AccountService: { color: '#3b82f6', icon: 'AC', label: 'Account' },
+  ProjectService: { color: '#10b981', icon: 'P', label: 'Project' },
+  CoreService: { color: '#f59e0b', icon: 'C', label: 'Core' },
+};
+
 const edgeTypes = {
   smart: SmartStepEdge,
 };
@@ -27,12 +41,14 @@ export default function ProjectAnalysis() {
   const { user, logout } = useAuth();
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [baseEdges, setBaseEdges] = useState([]);
+  const [highlightEdges, setHighlightEdges] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [pinnedSourceId, setPinnedSourceId] = useState(null);
-  const [hoverSourceId, setHoverSourceId] = useState(null);
+  const [hoverNodeId, setHoverNodeId] = useState(null);
+  const [hoverEdgeId, setHoverEdgeId] = useState(null);
   
-  // Данные проекта с сервера
+  // ðöð░ð¢ð¢ÐïðÁ ð┐ÐÇð¥ðÁð║Ðéð░ Ðü ÐüðÁÐÇð▓ðÁÐÇð░
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -45,147 +61,146 @@ export default function ProjectAnalysis() {
   const [streamComplete, setStreamComplete] = useState(false);
   const [grpcStarted, setGrpcStarted] = useState(false);
   const streamControllerRef = useRef(null);
-  const activeHighlightRef = useRef(null);
-  const requirementsRef = useRef([]);
-  const endpointsRef = useRef({});
+  const layoutRunIdRef = useRef(0);
   const architectureDataRef = useRef([]);
 
-  // Сбрасываем состояние при смене id проекта
+  // ðíð▒ÐÇð░ÐüÐïð▓ð░ðÁð╝ Ðüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ ð┐ÐÇð© Ðüð╝ðÁð¢ðÁ id ð┐ÐÇð¥ðÁð║Ðéð░
   useEffect(() => {
     setProject(null);
     setRequirements([]);
     setEndpoints({});
     setArchitectureData([]);
+    setNodes([]);
+    setBaseEdges([]);
+    setHighlightEdges([]);
     setStreamComplete(false);
     setGrpcStarted(false);
     setDeleteError('');
     setDeleting(false);
     setError(null);
     setIsFirstLoad(true);
+    setSelectedNode(null);
+    setPinnedSourceId(null);
+    setHoverNodeId(null);
+    setHoverEdgeId(null);
     setLoading(true);
   }, [id]);
-
-  useEffect(() => {
-    requirementsRef.current = requirements;
-  }, [requirements]);
-
-  useEffect(() => {
-    endpointsRef.current = endpoints;
-  }, [endpoints]);
 
   useEffect(() => {
     architectureDataRef.current = architectureData;
   }, [architectureData]);
 
-  useEffect(() => {
-    const active = hoverSourceId || pinnedSourceId;
-    activeHighlightRef.current = active;
-  }, [hoverSourceId, pinnedSourceId]);
-
-  // Поддержка анимации только по цепочке от зафиксированного узла
-  const applyEdgeHighlights = useCallback((edgesList, sourceId) => {
-    if (!Array.isArray(edgesList) || edgesList.length === 0) {
-      return Array.isArray(edgesList) ? edgesList : [];
-    }
-
-    const preparedEdges = edgesList.map((edge) => {
-      const baseStyle = edge?.data?.baseStyle || edge.style || {};
-      return { edge, baseStyle };
+  const adjacencyMap = useMemo(() => {
+    const map = new Map();
+    baseEdges.forEach((edge) => {
+      if (!map.has(edge.source)) {
+        map.set(edge.source, { in: [], out: [] });
+      }
+      if (!map.has(edge.target)) {
+        map.set(edge.target, { in: [], out: [] });
+      }
+      map.get(edge.source).out.push(edge);
+      map.get(edge.target).in.push(edge);
     });
+    return map;
+  }, [baseEdges]);
 
-    if (!sourceId) {
-      return preparedEdges.map(({ edge, baseStyle }) => ({
-        ...edge,
-        animated: false,
-        style: { ...baseStyle, filter: 'none' },
-      }));
-    }
-
-    const adjacency = new Map();
-    preparedEdges.forEach(({ edge }) => {
-      if (!adjacency.has(edge.source)) adjacency.set(edge.source, []);
-      adjacency.get(edge.source).push(edge);
+  const edgeById = useMemo(() => {
+    const map = new Map();
+    baseEdges.forEach((edge) => {
+      map.set(edge.id, edge);
     });
+    return map;
+  }, [baseEdges]);
 
-    const stack = [sourceId];
-    const visitedNodes = new Set();
-    const activeEdgeIds = new Set();
-
-    while (stack.length) {
-      const current = stack.pop();
-      if (visitedNodes.has(current)) continue;
-      visitedNodes.add(current);
-      const outgoing = adjacency.get(current);
-      if (!outgoing) continue;
-      outgoing.forEach((edge) => {
-        activeEdgeIds.add(edge.id);
-        stack.push(edge.target);
-      });
-    }
-
-    const hasActiveEdges = activeEdgeIds.size > 0;
-
-    return preparedEdges.map(({ edge, baseStyle }) => {
-      const isActive = activeEdgeIds.has(edge.id);
-      const baseOpacity = typeof baseStyle.opacity === 'number' ? baseStyle.opacity : 1;
-      const dimmedOpacity = Math.max(0.12, baseOpacity * 0.35);
-      const baseWidth = baseStyle.strokeWidth;
-      const targetOpacity = !hasActiveEdges
-        ? baseOpacity
-        : isActive
-          ? baseOpacity
-          : dimmedOpacity;
-
-      return {
+  const buildHighlightEdges = useCallback(
+    (edgesToHighlight, suffix) =>
+      edgesToHighlight.map((edge, idx) => ({
         ...edge,
-        animated: isActive && hasActiveEdges,
+        id: `hl-${edge.id}-${suffix}-${idx}`,
+        className: styles.edgeRunningDash,
+        animated: true,
+        label: undefined,
+        data: { ...edge.data, isHighlight: true },
         style: {
-          ...baseStyle,
-          opacity: targetOpacity,
-          strokeWidth: isActive && hasActiveEdges && baseWidth ? baseWidth + 0.8 : baseWidth,
-          filter: isActive && hasActiveEdges ? 'drop-shadow(0 0 8px currentColor)' : 'none',
+          ...(edge.style || {}),
+          strokeDasharray: '6 6',
+          strokeWidth: (edge.style?.strokeWidth || 2) + 0.4,
+          pointerEvents: 'none',
         },
-      };
-    });
-  }, []);
+      })),
+    []
+  );
+
+  const applyNodeHighlight = useCallback(
+    (nodeId) => {
+      if (!nodeId) {
+        setHighlightEdges([]);
+        return;
+      }
+
+      const entry = adjacencyMap.get(nodeId);
+      if (!entry) {
+        setHighlightEdges([]);
+        return;
+      }
+
+      const overlays = buildHighlightEdges([...(entry.in || []), ...(entry.out || [])], nodeId);
+      setHighlightEdges(overlays);
+    },
+    [adjacencyMap, buildHighlightEdges]
+  );
+
+  const applyEdgeHighlight = useCallback(
+    (edgeId) => {
+      if (!edgeId) {
+        setHighlightEdges([]);
+        return;
+      }
+      const edge = edgeById.get(edgeId);
+      if (!edge) {
+        setHighlightEdges([]);
+        return;
+      }
+      setHighlightEdges(buildHighlightEdges([edge], edgeId));
+    },
+    [edgeById, buildHighlightEdges]
+  );
+
+  const activeNodeId = hoverNodeId || pinnedSourceId;
 
   useEffect(() => {
-    const activeSourceId = hoverSourceId || pinnedSourceId;
-    setEdges((eds) => applyEdgeHighlights(eds, activeSourceId));
-  }, [hoverSourceId, pinnedSourceId, setEdges, applyEdgeHighlights]);
+    if (hoverEdgeId) {
+      applyEdgeHighlight(hoverEdgeId);
+      return;
+    }
+    if (activeNodeId) {
+      applyNodeHighlight(activeNodeId);
+      return;
+    }
+    setHighlightEdges([]);
+  }, [hoverEdgeId, activeNodeId, applyNodeHighlight, applyEdgeHighlight]);
 
-  // Загрузка проекта через REST + gRPC stream
+  const visibleEdges = useMemo(() => [...baseEdges, ...highlightEdges], [baseEdges, highlightEdges]);
+  const handleEdgesChange = useCallback(() => {}, []);
+  const defaultEdgeOptions = useMemo(() => ({ animated: false }), []);
+  const fitViewOptions = useMemo(() => ({ padding: 0.15, maxZoom: 0.9 }), []);
+  const proOptions = useMemo(() => ({ hideAttribution: true }), []);
+  const defaultViewport = useMemo(() => ({ x: 0, y: 0, zoom: 0.6 }), []);
+
+  // ðùð░ð│ÐÇÐâðÀð║ð░ ð┐ÐÇð¥ðÁð║Ðéð░ ÐçðÁÐÇðÁðÀ REST + gRPC stream
+    // Load project data via REST first, then fall back to gRPC streaming
   useEffect(() => {
     let cancelled = false;
-    
-    // Реальный проект: REST + gRPC
+
     const loadProject = async () => {
       try {
         if (isFirstLoad) {
           setLoading(true);
           setError(null);
         }
-        
-        console.log('[load] Loading project via REST, ID:', id);
-        
-        // 1. REST: fetch project data
+
         const projectData = await projectsAPI.getById(id);
-        console.log('[REST] /project response:', {
-          id: projectData?.id,
-          name: projectData?.name,
-          description: projectData?.description,
-          hasArchitecture: !!projectData?.architecture,
-          archRequirements: projectData?.architecture?.requirements?.length || 0,
-          archEndpoints: Array.isArray(projectData?.architecture?.endpoints)
-            ? projectData.architecture.endpoints.length
-            : projectData?.architecture?.endpoints
-              ? Object.keys(projectData.architecture.endpoints).length
-              : 0,
-          archDataNodes: projectData?.architecture?.data
-            ? Object.keys(projectData.architecture.data).length
-            : 0,
-          rawArchitecture: projectData?.architecture,
-        });
         if (cancelled) return;
 
         let archFromApi = projectData.architecture;
@@ -198,29 +213,26 @@ export default function ProjectAnalysis() {
           }
         }
 
-        if (archFromApi && typeof archFromApi === "object") {
+        if (archFromApi && typeof archFromApi === 'object') {
           const requirementsList = Array.isArray(archFromApi.requirements) ? archFromApi.requirements : [];
 
           let endpointsObj = {};
           if (archFromApi.endpoints) {
             if (Array.isArray(archFromApi.endpoints)) {
-              archFromApi.endpoints.forEach(endpoint => {
+              archFromApi.endpoints.forEach((endpoint) => {
                 Object.entries(endpoint).forEach(([key, value]) => {
                   endpointsObj[key] = value;
                 });
               });
-            } else if (typeof archFromApi.endpoints === "object") {
+            } else if (typeof archFromApi.endpoints === 'object') {
               endpointsObj = archFromApi.endpoints;
             }
           }
 
-          const dataObj = archFromApi.data && typeof archFromApi.data === "object" ? archFromApi.data : {};
+          const dataObj = archFromApi.data && typeof archFromApi.data === 'object' ? archFromApi.data : {};
 
-          const hasArchitectureFromApi = (
-            requirementsList.length > 0 ||
-            Object.keys(endpointsObj).length > 0 ||
-            Object.keys(dataObj).length > 0
-          );
+          const hasArchitectureFromApi =
+            requirementsList.length > 0 || Object.keys(endpointsObj).length > 0 || Object.keys(dataObj).length > 0;
 
           setProject({
             ...projectData,
@@ -228,26 +240,20 @@ export default function ProjectAnalysis() {
               ...archFromApi,
               requirements: requirementsList,
               endpoints: endpointsObj,
-              data: dataObj
-            }
+              data: dataObj,
+            },
           });
 
           if (hasArchitectureFromApi) {
-            console.log('[ui] Architecture received via GET, skip gRPC stream');
             setRequirements(requirementsList);
             setEndpoints(endpointsObj);
 
             const archArray = Object.entries(dataObj).map(([parent, children]) => ({
               parent,
-              children: Array.isArray(children) ? children : []
+              children: Array.isArray(children) ? children : [],
             }));
+            architectureDataRef.current = archArray;
             setArchitectureData(archArray);
-            console.log('[REST] Architecture from GET:', {
-              requirements: requirementsList.length,
-              endpoints: Object.keys(endpointsObj).length,
-              nodes: archArray.length,
-            });
-
             setStreamComplete(true);
             setLoading(false);
             setIsFirstLoad(false);
@@ -257,176 +263,108 @@ export default function ProjectAnalysis() {
           setProject(projectData);
         }
 
-        // 2. If no architecture came from REST - start gRPC stream
         setLoading(false);
         setIsFirstLoad(false);
-        
-        // Guard: do not start gRPC stream twice
+
         if (grpcStarted || streamControllerRef.current) {
-          console.log('⚠️ gRPC stream уже запущен или есть активный controller, пропускаем повторный вызов');
           return;
         }
-        
+
         setGrpcStarted(true);
-        console.log('📡 Запуск gRPC stream для анализа проекта');
-        
+
         if (!user || !user.id) {
-          console.error('❌ User ID не найден');
-          setError('Ошибка авторизации. Перезайдите в систему.');
+          setError('Authentication required. Please re-login.');
           setGrpcStarted(false);
           return;
         }
-        
-        console.log('[ui] 🛰 вызов grpcClient.connectToStream()', {
-          userId: user.id,
-          taskId: parseInt(id, 10),
-        });
 
-        const controller = await grpcClient.connectToStream(user.id, parseInt(id), {
+        const controller = await grpcClient.connectToStream(user.id, parseInt(id, 10), {
           onStart: () => {
-            console.log('🎬 Анализ начался');
+            console.log('Stream started');
           },
-          
+
           onRequirements: (data) => {
-            console.log('📋 Requirements получены:', data.requirements.length);
             setRequirements(data.requirements);
           },
-          
+
           onEndpoints: (data) => {
-            console.log('🔗 Endpoints получены:', Object.keys(data.endpoints).length);
             setEndpoints(data.endpoints);
           },
-          
+
           onArchitecture: (data) => {
-            console.log('🏗️ Architecture часть получена:', data.parent);
-            setArchitectureData(prev => {
-              const next = [...prev, {
-                parent: data.parent,
-                children: data.children
-              }];
-              architectureDataRef.current = next;
-              return next;
-            });
+            architectureDataRef.current = [
+              ...architectureDataRef.current,
+              { parent: data.parent, children: data.children },
+            ];
           },
-          
+
           onDone: async () => {
-            console.log('✅ gRPC Stream завершён');
+            setArchitectureData([...architectureDataRef.current]);
             setStreamComplete(true);
+            setGrpcStarted(false);
             streamControllerRef.current = null;
-            
-            // PATCH будет вызван при закрытии страницы или вручную
-            console.log('💡 Архитектура получена. Сохранение при закрытии проекта.');
           },
-          
+
           onError: (error) => {
-            console.error('❌ gRPC ошибка:', error);
             streamControllerRef.current = null;
             setGrpcStarted(false);
-            const errorMessage = error.message || 'Ошибка получения данных архитектуры';
-            
-            // Если ошибка 500 и данные уже есть в БД - игнорируем
+            const errorMessage = error.message || '?????? ????????? ?????? ???????????';
+
+            setArchitectureData([...architectureDataRef.current]);
+            setStreamComplete(true);
+
             if (errorMessage.includes('500') && project?.architecture?.data) {
-              console.log('⚠️ gRPC 500, но данные уже в БД - показываем их');
               setError(null);
               return;
             }
-            
-            // Проверяем конкретные типы ошибок
-            if (errorMessage.includes('прерван преждевременно')) {
-              setError('⚠️ Анализ не был завершён корректно.\n\n' +
-                'Stream оборвался до получения статуса DONE.\n\n' +
-                'Возможные причины:\n' +
-                '• Ошибка в алгоритме анализа проекта\n' +
-                '• Таймаут обработки (слишком большой проект)\n' +
-                '• Повреждён архив или файлы проекта\n' +
-                '• Недостаточно памяти на сервере\n\n' +
-                'Детали:\n' + errorMessage + '\n\n' +
-                'Проверьте логи Core gRPC сервиса:\n' +
-                'docker logs -f core-service');
-            } else if (errorMessage.includes('500')) {
-              setError('⚠️ Внутренняя ошибка сервера при анализе проекта.\n\n' +
-                'Возможные причины:\n' +
-                '• Проект не найден в БД (task_id не существует)\n' +
-                '• Поле files_url пустое или файл отсутствует в S3\n' +
-                '• Ошибка парсинга кода или распаковки архива\n' +
-                '• Исключение (Exception) в алгоритме RunAlgorithm\n\n' +
-                'Что проверить на бэкенде:\n' +
-                '1. docker logs -f core-service (ищите traceback)\n' +
-                '2. SELECT id, author_id, files_url FROM projects WHERE id=' + id + '\n' +
-                '3. Проверьте, существует ли файл в S3 (ключ из files_url)\n' +
-                '4. docker logs -f envoy (upstream connect error?)\n\n' +
-                'Детали: ' + errorMessage);
-            } else if (errorMessage.includes('404')) {
-              setError('❌ Сервис анализа недоступен (404).\n\n' +
-                'Проверьте конфигурацию Envoy:\n' +
-                '• Роутинг для /core.api.FrontendStreamService/RunAlgorithm\n' +
-                '• Upstream cluster указывает на core-service:50051\n' +
-                '• Core gRPC сервис запущен: docker ps | grep core');
+
+            if (errorMessage.includes('404')) {
+              setError('?????? ??????? ?????????? (404).');
             } else if (errorMessage.includes('502') || errorMessage.includes('503')) {
-              setError('❌ Сервис анализа временно недоступен (502/503).\n\n' +
-                'Core gRPC сервер недоступен через Envoy.\n\n' +
-                'Проверьте:\n' +
-                '• docker ps (core-service запущен?)\n' +
-                '• docker logs envoy (upstream connect error?)\n' +
-                '• GRPC_HOST в .env алгоритм-сервиса указывает на core-service');
+              setError('?????? ??????? ???????? ?????????? (502/503).');
             } else if (errorMessage.includes('Failed to fetch')) {
-              setError('❌ Не удалось подключиться к серверу анализа.\n\n' +
-                'Проверьте сетевое подключение:\n' +
-                '• Vite proxy: /grpc → http://78.153.139.47:8080\n' +
-                '• Envoy доступен: curl http://78.153.139.47:8080\n' +
-                '• Нет блокировки CORS или firewall');
-            } else if (errorMessage.includes('завершился без данных')) {
-              setError('❌ Stream завершился без получения данных.\n\n' +
-                'Backend не отправил ни одного сообщения.\n\n' +
-                'Возможные причины:\n' +
-                '• Проект не принадлежит user_id=' + user.id + '\n' +
-                '• Проект не найден в БД (task_id=' + id + ')\n' +
-                '• Ошибка перед началом отправки данных\n\n' +
-                'Проверьте логи Core: docker logs -f core-service');
+              setError('?? ??????? ???????????? ? ??????? ???????.');
             } else {
-              setError(`❌ Ошибка: ${errorMessage}\n\nПопробуйте перезагрузить страницу или обратитесь к администратору.`);
+              setError(`??????: ${errorMessage}`);
             }
-            setStreamComplete(true);
-          }
+          },
         });
-        
-        
+
+        streamControllerRef.current = controller;
       } catch (err) {
         if (cancelled) return;
-        console.error('❌ Ошибка загрузки проекта:', err);
-        
+        console.error('?????? ???????? ???????:', err);
+
         if (err.response?.status === 401) {
-          // Redirect to login handled by interceptor
           navigate('/login');
         } else {
-          setError(err.response?.data?.detail || err.message || 'Не удалось загрузить проект');
+          setError(err.response?.data?.detail || err.message || '?? ??????? ????????? ??????');
         }
-        
+
         if (isFirstLoad) {
           setLoading(false);
           setIsFirstLoad(false);
         }
       }
     };
-    
+
     loadProject();
-    
-    // Cleanup: отменяем stream при размонтировании
+
     return () => {
       cancelled = true;
-      setGrpcStarted(false); // Сбрасываем флаг при cleanup
+      setGrpcStarted(false);
       if (streamControllerRef.current) {
         streamControllerRef.current.abort?.();
         streamControllerRef.current.cancel?.();
         streamControllerRef.current = null;
       }
     };
-  }, [id, user]);
+  }, [id, user, grpcStarted, isFirstLoad, navigate]);
 
   const handleDeleteProject = async () => {
     if (!id || deleting) return;
 
-    const confirmed = window.confirm('Удалить проект? Это действие нельзя отменить.');
+    const confirmed = window.confirm('ðúð┤ð░ð╗ð©ÐéÐî ð┐ÐÇð¥ðÁð║Ðé? ð¡Ðéð¥ ð┤ðÁð╣ÐüÐéð▓ð©ðÁ ð¢ðÁð╗ÐîðÀÐÅ ð¥Ðéð╝ðÁð¢ð©ÐéÐî.');
     if (!confirmed) return;
 
     try {
@@ -435,96 +373,100 @@ export default function ProjectAnalysis() {
       await projectsAPI.delete(id);
       navigate('/projects');
     } catch (err) {
-      console.error('Ошибка при удалении проекта:', err);
+      console.error('ð×Ðêð©ð▒ð║ð░ ð┐ÐÇð© Ðâð┤ð░ð╗ðÁð¢ð©ð© ð┐ÐÇð¥ðÁð║Ðéð░:', err);
       const status = err.response?.status;
       const backendMessage = err.response?.data?.message || err.response?.data?.detail;
 
       if (status === 404) {
-        setDeleteError('Проект не найден или нет прав доступа.');
+        setDeleteError('ðƒÐÇð¥ðÁð║Ðé ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ ð©ð╗ð© ð¢ðÁÐé ð┐ÐÇð░ð▓ ð┤ð¥ÐüÐéÐâð┐ð░.');
       } else if (status === 401) {
-        setDeleteError('Неверный токен. Войдите заново.');
+        setDeleteError('ðØðÁð▓ðÁÐÇð¢Ðïð╣ Ðéð¥ð║ðÁð¢. ðÆð¥ð╣ð┤ð©ÐéðÁ ðÀð░ð¢ð¥ð▓ð¥.');
         logout?.();
         navigate('/login');
       } else {
-        setDeleteError(backendMessage || 'Не удалось удалить проект. Попробуйте позже.');
+        setDeleteError(backendMessage || 'ðØðÁ Ðâð┤ð░ð╗ð¥ÐüÐî Ðâð┤ð░ð╗ð©ÐéÐî ð┐ÐÇð¥ðÁð║Ðé. ðƒð¥ð┐ÐÇð¥ð▒Ðâð╣ÐéðÁ ð┐ð¥ðÀðÂðÁ.');
       }
     } finally {
       setDeleting(false);
     }
   };
 
-  // Построение графа с единой схемой (как при создании проекта)
+  // ðƒð¥ÐüÐéÐÇð¥ðÁð¢ð©ðÁ ð│ÐÇð░Ðäð░ Ðü ðÁð┤ð©ð¢ð¥ð╣ ÐüÐàðÁð╝ð¥ð╣ (ð║ð░ð║ ð┐ÐÇð© Ðüð¥ðÀð┤ð░ð¢ð©ð© ð┐ÐÇð¥ðÁð║Ðéð░)
+    const runLayout = useCallback(
+    async (builtNodes, builtEdges) => {
+      const runId = ++layoutRunIdRef.current;
+      try {
+        const { nodes: layoutNodes, edges: layoutEdges } = await layoutWithElk(builtNodes, builtEdges, 'RIGHT');
+        if (layoutRunIdRef.current !== runId) return;
+        setNodes(layoutNodes);
+        setBaseEdges(layoutEdges);
+      } catch (err) {
+        console.error('ELK layout error:', err);
+        if (layoutRunIdRef.current !== runId) return;
+        setNodes(builtNodes);
+        setBaseEdges(builtEdges);
+      } finally {
+        if (isFirstLoad && builtNodes.length > 0 && layoutRunIdRef.current === runId) {
+          setIsFirstLoad(false);
+        }
+      }
+    },
+    [isFirstLoad, setNodes]
+  );
+
+  // Build graph once data is ready (initial load or after stream)
   useEffect(() => {
-    if (!project) return;
-    if (architectureData.length === 0 && Object.keys(endpoints || {}).length === 0) return;
-
-    const methodColors = {
-      'GET': { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
-      'POST': { bg: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: '#2563eb' },
-      'PATCH': { bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: '#d97706' },
-      'PUT': { bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', border: '#7c3aed' },
-      'DELETE': { bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '#dc2626' },
-    };
-
-    const serviceColors = {
-      'AuthService': { color: '#8b5cf6', icon: '🔐', label: 'Auth' },
-      'AccountService': { color: '#3b82f6', icon: '👤', label: 'Account' },
-      'ProjectService': { color: '#10b981', icon: '📁', label: 'Project' },
-      'CoreService': { color: '#f59e0b', icon: '⚙️', label: 'Core' },
-    };
+    if (!streamComplete) return;
+    if (architectureData.length === 0 && Object.keys(endpoints || {}).length === 0 && requirements.length === 0) return;
 
     const { nodes: builtNodes, edges: builtEdges, summary } = buildGraph({
       requirements,
       endpoints,
       architectureData,
-      methodColors,
-      serviceColors,
+      methodColors: METHOD_COLORS,
+      serviceColors: SERVICE_COLORS,
     });
 
-    console.log('✅ Граф отрисован (просмотр, до layout):', summary);
-
-    layoutWithElk(builtNodes, builtEdges, 'RIGHT')
-      .then(({ nodes: layoutNodes, edges: layoutEdges }) => {
-        const highlightedEdges = applyEdgeHighlights(layoutEdges, activeHighlightRef.current);
-        setNodes(layoutNodes);
-        setEdges(highlightedEdges);
-      })
-      .catch((err) => {
-        console.error('ELK layout error:', err);
-        const fallbackEdges = applyEdgeHighlights(builtEdges, activeHighlightRef.current);
-        setNodes(builtNodes);
-        setEdges(fallbackEdges);
-      });
-    if (isFirstLoad && builtNodes.length > 0) {
-      setIsFirstLoad(false);
-    }
-  }, [project, requirements, endpoints, architectureData, setNodes, setEdges, isFirstLoad, applyEdgeHighlights]);
+    console.log('Graph built (before layout):', summary);
+    runLayout(builtNodes, builtEdges);
+  }, [streamComplete, requirements, endpoints, architectureData, runLayout]);
 
   const onNodeMouseEnter = useCallback((event, node) => {
-    setHoverSourceId(node.id);
+    setHoverNodeId(node.id);
+    setHoverEdgeId(null);
   }, []);
 
   const onNodeMouseLeave = useCallback(() => {
-    setHoverSourceId(null);
+    setHoverNodeId(null);
   }, []);
 
   const onNodeClick = useCallback((event, node) => {
     setSelectedNode((prev) => (prev?.id === node.id ? null : node));
     setPinnedSourceId((prev) => (prev === node.id ? null : node.id));
+    setHoverEdgeId(null);
+  }, []);
+
+  const onEdgeMouseEnter = useCallback((event, edge) => {
+    setHoverEdgeId(edge.id);
+  }, []);
+
+  const onEdgeMouseLeave = useCallback(() => {
+    setHoverEdgeId(null);
   }, []);
 
   const onPaneClick = useCallback(() => {
     setSelectedNode(null);
     setPinnedSourceId(null);
-    setHoverSourceId(null);
+    setHoverNodeId(null);
+    setHoverEdgeId(null);
   }, []);
 
   const nodesCount = nodes.length;
-  const edgesCount = edges.length;
+  const edgesCount = baseEdges.length;
   const requirementsCount = requirements.length;
   const endpointsCount = Object.keys(endpoints || {}).length;
 
-  // Отображение статуса загрузки или ошибки
+  // ð×Ðéð¥ð▒ÐÇð░ðÂðÁð¢ð©ðÁ ÐüÐéð░ÐéÐâÐüð░ ðÀð░ð│ÐÇÐâðÀð║ð© ð©ð╗ð© ð¥Ðêð©ð▒ð║ð©
   if (loading) {
     return (
       <div className={styles.container}>
@@ -540,7 +482,7 @@ export default function ProjectAnalysis() {
         <div className={styles.flowWrapper}>
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner} />
-            <p>Загрузка проекта...</p>
+            <p>ðùð░ð│ÐÇÐâðÀð║ð░ ð┐ÐÇð¥ðÁð║Ðéð░...</p>
           </div>
         </div>
       </div>
@@ -561,7 +503,7 @@ export default function ProjectAnalysis() {
         />
         <div className={styles.flowWrapper}>
           <div className={styles.loadingState}>
-            <p style={{ color: '#ef4444' }}>⚠️ {error}</p>
+            <p style={{ color: '#ef4444' }}>ÔÜá´©Å {error}</p>
             <button 
               onClick={() => window.location.reload()} 
               style={{ 
@@ -574,7 +516,7 @@ export default function ProjectAnalysis() {
                 cursor: 'pointer'
               }}
             >
-              Попробовать снова
+              ðƒð¥ð┐ÐÇð¥ð▒ð¥ð▓ð░ÐéÐî Ðüð¢ð¥ð▓ð░
             </button>
           </div>
         </div>
@@ -582,7 +524,7 @@ export default function ProjectAnalysis() {
     );
   }
 
-  // Проверка наличия данных архитектуры
+  // ðƒÐÇð¥ð▓ðÁÐÇð║ð░ ð¢ð░ð╗ð©Ðçð©ÐÅ ð┤ð░ð¢ð¢ÐïÐà ð░ÐÇÐàð©ÐéðÁð║ÐéÐâÐÇÐï
   const hasArchitectureData = project?.architecture && (
     (project.architecture.requirements && project.architecture.requirements.length > 0) ||
     (project.architecture.endpoints && Object.keys(project.architecture.endpoints).length > 0) ||
@@ -611,9 +553,9 @@ export default function ProjectAnalysis() {
         <div className={styles.flowWrapper}>
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner}></div>
-            <h2>Открываем проект...</h2>
+            <h2>ð×Ðéð║ÐÇÐïð▓ð░ðÁð╝ ð┐ÐÇð¥ðÁð║Ðé...</h2>
             <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '30px', maxWidth: '400px', textAlign: 'center' }}>
-              Подготавливаем сохранённую визуализацию. Это займёт несколько секунд.
+              ðƒð¥ð┤ð│ð¥Ðéð░ð▓ð╗ð©ð▓ð░ðÁð╝ Ðüð¥ÐàÐÇð░ð¢Ðæð¢ð¢ÐâÐÄ ð▓ð©ðÀÐâð░ð╗ð©ðÀð░Ðåð©ÐÄ. ð¡Ðéð¥ ðÀð░ð╣ð╝ÐæÐé ð¢ðÁÐüð║ð¥ð╗Ðîð║ð¥ ÐüðÁð║Ðâð¢ð┤.
             </p>
             <div className={styles.progressBar} style={{ width: '400px', height: '8px', background: 'rgba(90, 111, 214, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
               <div 
@@ -658,23 +600,24 @@ export default function ProjectAnalysis() {
         {nodes.length > 0 ? (
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={visibleEdges}
             edgeTypes={edgeTypes}
             onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onEdgesChange={handleEdgesChange}
             onNodeClick={onNodeClick}
             onNodeMouseEnter={onNodeMouseEnter}
             onNodeMouseLeave={onNodeMouseLeave}
+            onEdgeMouseEnter={onEdgeMouseEnter}
+            onEdgeMouseLeave={onEdgeMouseLeave}
             onPaneClick={onPaneClick}
             fitView={isFirstLoad}
-            fitViewOptions={{ padding: 0.15, maxZoom: 0.9 }}
+            fitViewOptions={fitViewOptions}
             minZoom={0.1}
             maxZoom={2}
-            defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
-            proOptions={{ hideAttribution: true }}
-            defaultEdgeOptions={{
-              animated: false, // Отключаем анимацию для производительности
-            }}
+            defaultViewport={defaultViewport}
+            proOptions={proOptions}
+            defaultEdgeOptions={defaultEdgeOptions}
+            onlyRenderVisibleElements
             nodesDraggable={true}
             nodesConnectable={false}
             elementsSelectable={true}
@@ -696,7 +639,7 @@ export default function ProjectAnalysis() {
         ) : (
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner} />
-            <p>Построение графа архитектуры...</p>
+            <p>ðƒð¥ÐüÐéÐÇð¥ðÁð¢ð©ðÁ ð│ÐÇð░Ðäð░ ð░ÐÇÐàð©ÐéðÁð║ÐéÐâÐÇÐï...</p>
           </div>
         )}
       </div>
@@ -705,7 +648,7 @@ export default function ProjectAnalysis() {
       {selectedNode && (
         <div className={styles.tooltip}>
           <button className={styles.tooltipClose} onClick={() => setSelectedNode(null)}>
-            ×
+            ├ù
           </button>
           <h3>{selectedNode.data.label}</h3>
           <p><strong>ID:</strong> {selectedNode.id}</p>

@@ -691,3 +691,14 @@
     bottom: 80px;
   }
 }
+
+@keyframes runningDash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.edgeRunningDash path {
+  stroke-dasharray: 6 6;
+  animation: runningDash 1s linear infinite;
+}
