@@ -176,6 +176,17 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.input:disabled {
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.hint {
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .btnPrimary {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;

@@ -12,7 +12,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [profileForm, setProfileForm] = useState({ name: '', surname: '', login: '' });
+  const [profileForm, setProfileForm] = useState({ name: '', surname: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -43,10 +43,9 @@ export default function Settings() {
       setProfileForm({
         name: accountData?.name ?? user?.name ?? '',
         surname: accountData?.surname ?? user?.surname ?? '',
-        login: accountLogin,
       });
     }
-  }, [accountData, user, accountLogin]);
+  }, [accountData, user]);
 
   async function loadAccountData() {
     try {
@@ -70,7 +69,6 @@ export default function Settings() {
     setProfileForm({
       name: accountData?.name ?? user?.name ?? '',
       surname: accountData?.surname ?? user?.surname ?? '',
-      login: accountLogin,
     });
     setProfileError('');
     setProfileSuccess('');
@@ -82,11 +80,10 @@ export default function Settings() {
     const payload = {
       name: profileForm.name.trim(),
       surname: profileForm.surname.trim(),
-      login: profileForm.login.trim(),
     };
 
-    if (!payload.name || !payload.surname || !payload.login) {
-      setProfileError('Заполните имя, фамилию и логин');
+    if (!payload.name || !payload.surname) {
+      setProfileError('Заполните имя и фамилию');
       return;
     }
 
@@ -96,13 +93,18 @@ export default function Settings() {
       setProfileSuccess('');
 
       const updated = await accountAPI.updateAccount(payload);
-      setAccountData(updated);
+      const updatedLogin = updated.login ?? accountLogin;
+      setAccountData((prev) => ({
+        ...prev,
+        ...updated,
+        login: updatedLogin ?? prev?.login ?? accountLogin,
+      }));
       setProfileSuccess('Данные профиля обновлены');
 
       if (updateUser) {
         updateUser({
           id: updated.id,
-          login: updated.login,
+          login: updatedLogin,
           name: updated.name,
           surname: updated.surname,
           email: updated.email,
@@ -285,12 +287,13 @@ export default function Settings() {
               <span className={styles.label}>Логин</span>
               <input
                 type="text"
-                value={profileForm.login}
-                onChange={(e) => handleProfileChange('login', e.target.value)}
+                value={accountLogin}
                 className={styles.input}
                 placeholder="Ваш логин"
-                required
+                disabled
+                readOnly
               />
+              <span className={styles.hint}>Логин изменить нельзя</span>
             </label>
 
             <div className={styles.dualRow}>
