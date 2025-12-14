@@ -709,7 +709,7 @@ export function buildGraph({
       stroke: baseColor,
       strokeWidth,
       opacity,
-      strokeDasharray: kind === 'internal' ? '4 4' : undefined,
+      strokeDasharray: undefined,
     };
 
     newEdges.push({
