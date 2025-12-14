@@ -590,7 +590,7 @@ export default function NewProject() {
                       onClick={() => setDepsCollapsed((prev) => !prev)}
                       aria-label={depsCollapsed ? 'Expand dependencies' : 'Collapse dependencies'}
                     >
-                      {depsCollapsed ? '>' : '<'}
+                      {depsCollapsed ? '❯' : '❮'}
                     </button>
                   </div>
                 </div>

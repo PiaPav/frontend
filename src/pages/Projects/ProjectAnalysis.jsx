@@ -658,27 +658,27 @@ export default function ProjectAnalysis() {
         </div>
 
         {/* Dependencies Sidebar */}
-        <aside
-          className={`${styles.dependenciesPanel} ${depsCollapsed ? styles.dependenciesCollapsed : ''}`}
-          aria-expanded={!depsCollapsed}
-        >
-          <div className={styles.dependenciesHeader}>
-            <div className={styles.dependenciesHeaderText}>
-              <div className={styles.dependenciesTitle}>Dependencies</div>
-              <div className={styles.dependenciesSubtitle}>{dependenciesSubtitle}</div>
-            </div>
-            <div className={styles.dependenciesHeaderActions}>
-              <div className={styles.dependenciesBadge}>{requirementsCount}</div>
-              <button
-                type="button"
-                className={styles.dependenciesToggle}
-                onClick={() => setDepsCollapsed((prev) => !prev)}
-                aria-label={depsCollapsed ? 'Expand dependencies' : 'Collapse dependencies'}
+              <aside
+                className={`${styles.dependenciesPanel} ${depsCollapsed ? styles.dependenciesCollapsed : ''}`}
+                aria-expanded={!depsCollapsed}
               >
-                {depsCollapsed ? '>' : '<'}
-              </button>
-            </div>
-          </div>
+                <div className={styles.dependenciesHeader}>
+                  <div className={styles.dependenciesHeaderText}>
+                    <div className={styles.dependenciesTitle}>Dependencies</div>
+                    <div className={styles.dependenciesSubtitle}>{dependenciesSubtitle}</div>
+                  </div>
+                  <div className={styles.dependenciesHeaderActions}>
+                    <div className={styles.dependenciesBadge}>{requirementsCount}</div>
+                    <button
+                      type="button"
+                      className={styles.dependenciesToggle}
+                      onClick={() => setDepsCollapsed((prev) => !prev)}
+                      aria-label={depsCollapsed ? 'Expand dependencies' : 'Collapse dependencies'}
+                    >
+                      {depsCollapsed ? '❯' : '❮'}
+                    </button>
+                  </div>
+                </div>
           {!depsCollapsed && (
             <div className={styles.dependenciesList}>
               {requirementsCount > 0 ? (
