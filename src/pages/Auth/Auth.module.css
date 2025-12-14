@@ -85,6 +85,46 @@
     color: #aaa;
 }
 
+.passwordWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.passwordInput {
+    width: 100%;
+    padding-right: 110px;
+}
+
+.togglePassword {
+    position: absolute;
+    right: 10px;
+    padding: 8px 12px;
+    background: #f3f1ff;
+    border: 1px solid #e2defa;
+    color: #5b4abf;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.togglePassword:hover:not(:disabled) {
+    background: #e8e5ff;
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.15);
+}
+
+.togglePassword:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.togglePassword:focus-visible {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
 .error {
     background: #fee;
     color: #c33;
@@ -156,5 +196,9 @@
 
     .title {
         font-size: 28px;
+    }
+
+    .passwordInput {
+        padding-right: 96px;
     }
 }

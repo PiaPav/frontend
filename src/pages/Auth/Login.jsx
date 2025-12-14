@@ -7,6 +7,7 @@ export default function Login() {
   const [form, setForm] = useState({ login: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -66,16 +67,27 @@ export default function Login() {
 
           <div className={styles.inputGroup}>
             <label htmlFor="password">Пароль</label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              className={styles.input}
-              placeholder="Введите пароль"
-              disabled={loading}
-            />
+            <div className={styles.passwordWrapper}>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                className={`${styles.input} ${styles.passwordInput}`}
+                placeholder="Введите пароль"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className={styles.togglePassword}
+                onClick={() => setShowPassword((prev) => !prev)}
+                disabled={loading}
+                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+              >
+                {showPassword ? 'Скрыть' : 'Показать'}
+              </button>
+            </div>
           </div>
 
           {error && <p className={styles.error}>{error}</p>}

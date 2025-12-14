@@ -13,6 +13,8 @@ export default function Register() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -112,30 +114,52 @@ export default function Register() {
 
           <div className={styles.inputGroup}>
             <label htmlFor="password">Пароль</label>
-            <input
-              id="password"
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              className={styles.input}
-              placeholder="Минимум 8 символов"
-              disabled={loading}
-            />
+            <div className={styles.passwordWrapper}>
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                className={`${styles.input} ${styles.passwordInput}`}
+                placeholder="Минимум 8 символов"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className={styles.togglePassword}
+                onClick={() => setShowPassword((prev) => !prev)}
+                disabled={loading}
+                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+              >
+                {showPassword ? 'Скрыть' : 'Показать'}
+              </button>
+            </div>
           </div>
 
           <div className={styles.inputGroup}>
             <label htmlFor="confirmPassword">Подтвердите пароль</label>
-            <input
-              id="confirmPassword"
-              type="password"
-              name="confirmPassword"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              className={styles.input}
-              placeholder="Повторите пароль"
-              disabled={loading}
-            />
+            <div className={styles.passwordWrapper}>
+              <input
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                name="confirmPassword"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                className={`${styles.input} ${styles.passwordInput}`}
+                placeholder="Повторите пароль"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className={styles.togglePassword}
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                disabled={loading}
+                aria-label={showConfirmPassword ? 'Скрыть подтверждение пароля' : 'Показать подтверждение пароля'}
+              >
+                {showConfirmPassword ? 'Скрыть' : 'Показать'}
+              </button>
+            </div>
           </div>
 
           {error && <p className={styles.error}>{error}</p>}
