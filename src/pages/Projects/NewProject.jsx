@@ -43,6 +43,7 @@ export default function NewProject() {
   const [showGraph, setShowGraph] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(null);
   const [depsCollapsed, setDepsCollapsed] = useState(false);
+  const [buildStatus, setBuildStatus] = useState(''); // 'building', 'done', ''
   const architectureDataRef = useRef([]);
   const streamControllerRef = useRef(null);
   const isSavingRef = useRef(false);
@@ -227,6 +228,7 @@ export default function NewProject() {
       // ШАГ 2: Запуск gRPC анализа и показ визуализации
       setAnalysisStatus('analyzing');
       setShowGraph(true); // Показываем граф сразу
+      setBuildStatus('building'); // Начало построения
 
       if (!user || !user.id) {
         throw new Error('User ID не найден. Перезайдите в систему.');
@@ -331,6 +333,13 @@ export default function NewProject() {
           setAnalysisStatus('completed');
           setLoading(false);
           streamControllerRef.current = null;
+          
+          // Показываем статус завершения
+          setBuildStatus('done');
+          setTimeout(() => {
+            setBuildStatus('');
+          }, 5000); // Скрываем через 5 секунд
+          
           await saveArchitecture('done');
         },
         
@@ -554,6 +563,25 @@ export default function NewProject() {
             onClose={() => { setShowGraph(false); navigate('/projects'); }}
             closeLabel="Close"
           />
+          
+          {/* Статус построения графа */}
+          {buildStatus && (
+            <div className={analysisStyles.renderStatusOverlay}>
+              {buildStatus === 'building' && (
+                <div className={analysisStyles.renderProgress}>
+                  <div className={analysisStyles.renderProgressDot} />
+                  Building graph in progress...
+                </div>
+              )}
+              {buildStatus === 'done' && (
+                <div className={analysisStyles.renderDone}>
+                  <div className={analysisStyles.renderDoneDot} />
+                  Build completed
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className={analysisStyles.graphBody}>
             <div className={analysisStyles.visualLayout}>
               <div className={analysisStyles.flowWrapper}>

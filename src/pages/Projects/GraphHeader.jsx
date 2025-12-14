@@ -13,6 +13,7 @@ export default function GraphHeader({
   deleteLabel = 'Delete',
   deleteIcon,
   deleting = false,
+  renderComplete = false,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -39,6 +40,12 @@ export default function GraphHeader({
         <div className={styles.graphMeta}>
           Nodes: {nodesCount} | Edges: {edgesCount} | Requirements: {requirementsCount} | Endpoints: {endpointsCount}
         </div>
+        {renderComplete && (
+          <div className={styles.renderDone} role="status" aria-live="polite">
+            <span className={styles.renderDoneDot} aria-hidden="true" />
+            Отрисовка закончена
+          </div>
+        )}
       </div>
       <div className={styles.graphActions}>
         {onDelete && (

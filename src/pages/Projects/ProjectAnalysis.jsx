@@ -49,7 +49,7 @@ export default function ProjectAnalysis() {
   const [hoverEdgeId, setHoverEdgeId] = useState(null);
   const [depsCollapsed, setDepsCollapsed] = useState(false);
   
-  // ðöð░ð¢ð¢ÐïðÁ ð┐ÐÇð¥ðÁð║Ðéð░ Ðü ÐüðÁÐÇð▓ðÁÐÇð░
+  // Project data and graph state
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -61,11 +61,14 @@ export default function ProjectAnalysis() {
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [streamComplete, setStreamComplete] = useState(false);
   const [grpcStarted, setGrpcStarted] = useState(false);
+  const [isFirstRenderSession, setIsFirstRenderSession] = useState(false);
+  const [showRenderComplete, setShowRenderComplete] = useState(false);
   const streamControllerRef = useRef(null);
   const layoutRunIdRef = useRef(0);
   const architectureDataRef = useRef([]);
+  const renderCompleteTimerRef = useRef(null);
 
-  // ðíð▒ÐÇð░ÐüÐïð▓ð░ðÁð╝ Ðüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ ð┐ÐÇð© Ðüð╝ðÁð¢ðÁ id ð┐ÐÇð¥ðÁð║Ðéð░
+  // Reset state when project id changes
   useEffect(() => {
     setProject(null);
     setRequirements([]);
@@ -76,6 +79,12 @@ export default function ProjectAnalysis() {
     setHighlightEdges([]);
     setStreamComplete(false);
     setGrpcStarted(false);
+    setIsFirstRenderSession(false);
+    setShowRenderComplete(false);
+    if (renderCompleteTimerRef.current) {
+      clearTimeout(renderCompleteTimerRef.current);
+      renderCompleteTimerRef.current = null;
+    }
     setDeleteError('');
     setDeleting(false);
     setError(null);
@@ -190,13 +199,14 @@ export default function ProjectAnalysis() {
   const proOptions = useMemo(() => ({ hideAttribution: true }), []);
   const defaultViewport = useMemo(() => ({ x: 0, y: 0, zoom: 0.6 }), []);
 
-  // ðùð░ð│ÐÇÐâðÀð║ð░ ð┐ÐÇð¥ðÁð║Ðéð░ ÐçðÁÐÇðÁðÀ REST + gRPC stream
-    // Load project data via REST first, then fall back to gRPC streaming
+  // Load project data via REST first, then keep updates flowing through gRPC
   useEffect(() => {
     let cancelled = false;
 
     const loadProject = async () => {
       try {
+        let hasArchitectureFromApi = false;
+
         if (isFirstLoad) {
           setLoading(true);
           setError(null);
@@ -233,8 +243,9 @@ export default function ProjectAnalysis() {
 
           const dataObj = archFromApi.data && typeof archFromApi.data === 'object' ? archFromApi.data : {};
 
-          const hasArchitectureFromApi =
+          const hasArchitectureFromApiLocal =
             requirementsList.length > 0 || Object.keys(endpointsObj).length > 0 || Object.keys(dataObj).length > 0;
+          hasArchitectureFromApi = hasArchitectureFromApiLocal;
 
           setProject({
             ...projectData,
@@ -246,7 +257,8 @@ export default function ProjectAnalysis() {
             },
           });
 
-          if (hasArchitectureFromApi) {
+          if (hasArchitectureFromApiLocal) {
+            setIsFirstRenderSession(false);
             setRequirements(requirementsList);
             setEndpoints(endpointsObj);
 
@@ -272,6 +284,7 @@ export default function ProjectAnalysis() {
           return;
         }
 
+        setIsFirstRenderSession(!hasArchitectureFromApi);
         setGrpcStarted(true);
 
         if (!user || !user.id) {
@@ -310,7 +323,7 @@ export default function ProjectAnalysis() {
           onError: (error) => {
             streamControllerRef.current = null;
             setGrpcStarted(false);
-            const errorMessage = error.message || '?????? ????????? ?????? ???????????';
+            const errorMessage = error.message || 'Неизвестная ошибка подключения';
 
             setArchitectureData([...architectureDataRef.current]);
             setStreamComplete(true);
@@ -321,13 +334,13 @@ export default function ProjectAnalysis() {
             }
 
             if (errorMessage.includes('404')) {
-              setError('?????? ??????? ?????????? (404).');
+              setError('Проект не найден (404).');
             } else if (errorMessage.includes('502') || errorMessage.includes('503')) {
-              setError('?????? ??????? ???????? ?????????? (502/503).');
+              setError('Ошибка серверной инфраструктуры (502/503).');
             } else if (errorMessage.includes('Failed to fetch')) {
-              setError('?? ??????? ???????????? ? ??????? ???????.');
+              setError('Не удалось подключиться к серверу.');
             } else {
-              setError(`??????: ${errorMessage}`);
+              setError(`Ошибка: ${errorMessage}`);
             }
           },
         });
@@ -335,12 +348,12 @@ export default function ProjectAnalysis() {
         streamControllerRef.current = controller;
       } catch (err) {
         if (cancelled) return;
-        console.error('?????? ???????? ???????:', err);
+        console.error('Ошибка загрузки проекта:', err);
 
         if (err.response?.status === 401) {
           navigate('/login');
         } else {
-          setError(err.response?.data?.detail || err.message || '?? ??????? ????????? ??????');
+          setError(err.response?.data?.detail || err.message || 'Не удалось получить данные проекта');
         }
 
         if (isFirstLoad) {
@@ -366,7 +379,7 @@ export default function ProjectAnalysis() {
   const handleDeleteProject = async () => {
     if (!id || deleting) return;
 
-    const confirmed = window.confirm('ðúð┤ð░ð╗ð©ÐéÐî ð┐ÐÇð¥ðÁð║Ðé? ð¡Ðéð¥ ð┤ðÁð╣ÐüÐéð▓ð©ðÁ ð¢ðÁð╗ÐîðÀÐÅ ð¥Ðéð╝ðÁð¢ð©ÐéÐî.');
+    const confirmed = window.confirm('Удалить проект? После удаления восстановить его будет нельзя.');
     if (!confirmed) return;
 
     try {
@@ -375,26 +388,26 @@ export default function ProjectAnalysis() {
       await projectsAPI.delete(id);
       navigate('/projects');
     } catch (err) {
-      console.error('ð×Ðêð©ð▒ð║ð░ ð┐ÐÇð© Ðâð┤ð░ð╗ðÁð¢ð©ð© ð┐ÐÇð¥ðÁð║Ðéð░:', err);
+      console.error('Ошибка при удалении проекта:', err);
       const status = err.response?.status;
       const backendMessage = err.response?.data?.message || err.response?.data?.detail;
 
       if (status === 404) {
-        setDeleteError('ðƒÐÇð¥ðÁð║Ðé ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ ð©ð╗ð© ð¢ðÁÐé ð┐ÐÇð░ð▓ ð┤ð¥ÐüÐéÐâð┐ð░.');
+        setDeleteError('Проект не найден или уже удалён.');
       } else if (status === 401) {
-        setDeleteError('ðØðÁð▓ðÁÐÇð¢Ðïð╣ Ðéð¥ð║ðÁð¢. ðÆð¥ð╣ð┤ð©ÐéðÁ ðÀð░ð¢ð¥ð▓ð¥.');
+        setDeleteError('Сессия истекла. Авторизуйтесь снова.');
         logout?.();
         navigate('/login');
       } else {
-        setDeleteError(backendMessage || 'ðØðÁ Ðâð┤ð░ð╗ð¥ÐüÐî Ðâð┤ð░ð╗ð©ÐéÐî ð┐ÐÇð¥ðÁð║Ðé. ðƒð¥ð┐ÐÇð¥ð▒Ðâð╣ÐéðÁ ð┐ð¥ðÀðÂðÁ.');
+        setDeleteError(backendMessage || 'Не удалось удалить проект. Попробуйте позже.');
       }
     } finally {
       setDeleting(false);
     }
   };
 
-  // ðƒð¥ÐüÐéÐÇð¥ðÁð¢ð©ðÁ ð│ÐÇð░Ðäð░ Ðü ðÁð┤ð©ð¢ð¥ð╣ ÐüÐàðÁð╝ð¥ð╣ (ð║ð░ð║ ð┐ÐÇð© Ðüð¥ðÀð┤ð░ð¢ð©ð© ð┐ÐÇð¥ðÁð║Ðéð░)
-    const runLayout = useCallback(
+  // Run ELK layout with stale-run guard
+  const runLayout = useCallback(
     async (builtNodes, builtEdges) => {
       const runId = ++layoutRunIdRef.current;
       try {
@@ -467,6 +480,44 @@ export default function ProjectAnalysis() {
   const edgesCount = baseEdges.length;
   const requirementsCount = requirements.length;
   const endpointsCount = Object.keys(endpoints || {}).length;
+  const renderComplete = streamComplete && nodes.length > 0 && !loading;
+  const showRenderInProgress = isFirstRenderSession && grpcStarted && !streamComplete;
+  const showRenderCompleteOverlay = showRenderComplete;
+  const renderStatusOverlayNode =
+    (showRenderCompleteOverlay || showRenderInProgress) && (
+      <div className={styles.renderStatusOverlay} role="status" aria-live="polite">
+        {showRenderCompleteOverlay ? (
+          <div className={styles.renderDone}>
+            <span className={styles.renderDoneDot} aria-hidden="true" />
+            Отрисовка закончена
+          </div>
+        ) : (
+          <div className={styles.renderProgress}>
+            <span className={styles.renderProgressDot} aria-hidden="true" />
+            Идёт отрисовка, дождитесь завершения
+          </div>
+        )}
+      </div>
+    );
+
+  useEffect(() => {
+    if (!renderComplete || !isFirstRenderSession) return;
+    setShowRenderComplete(true);
+    if (renderCompleteTimerRef.current) {
+      clearTimeout(renderCompleteTimerRef.current);
+    }
+    renderCompleteTimerRef.current = setTimeout(() => {
+      setShowRenderComplete(false);
+      renderCompleteTimerRef.current = null;
+    }, 5000);
+
+    return () => {
+      if (renderCompleteTimerRef.current) {
+        clearTimeout(renderCompleteTimerRef.current);
+        renderCompleteTimerRef.current = null;
+      }
+    };
+  }, [renderComplete, isFirstRenderSession]);
 
   const dependenciesSubtitle = useMemo(() => {
     if (requirementsCount > 0) {
@@ -478,7 +529,7 @@ export default function ProjectAnalysis() {
     return 'No dependencies found';
   }, [requirementsCount, streamComplete]);
 
-  // ð×Ðéð¥ð▒ÐÇð░ðÂðÁð¢ð©ðÁ ÐüÐéð░ÐéÐâÐüð░ ðÀð░ð│ÐÇÐâðÀð║ð© ð©ð╗ð© ð¥Ðêð©ð▒ð║ð©
+  // Loading state while initial data is fetched
   if (loading) {
     return (
       <div className={styles.container}>
@@ -492,9 +543,10 @@ export default function ProjectAnalysis() {
           closeLabel="Close"
         />
         <div className={styles.flowWrapper}>
+          {renderStatusOverlayNode}
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner} />
-            <p>ðùð░ð│ÐÇÐâðÀð║ð░ ð┐ÐÇð¥ðÁð║Ðéð░...</p>
+            <p>Пожалуйста, подождите. Данные загружаются...</p>
           </div>
         </div>
       </div>
@@ -514,8 +566,9 @@ export default function ProjectAnalysis() {
           closeLabel="Close"
         />
         <div className={styles.flowWrapper}>
+          {renderStatusOverlayNode}
           <div className={styles.loadingState}>
-            <p style={{ color: '#ef4444' }}>ÔÜá´©Å {error}</p>
+            <p style={{ color: '#ef4444' }}>⚠️ {error}</p>
             <button 
               onClick={() => window.location.reload()} 
               style={{ 
@@ -528,7 +581,7 @@ export default function ProjectAnalysis() {
                 cursor: 'pointer'
               }}
             >
-              ðƒð¥ð┐ÐÇð¥ð▒ð¥ð▓ð░ÐéÐî Ðüð¢ð¥ð▓ð░
+              Обновить страницу
             </button>
           </div>
         </div>
@@ -536,7 +589,7 @@ export default function ProjectAnalysis() {
     );
   }
 
-  // ðƒÐÇð¥ð▓ðÁÐÇð║ð░ ð¢ð░ð╗ð©Ðçð©ÐÅ ð┤ð░ð¢ð¢ÐïÐà ð░ÐÇÐàð©ÐéðÁð║ÐéÐâÐÇÐï
+  // Detect whether there is architecture data to render
   const hasArchitectureData = project?.architecture && (
     (project.architecture.requirements && project.architecture.requirements.length > 0) ||
     (project.architecture.endpoints && Object.keys(project.architecture.endpoints).length > 0) ||
@@ -563,11 +616,12 @@ export default function ProjectAnalysis() {
           <div className={styles.errorBanner}>{deleteError}</div>
         )}
         <div className={styles.flowWrapper}>
+          {renderStatusOverlayNode}
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner}></div>
-            <h2>ð×Ðéð║ÐÇÐïð▓ð░ðÁð╝ ð┐ÐÇð¥ðÁð║Ðé...</h2>
+            <h2>Готовим визуализацию архитектуры...</h2>
             <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '30px', maxWidth: '400px', textAlign: 'center' }}>
-              ðƒð¥ð┤ð│ð¥Ðéð░ð▓ð╗ð©ð▓ð░ðÁð╝ Ðüð¥ÐàÐÇð░ð¢Ðæð¢ð¢ÐâÐÄ ð▓ð©ðÀÐâð░ð╗ð©ðÀð░Ðåð©ÐÄ. ð¡Ðéð¥ ðÀð░ð╣ð╝ÐæÐé ð¢ðÁÐüð║ð¥ð╗Ðîð║ð¥ ÐüðÁð║Ðâð¢ð┤.
+              Подключаемся и подготавливаем данные. Обычно это занимает всего несколько секунд.
             </p>
             <div className={styles.progressBar} style={{ width: '400px', height: '8px', background: 'rgba(90, 111, 214, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
               <div 
@@ -608,6 +662,7 @@ export default function ProjectAnalysis() {
       )}
 
       <div className={styles.visualLayout}>
+        {renderStatusOverlayNode}
         {/* Graph */}
         <div className={styles.flowWrapper}>
           {nodes.length > 0 ? (
@@ -652,7 +707,7 @@ export default function ProjectAnalysis() {
           ) : (
             <div className={styles.loadingState}>
               <div className={styles.loadingSpinner} />
-              <p>ðƒð¥ÐüÐéÐÇð¥ðÁð¢ð©ðÁ ð│ÐÇð░Ðäð░ ð░ÐÇÐàð©ÐéðÁð║ÐéÐâÐÇÐï...</p>
+              <p>Пожалуйста, подождите. Строим граф...</p>
             </div>
           )}
         </div>
@@ -699,7 +754,7 @@ export default function ProjectAnalysis() {
         {selectedNode && (
           <div className={styles.tooltip}>
             <button className={styles.tooltipClose} onClick={() => setSelectedNode(null)}>
-              ├ù
+              ×
             </button>
             <h3>{selectedNode.data.label}</h3>
             <p><strong>ID:</strong> {selectedNode.id}</p>
