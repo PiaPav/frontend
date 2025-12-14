@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../context/I18nContext';
 import styles from './Auth.module.css';
 
 export default function Register() {
@@ -17,6 +18,7 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -31,19 +33,19 @@ export default function Register() {
 
     // Валидация
     if (!form.name || !form.surname || !form.login || !form.password || !form.confirmPassword) {
-      setError('Заполните все поля');
+      setError(t('auth.register.error.missing', 'Заполните все поля'));
       setLoading(false);
       return;
     }
 
     if (form.password.length < 8) {
-      setError('Пароль должен содержать минимум 8 символов');
+      setError(t('auth.register.error.shortPassword', 'Пароль должен содержать минимум 8 символов'));
       setLoading(false);
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      setError('Пароли не совпадают');
+      setError(t('auth.register.error.mismatch', 'Пароли не совпадают'));
       setLoading(false);
       return;
     }
@@ -68,10 +70,10 @@ export default function Register() {
     <section className={styles.container}>
       <div className={styles.formWrapper}>
         <form className={styles.form} onSubmit={handleSubmit}>
-          <h1 className={styles.title}>Регистрация</h1>
+          <h1 className={styles.title}>{t('auth.register.title', 'Регистрация')}</h1>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="name">Имя</label>
+            <label htmlFor="name">{t('auth.register.nameLabel', 'Имя')}</label>
             <input
               id="name"
               name="name"
@@ -79,13 +81,13 @@ export default function Register() {
               value={form.name}
               onChange={handleChange}
               className={styles.input}
-              placeholder="Введите имя"
+              placeholder={t('auth.register.namePlaceholder', 'Введите имя')}
               disabled={loading}
             />
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="surname">Фамилия</label>
+            <label htmlFor="surname">{t('auth.register.surnameLabel', 'Фамилия')}</label>
             <input
               id="surname"
               name="surname"
@@ -93,13 +95,13 @@ export default function Register() {
               value={form.surname}
               onChange={handleChange}
               className={styles.input}
-              placeholder="Введите фамилию"
+              placeholder={t('auth.register.surnamePlaceholder', 'Введите фамилию')}
               disabled={loading}
             />
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="login">Логин</label>
+            <label htmlFor="login">{t('auth.register.loginLabel', 'Логин')}</label>
             <input
               id="login"
               name="login"
@@ -107,13 +109,13 @@ export default function Register() {
               value={form.login}
               onChange={handleChange}
               className={styles.input}
-              placeholder="Введите логин"
+              placeholder={t('auth.register.loginPlaceholder', 'Введите логин')}
               disabled={loading}
             />
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="password">Пароль</label>
+            <label htmlFor="password">{t('auth.register.passwordLabel', 'Пароль')}</label>
             <div className={styles.passwordWrapper}>
               <input
                 id="password"
@@ -122,7 +124,7 @@ export default function Register() {
                 value={form.password}
                 onChange={handleChange}
                 className={`${styles.input} ${styles.passwordInput}`}
-                placeholder="Минимум 8 символов"
+                placeholder={t('auth.register.passwordPlaceholder', 'Минимум 8 символов')}
                 disabled={loading}
               />
               <button
@@ -130,15 +132,15 @@ export default function Register() {
                 className={styles.togglePassword}
                 onClick={() => setShowPassword((prev) => !prev)}
                 disabled={loading}
-                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                aria-label={showPassword ? t('auth.register.hidePassword', 'Скрыть пароль') : t('auth.register.showPassword', 'Показать пароль')}
               >
-                {showPassword ? 'Скрыть' : 'Показать'}
+                {showPassword ? t('auth.register.hidePassword', 'Скрыть') : t('auth.register.showPassword', 'Показать')}
               </button>
             </div>
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="confirmPassword">Подтвердите пароль</label>
+            <label htmlFor="confirmPassword">{t('auth.register.confirmLabel', 'Подтвердите пароль')}</label>
             <div className={styles.passwordWrapper}>
               <input
                 id="confirmPassword"
@@ -147,7 +149,7 @@ export default function Register() {
                 value={form.confirmPassword}
                 onChange={handleChange}
                 className={`${styles.input} ${styles.passwordInput}`}
-                placeholder="Повторите пароль"
+                placeholder={t('auth.register.confirmPlaceholder', 'Повторите пароль')}
                 disabled={loading}
               />
               <button
@@ -155,9 +157,13 @@ export default function Register() {
                 className={styles.togglePassword}
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
                 disabled={loading}
-                aria-label={showConfirmPassword ? 'Скрыть подтверждение пароля' : 'Показать подтверждение пароля'}
+                aria-label={
+                  showConfirmPassword
+                    ? t('auth.register.hideConfirm', 'Скрыть подтверждение пароля')
+                    : t('auth.register.showConfirm', 'Показать подтверждение пароля')
+                }
               >
-                {showConfirmPassword ? 'Скрыть' : 'Показать'}
+                {showConfirmPassword ? t('auth.register.hideConfirm', 'Скрыть') : t('auth.register.showConfirm', 'Показать')}
               </button>
             </div>
           </div>
@@ -165,11 +171,12 @@ export default function Register() {
           {error && <p className={styles.error}>{error}</p>}
 
           <button type="submit" className={styles.submitBtn} disabled={loading}>
-            {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+            {loading ? t('auth.register.submitting', 'Регистрация...') : t('auth.register.submit', 'Зарегистрироваться')}
           </button>
 
           <p className={styles.switch}>
-            Уже есть аккаунт? <Link to="/login">Войти</Link>
+            {t('auth.register.haveAccount', 'Уже есть аккаунт?')}{' '}
+            <Link to="/login">{t('auth.register.login', 'Войти')}</Link>
           </p>
         </form>
       </div>

@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { accountAPI } from '../../services/api';
+import { useI18n } from '../../context/I18nContext';
 import styles from './Settings.module.css';
 
 export default function Settings() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  const { t, language, setLanguage, availableLanguages } = useI18n();
 
   const [accountData, setAccountData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,9 @@ export default function Settings() {
   const [emailJustLinked, setEmailJustLinked] = useState(false);
 
   const accountLogin = accountData?.login || user?.login || '';
-  const deletePhrase = accountLogin ? `удалить мой аккаунт ${accountLogin}` : '';
+  const deletePhrase = accountLogin
+    ? t('settings.delete.phrase', 'удалить мой аккаунт {{login}}', { login: accountLogin })
+    : '';
 
   useEffect(() => {
     loadAccountData();
@@ -55,7 +59,7 @@ export default function Settings() {
       setAccountData(data);
     } catch (err) {
       console.error('Ошибка загрузки данных аккаунта:', err);
-      setError(err.response?.data?.message || 'Не удалось загрузить профиль');
+      setError(err.response?.data?.message || t('settings.profileLoadError', 'Не удалось загрузить профиль'));
     } finally {
       setLoading(false);
     }
@@ -83,7 +87,7 @@ export default function Settings() {
     };
 
     if (!payload.name || !payload.surname) {
-      setProfileError('Заполните имя и фамилию');
+      setProfileError(t('settings.profileError', 'Заполните имя и фамилию'));
       return;
     }
 
@@ -99,7 +103,7 @@ export default function Settings() {
         ...updated,
         login: updatedLogin ?? prev?.login ?? accountLogin,
       }));
-      setProfileSuccess('Данные профиля обновлены');
+      setProfileSuccess(t('settings.profileSuccess', 'Данные профиля обновлены'));
 
       if (updateUser) {
         updateUser({
@@ -111,7 +115,7 @@ export default function Settings() {
         });
       }
     } catch (err) {
-      const message = err.response?.data?.message || 'Не удалось обновить профиль';
+      const message = err.response?.data?.message || t('settings.profileUpdateError', 'Не удалось обновить профиль');
       setProfileError(message);
     } finally {
       setIsSavingProfile(false);
@@ -132,7 +136,7 @@ export default function Settings() {
 
   async function handleDeleteAccount() {
     if (!deletePhrase || deleteInput.trim() !== deletePhrase) {
-      setDeleteError('Введите точную фразу подтверждения');
+      setDeleteError(t('settings.delete.exact', 'Введите точную фразу подтверждения'));
       return;
     }
 
@@ -143,7 +147,7 @@ export default function Settings() {
       logout();
       navigate('/login');
     } catch (err) {
-      const message = err.response?.data?.message || 'Не удалось удалить аккаунт';
+      const message = err.response?.data?.message || t('settings.profileDeleteError', 'Не удалось удалить аккаунт');
       setDeleteError(message);
       setIsDeleting(false);
     }
@@ -153,7 +157,7 @@ export default function Settings() {
     e.preventDefault();
     
     if (!email.trim()) {
-      setError('Введите email');
+      setError(t('settings.emailRequired', 'Введите email'));
       return;
     }
 
@@ -166,19 +170,19 @@ export default function Settings() {
       
       setShowVerification(true);
       setVerifyType('LINK');
-      setSuccessMessage(`Код отправлен на ${email}`);
+      setSuccessMessage(t('settings.codeSent', 'Код отправлен на {{email}}', { email }));
     } catch (err) {
       console.error('Ошибка привязки email:', err);
       const errorData = err.response?.data;
       
       if (errorData?.type === 'EMAIL_ALREADY_LINKED') {
-        setError('Email уже привязан к аккаунту');
+        setError(t('settings.emailAlreadyLinked', 'Email уже привязан к аккаунту'));
       } else if (errorData?.type === 'EMAIL_ALREADY_EXISTS') {
-        setError('Email уже используется');
+        setError(t('settings.emailExists', 'Email уже используется'));
       } else if (errorData?.type === 'EMAIL_SEND_CRASH') {
-        setError('Не удалось отправить письмо. Попробуйте снова или позже.');
+        setError(t('settings.emailSendFailed', 'Не удалось отправить письмо. Попробуйте снова или позже.'));
       } else {
-        setError(errorData?.message || 'Не удалось привязать email');
+        setError(errorData?.message || t('settings.linkError', 'Не удалось привязать email'));
       }
     } finally {
       setIsLinkingEmail(false);
@@ -186,7 +190,7 @@ export default function Settings() {
   }
 
   async function handleUnlinkEmail() {
-    if (!window.confirm('Точно отвязать email?')) {
+    if (!window.confirm(t('settings.unlinkConfirm', 'Точно отвязать email?'))) {
       return;
     }
 
@@ -199,17 +203,17 @@ export default function Settings() {
       
       setShowVerification(true);
       setVerifyType('UNLINK');
-      setSuccessMessage('Код отправлен на текущий email');
+      setSuccessMessage(t('settings.codeSentCurrent', 'Код отправлен на текущий email'));
     } catch (err) {
       console.error('Ошибка отвязки email:', err);
       const errorData = err.response?.data;
       
       if (errorData?.type === 'EMAIL_DONT_LINKED') {
-        setError('Email не привязан');
+        setError(t('settings.emailNotLinked', 'Email не привязан'));
       } else if (errorData?.type === 'EMAIL_SEND_CRASH') {
-        setError('Не удалось отправить письмо. Попробуйте снова или позже.');
+        setError(t('settings.emailSendFailed', 'Не удалось отправить письмо. Попробуйте снова или позже.'));
       } else {
-        setError(errorData?.message || 'Не удалось отвязать email');
+        setError(errorData?.message || t('settings.unlinkError', 'Не удалось отвязать email'));
       }
     } finally {
       setIsUnlinkingEmail(false);
@@ -220,7 +224,7 @@ export default function Settings() {
     e.preventDefault();
     
     if (!verificationCode.trim()) {
-      setError('Введите код подтверждения');
+      setError(t('settings.codeRequired', 'Введите код подтверждения'));
       return;
     }
 
@@ -234,8 +238,8 @@ export default function Settings() {
       
       setSuccessMessage(
         verifyType === 'LINK' 
-          ? 'Email подтвержден!' 
-          : 'Отвязка email подтверждена!'
+          ? t('settings.emailLinked', 'Email подтвержден!') 
+          : t('settings.emailUnlinked', 'Отвязка email подтверждена!')
       );
       
       setShowVerification(false);
@@ -252,9 +256,9 @@ export default function Settings() {
       const errorData = err.response?.data;
       
       if (errorData?.type === 'INVALID_VERIFICATION_CODE') {
-        setError('Неверный код подтверждения');
+        setError(t('settings.invalidCode', 'Неверный код подтверждения'));
       } else {
-        setError(errorData?.message || 'Не удалось подтвердить email');
+        setError(errorData?.message || t('settings.linkError', 'Не удалось подтвердить email'));
       }
     }
   }
@@ -262,7 +266,7 @@ export default function Settings() {
   if (loading) {
     return (
       <div className={styles.container}>
-        <div className={styles.loading}>Загрузка...</div>
+        <div className={styles.loading}>{t('common.loading', 'Загрузка...')}</div>
       </div>
     );
   }
@@ -271,52 +275,70 @@ export default function Settings() {
     <div className={styles.container}>
       <header className={styles.header}>
         <button className={styles.backBtn} onClick={() => navigate('/projects')}>
-          ← Назад
+          {t('settings.back', '← Назад')}
         </button>
-        <h1>Настройки аккаунта</h1>
+        <h1>{t('settings.title', 'Настройки аккаунта')}</h1>
       </header>
 
       <main className={styles.main}>
         <div className={styles.section}>
-          <h2>Профиль</h2>
+          <h2>{t('settings.language.title', 'Язык')}</h2>
+          <p className={styles.langHint}>{t('settings.language.subtitle', 'Выберите язык интерфейса (по умолчанию русский)')}</p>
+          <div className={styles.langSwitch}>
+            {availableLanguages.map((code) => (
+              <button
+                key={code}
+                type="button"
+                className={`${styles.langBtn} ${language === code ? styles.langBtnActive : ''}`}
+                onClick={() => setLanguage(code)}
+                disabled={language === code}
+              >
+                {code.toUpperCase()} · {t(`common.lang.${code}`, code.toUpperCase())}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.section}>
+          <h2>{t('settings.profile', 'Профиль')}</h2>
           {profileError && <div className={styles.error}>{profileError}</div>}
           {profileSuccess && <div className={styles.success}>{profileSuccess}</div>}
 
           <form onSubmit={handleUpdateProfile} className={styles.profileForm}>
             <label className={styles.fieldGroup}>
-              <span className={styles.label}>Логин</span>
+              <span className={styles.label}>{t('settings.loginLabel', 'Логин')}</span>
               <input
                 type="text"
                 value={accountLogin}
                 className={styles.input}
-                placeholder="Ваш логин"
+                placeholder={t('settings.loginPlaceholder', 'Ваш логин')}
                 disabled
                 readOnly
               />
-              <span className={styles.hint}>Логин изменить нельзя</span>
+              <span className={styles.hint}>{t('settings.loginHint', 'Логин изменить нельзя')}</span>
             </label>
 
             <div className={styles.dualRow}>
               <label className={styles.fieldGroup}>
-                <span className={styles.label}>Имя</span>
+                <span className={styles.label}>{t('settings.nameLabel', 'Имя')}</span>
                 <input
                   type="text"
                   value={profileForm.name}
                   onChange={(e) => handleProfileChange('name', e.target.value)}
                   className={styles.input}
-                  placeholder="Ваше имя"
+                  placeholder={t('settings.namePlaceholder', 'Ваше имя')}
                   required
                 />
               </label>
 
               <label className={styles.fieldGroup}>
-                <span className={styles.label}>Фамилия</span>
+                <span className={styles.label}>{t('settings.surnameLabel', 'Фамилия')}</span>
                 <input
                   type="text"
                   value={profileForm.surname}
                   onChange={(e) => handleProfileChange('surname', e.target.value)}
                   className={styles.input}
-                  placeholder="Ваша фамилия"
+                  placeholder={t('settings.surnamePlaceholder', 'Ваша фамилия')}
                   required
                 />
               </label>
@@ -328,7 +350,7 @@ export default function Settings() {
                 className={styles.btnPrimary}
                 disabled={isSavingProfile}
               >
-                {isSavingProfile ? 'Сохранение...' : 'Сохранить изменения'}
+                {isSavingProfile ? t('settings.saveProfileLoading', 'Сохранение...') : t('settings.saveProfile', 'Сохранить изменения')}
               </button>
               <button 
                 type="button" 
@@ -336,14 +358,14 @@ export default function Settings() {
                 onClick={resetProfileForm}
                 disabled={isSavingProfile}
               >
-                Сбросить
+                {t('settings.resetProfile', 'Сбросить')}
               </button>
             </div>
           </form>
         </div>
 
         <div className={styles.section}>
-          <h2>Email</h2>
+          <h2>{t('settings.email', 'Email')}</h2>
           
           {error && <div className={styles.error}>{error}</div>}
           {successMessage && <div className={styles.success}>{successMessage}</div>}
@@ -351,10 +373,10 @@ export default function Settings() {
           {accountData?.email ? (
             <div className={styles.emailSection}>
               <div className={styles.currentEmail}>
-                <span className={styles.label}>Текущий email:</span>
+                <span className={styles.label}>{t('settings.currentEmail', 'Текущий email:')}</span>
                 <span className={styles.value}>{accountData.email}</span>
                 {accountData.verify_email && (
-                  <span className={styles.verified}>Почта подтверждена</span>
+                  <span className={styles.verified}>{t('settings.emailVerified', 'Почта подтверждена')}</span>
                 )}
               </div>
               
@@ -364,7 +386,7 @@ export default function Settings() {
                   onClick={handleUnlinkEmail}
                   disabled={isUnlinkingEmail}
                 >
-                  {isUnlinkingEmail ? 'Отвязываем...' : 'Отвязать email'}
+                  {isUnlinkingEmail ? t('settings.unlinkingEmail', 'Отвязываем...') : t('settings.unlinkEmail', 'Отвязать email')}
                 </button>
               )}
             </div>
@@ -373,7 +395,7 @@ export default function Settings() {
               <form onSubmit={handleLinkEmail} className={styles.emailForm}>
                 <input
                   type="email"
-                  placeholder="Введите email"
+                  placeholder={t('settings.enterEmail', 'Введите email')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={styles.input}
@@ -384,7 +406,7 @@ export default function Settings() {
                   className={styles.btnPrimary}
                   disabled={isLinkingEmail}
                 >
-                  {isLinkingEmail ? 'Отправляем код...' : 'Привязать email'}
+                  {isLinkingEmail ? t('settings.linkingEmail', 'Отправляем код...') : t('settings.linkEmail', 'Привязать email')}
                 </button>
               </form>
             )
@@ -393,11 +415,11 @@ export default function Settings() {
           {showVerification && (
             <form onSubmit={handleVerifyEmail} className={styles.verificationForm}>
               <p className={styles.verificationText}>
-                Введите код подтверждения из письма:
+                {t('settings.verificationPrompt', 'Введите код подтверждения из письма:')}
               </p>
               <input
                 type="text"
-                placeholder="Код подтверждения"
+                placeholder={t('settings.verificationPlaceholder', 'Код подтверждения')}
                 value={verificationCode}
                 onChange={(e) => setVerificationCode(e.target.value)}
                 className={styles.input}
@@ -405,7 +427,7 @@ export default function Settings() {
               />
               <div className={styles.btnGroup}>
                 <button type="submit" className={styles.btnPrimary}>
-                  Подтвердить
+                  {t('settings.verify', 'Подтвердить')}
                 </button>
                 <button 
                   type="button" 
@@ -417,7 +439,7 @@ export default function Settings() {
                     setSuccessMessage('');
                   }}
                 >
-                  Отмена
+                  {t('common.cancel', 'Отмена')}
                 </button>
               </div>
             </form>
@@ -427,15 +449,15 @@ export default function Settings() {
         <div className={`${styles.section} ${styles.dangerSection}`}>
           <div className={styles.dangerHeader}>
             <div>
-              <h2>Удаление аккаунта</h2>
-              <p className={styles.dangerText}>Действие необратимо. Все данные будут удалены.</p>
+              <h2>{t('settings.delete.title', 'Удаление аккаунта')}</h2>
+              <p className={styles.dangerText}>{t('settings.delete.warning', 'Действие необратимо. Все данные будут удалены.')}</p>
             </div>
             <button 
               className={styles.btnDanger}
               onClick={openDeleteModal}
               disabled={!accountLogin}
             >
-              Удалить аккаунт
+              {t('settings.delete.open', 'Удалить аккаунт')}
             </button>
           </div>
         </div>
@@ -444,9 +466,10 @@ export default function Settings() {
       {showDeleteModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modal}>
-            <h3>Подтвердите удаление</h3>
+            <h3>{t('settings.delete.confirmTitle', 'Подтвердите удаление')}</h3>
             <p className={styles.modalText}>
-              Чтобы удалить аккаунт, введите <span className={styles.modalPhrase}>{deletePhrase || 'удалить мой аккаунт {логин}'}</span>.
+              {t('settings.delete.promptText', 'Чтобы удалить аккаунт, введите')}{' '}
+              <span className={styles.modalPhrase}>{deletePhrase || t('settings.delete.placeholder', 'удалить мой аккаунт {логин}')}</span>.
             </p>
             {deleteError && <div className={styles.error}>{deleteError}</div>}
             <input
@@ -454,7 +477,7 @@ export default function Settings() {
               value={deleteInput}
               onChange={(e) => setDeleteInput(e.target.value)}
               className={styles.input}
-              placeholder={deletePhrase || 'удалить мой аккаунт {логин}'}
+              placeholder={deletePhrase || t('settings.delete.placeholder', 'удалить мой аккаунт {логин}')}
             />
             <div className={styles.modalActions}>
               <button 
@@ -463,7 +486,7 @@ export default function Settings() {
                 onClick={closeDeleteModal}
                 disabled={isDeleting}
               >
-                Отмена
+                {t('common.cancel', 'Отмена')}
               </button>
               <button
                 type="button"
@@ -471,7 +494,7 @@ export default function Settings() {
                 onClick={handleDeleteAccount}
                 disabled={!deletePhrase || deleteInput.trim() !== deletePhrase || isDeleting}
               >
-                {isDeleting ? 'Удаляем...' : 'Удалить аккаунт'}
+                {isDeleting ? t('settings.delete.deleting', 'Удаляем...') : t('common.deleteAccount', 'Удалить аккаунт')}
               </button>
             </div>
           </div>

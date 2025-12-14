@@ -15,6 +15,7 @@ import { layoutWithElk } from '../../utils/layoutWithElk';
 import { useAuth } from '../../context/AuthContext';
 import trashBinIcon from '../../assets/img/trash-bin.png';
 import GraphHeader from './GraphHeader';
+import { useI18n } from '../../context/I18nContext';
 
 const METHOD_COLORS = {
   GET: { bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: '#059669' },
@@ -39,6 +40,7 @@ export default function ProjectAnalysis() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { t } = useI18n();
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [baseEdges, setBaseEdges] = useState([]);
@@ -323,7 +325,7 @@ export default function ProjectAnalysis() {
           onError: (error) => {
             streamControllerRef.current = null;
             setGrpcStarted(false);
-            const errorMessage = error.message || 'Неизвестная ошибка подключения';
+            const errorMessage = error.message || t('analysis.error.unknown', 'Неизвестная ошибка подключения');
 
             setArchitectureData([...architectureDataRef.current]);
             setStreamComplete(true);
@@ -334,13 +336,13 @@ export default function ProjectAnalysis() {
             }
 
             if (errorMessage.includes('404')) {
-              setError('Проект не найден (404).');
+              setError(t('analysis.error.notFound', 'Проект не найден (404).'));
             } else if (errorMessage.includes('502') || errorMessage.includes('503')) {
-              setError('Ошибка серверной инфраструктуры (502/503).');
+              setError(t('analysis.error.backend', 'Ошибка серверной инфраструктуры (502/503).'));
             } else if (errorMessage.includes('Failed to fetch')) {
-              setError('Не удалось подключиться к серверу.');
+              setError(t('analysis.error.connect', 'Не удалось подключиться к серверу.'));
             } else {
-              setError(`Ошибка: ${errorMessage}`);
+              setError(`${t('analysis.error.label', 'Ошибка')}: ${errorMessage}`);
             }
           },
         });
@@ -353,7 +355,7 @@ export default function ProjectAnalysis() {
         if (err.response?.status === 401) {
           navigate('/login');
         } else {
-          setError(err.response?.data?.detail || err.message || 'Не удалось получить данные проекта');
+          setError(err.response?.data?.detail || err.message || t('analysis.error.generic', 'Не удалось получить данные проекта'));
         }
 
         if (isFirstLoad) {
@@ -379,7 +381,9 @@ export default function ProjectAnalysis() {
   const handleDeleteProject = async () => {
     if (!id || deleting) return;
 
-    const confirmed = window.confirm('Удалить проект? После удаления восстановить его будет нельзя.');
+    const confirmed = window.confirm(
+      t('analysis.delete.confirm', 'Удалить проект? После удаления восстановить его будет нельзя.')
+    );
     if (!confirmed) return;
 
     try {
@@ -393,13 +397,13 @@ export default function ProjectAnalysis() {
       const backendMessage = err.response?.data?.message || err.response?.data?.detail;
 
       if (status === 404) {
-        setDeleteError('Проект не найден или уже удалён.');
+        setDeleteError(t('analysis.delete.notFound', 'Проект не найден или уже удалён.'));
       } else if (status === 401) {
-        setDeleteError('Сессия истекла. Авторизуйтесь снова.');
+        setDeleteError(t('analysis.delete.unauthorized', 'Сессия истекла. Авторизуйтесь снова.'));
         logout?.();
         navigate('/login');
       } else {
-        setDeleteError(backendMessage || 'Не удалось удалить проект. Попробуйте позже.');
+        setDeleteError(backendMessage || t('analysis.delete.failed', 'Не удалось удалить проект. Попробуйте позже.'));
       }
     } finally {
       setDeleting(false);
@@ -489,12 +493,12 @@ export default function ProjectAnalysis() {
         {showRenderCompleteOverlay ? (
           <div className={styles.renderDone}>
             <span className={styles.renderDoneDot} aria-hidden="true" />
-            Отрисовка закончена
+            {t('analysis.renderDone', 'Отрисовка закончена')}
           </div>
         ) : (
           <div className={styles.renderProgress}>
             <span className={styles.renderProgressDot} aria-hidden="true" />
-            Идёт отрисовка, дождитесь завершения
+            {t('analysis.renderInProgress', 'Идёт отрисовка, дождитесь завершения')}
           </div>
         )}
       </div>
@@ -524,29 +528,29 @@ export default function ProjectAnalysis() {
       return `${requirementsCount} package${requirementsCount === 1 ? '' : 's'}`;
     }
     if (!streamComplete) {
-      return 'Waiting for stream...';
+      return t('analysis.waitingStream', 'Ожидание данных потока...');
     }
-    return 'No dependencies found';
-  }, [requirementsCount, streamComplete]);
+    return t('analysis.noDependencies', 'Зависимости не найдены');
+  }, [requirementsCount, streamComplete, t]);
 
   // Loading state while initial data is fetched
   if (loading) {
     return (
       <div className={styles.container}>
         <GraphHeader
-          title="Project Architecture"
+          title={t('graph.title', 'Архитектура проекта')}
           nodesCount={nodesCount}
           edgesCount={edgesCount}
           requirementsCount={requirementsCount}
           endpointsCount={endpointsCount}
           onClose={() => navigate('/projects')}
-          closeLabel="Close"
+          closeLabel={t('common.close', 'Закрыть')}
         />
         <div className={styles.flowWrapper}>
           {renderStatusOverlayNode}
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner} />
-            <p>Пожалуйста, подождите. Данные загружаются...</p>
+            <p>{t('analysis.loadingData', 'Пожалуйста, подождите. Данные загружаются...')}</p>
           </div>
         </div>
       </div>
@@ -557,13 +561,13 @@ export default function ProjectAnalysis() {
     return (
       <div className={styles.container}>
         <GraphHeader
-          title="Project Architecture"
+          title={t('graph.title', 'Архитектура проекта')}
           nodesCount={nodesCount}
           edgesCount={edgesCount}
           requirementsCount={requirementsCount}
           endpointsCount={endpointsCount}
           onClose={() => navigate('/projects')}
-          closeLabel="Close"
+          closeLabel={t('common.close', 'Закрыть')}
         />
         <div className={styles.flowWrapper}>
           {renderStatusOverlayNode}
@@ -581,7 +585,7 @@ export default function ProjectAnalysis() {
                 cursor: 'pointer'
               }}
             >
-              Обновить страницу
+              {t('analysis.reload', 'Обновить страницу')}
             </button>
           </div>
         </div>
@@ -600,15 +604,15 @@ export default function ProjectAnalysis() {
     return (
       <div className={styles.container}>
         <GraphHeader
-          title="Project Architecture"
+          title={t('graph.title', 'Архитектура проекта')}
           nodesCount={nodesCount}
           edgesCount={edgesCount}
           requirementsCount={requirementsCount}
           endpointsCount={endpointsCount}
           onClose={() => navigate('/projects')}
-          closeLabel="Close"
+          closeLabel={t('common.close', 'Закрыть')}
           onDelete={handleDeleteProject}
-          deleteLabel={deleting ? 'Deleting...' : 'Delete project'}
+          deleteLabel={deleting ? t('analysis.delete.deleting', 'Удаляем...') : t('analysis.delete.delete', 'Удалить проект')}
           deleteIcon={trashBinIcon}
           deleting={deleting}
         />
@@ -619,9 +623,9 @@ export default function ProjectAnalysis() {
           {renderStatusOverlayNode}
           <div className={styles.loadingState}>
             <div className={styles.loadingSpinner}></div>
-            <h2>Готовим визуализацию архитектуры...</h2>
+            <h2>{t('analysis.preparingTitle', 'Готовим визуализацию архитектуры...')}</h2>
             <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '30px', maxWidth: '400px', textAlign: 'center' }}>
-              Подключаемся и подготавливаем данные. Обычно это занимает всего несколько секунд.
+              {t('analysis.preparingSubtitle', 'Подключаемся и подготавливаем данные. Обычно это занимает всего несколько секунд.')}
             </p>
             <div className={styles.progressBar} style={{ width: '400px', height: '8px', background: 'rgba(90, 111, 214, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
               <div 
@@ -644,15 +648,15 @@ export default function ProjectAnalysis() {
   return (
     <div className={styles.container}>
       <GraphHeader
-        title="Project Architecture"
+        title={t('graph.title', 'Архитектура проекта')}
         nodesCount={nodesCount}
         edgesCount={edgesCount}
         requirementsCount={requirementsCount}
         endpointsCount={endpointsCount}
         onClose={() => navigate('/projects')}
-        closeLabel="Close"
+        closeLabel={t('common.close', 'Close')}
         onDelete={handleDeleteProject}
-        deleteLabel={deleting ? 'Deleting...' : 'Delete project'}
+        deleteLabel={deleting ? t('analysis.delete.deleting', 'Удаляем...') : t('analysis.delete.delete', 'Удалить проект')}
         deleteIcon={trashBinIcon}
         deleting={deleting}
       />
@@ -707,7 +711,7 @@ export default function ProjectAnalysis() {
           ) : (
             <div className={styles.loadingState}>
               <div className={styles.loadingSpinner} />
-              <p>Пожалуйста, подождите. Строим граф...</p>
+              <p>{t('analysis.buildingGraph', 'Пожалуйста, подождите. Строим граф...')}</p>
             </div>
           )}
         </div>
@@ -719,7 +723,7 @@ export default function ProjectAnalysis() {
               >
                 <div className={styles.dependenciesHeader}>
                   <div className={styles.dependenciesHeaderText}>
-                    <div className={styles.dependenciesTitle}>Dependencies</div>
+                    <div className={styles.dependenciesTitle}>{t('analysis.dependencies', 'Зависимости')}</div>
                     <div className={styles.dependenciesSubtitle}>{dependenciesSubtitle}</div>
                   </div>
                   <div className={styles.dependenciesHeaderActions}>
@@ -728,13 +732,17 @@ export default function ProjectAnalysis() {
                       type="button"
                       className={styles.dependenciesToggle}
                       onClick={() => setDepsCollapsed((prev) => !prev)}
-                      aria-label={depsCollapsed ? 'Expand dependencies' : 'Collapse dependencies'}
+                      aria-label={
+                        depsCollapsed
+                          ? t('analysis.expandDependencies', 'Развернуть список зависимостей')
+                          : t('analysis.collapseDependencies', 'Свернуть список зависимостей')
+                      }
                     >
                       {depsCollapsed ? '❯' : '❮'}
                     </button>
                   </div>
                 </div>
-          {!depsCollapsed && (
+                {!depsCollapsed && (
             <div className={styles.dependenciesList}>
               {requirementsCount > 0 ? (
                 requirements.map((req, idx) => (
@@ -744,7 +752,7 @@ export default function ProjectAnalysis() {
                   </div>
                 ))
               ) : (
-                <div className={styles.emptyState}>Dependencies will appear once received.</div>
+                <div className={styles.emptyState}>{t('analysis.dependenciesEmpty', 'Список появится после получения данных.')}</div>
               )}
             </div>
           )}

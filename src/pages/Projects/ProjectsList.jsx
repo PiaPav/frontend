@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { homeAPI, projectsAPI } from '../../services/api';
+import { useI18n } from '../../context/I18nContext';
 import styles from './Projects.module.css';
 import trashBinIcon from '../../assets/img/trash-bin.png';
 
@@ -15,6 +16,7 @@ export default function ProjectsList() {
   
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   // Загрузка проектов при монтировании компонента
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function ProjectsList() {
       setError('');
     } catch (err) {
       console.error('Ошибка загрузки проектов:', err);
-      setError('Не удалось загрузить проекты');
+      setError(t('projects.list.error.load', 'Не удалось загрузить проекты'));
       setProjects([]);
     } finally {
       setLoading(false);
@@ -63,7 +65,9 @@ export default function ProjectsList() {
   const handleDeleteProject = async (projectId) => {
     if (!projectId || deletingId) return;
 
-    const confirmDelete = window.confirm('Удалить проект? Это действие нельзя отменить.');
+    const confirmDelete = window.confirm(
+      t('projects.list.confirmDelete', 'Удалить проект? Это действие нельзя отменить.')
+    );
     if (!confirmDelete) return;
 
     try {
@@ -77,11 +81,11 @@ export default function ProjectsList() {
       const backendMessage = err.response?.data?.message || err.response?.data?.detail;
 
       if (status === 404) {
-        setError('Проект не найден или нет прав доступа.');
+        setError(t('projects.list.error.notFound', 'Проект не найден или нет прав доступа.'));
       } else if (status === 401) {
-        setError('Неверный токен.');
+        setError(t('projects.list.error.invalidToken', 'Неверный токен.'));
       } else {
-        setError(backendMessage || 'Не удалось удалить проект. Попробуйте еще раз.');
+        setError(backendMessage || t('projects.list.error.deleteFailed', 'Не удалось удалить проект. Попробуйте еще раз.'));
       }
     } finally {
       setDeletingId(null);
@@ -98,7 +102,7 @@ export default function ProjectsList() {
           fontSize: '20px',
           fontWeight: '600'
         }}>
-          Загрузка проектов...
+          {t('projects.list.loading', 'Загрузка проектов...')}
         </div>
       </div>
     );
@@ -109,27 +113,27 @@ export default function ProjectsList() {
       <header className={styles.header}>
         <button className={styles.createBtn} onClick={handleCreateProject}>
           <span className={styles.plusIcon}>+</span>
-          Создать
+          {t('projects.list.create', 'Создать')}
         </button>
 
         <div className={styles.centerTitle}>
-          <h1>Проекты</h1>
+          <h1>{t('projects.list.title', 'Проекты')}</h1>
         </div>
 
         <div className={styles.userMenu}>
           <button className={styles.userBtn}>
             <div className={styles.avatar}>
-              {userName?.[0]?.toUpperCase() || user?.login?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || 'П'}
+              {userName?.[0]?.toUpperCase() || user?.login?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || t('projects.list.userPlaceholderLetter', 'П')}
             </div>
             <span className={styles.userName}>
-              {userName || user?.login || user?.name || 'Пользователь'}
+              {userName || user?.login || user?.name || t('projects.list.userPlaceholderName', 'Пользователь')}
             </span>
             <span className={styles.chevron}>▼</span>
           </button>
           
           <div className={styles.dropdown}>
-            <button onClick={() => navigate('/settings')}>Настройки</button>
-            <button onClick={handleLogout}>Выйти</button>
+            <button onClick={() => navigate('/settings')}>{t('projects.list.settings', 'Настройки')}</button>
+            <button onClick={handleLogout}>{t('projects.list.logout', 'Выйти')}</button>
           </div>
         </div>
       </header>
@@ -147,10 +151,10 @@ export default function ProjectsList() {
             padding: '100px 20px',
             background: 'rgba(255, 255, 255, 0.9)',
             borderRadius: '20px',
-            color: '#666'
+          color: '#666'
           }}>
-            <h2 style={{ marginBottom: '10px', color: '#1a1a1a' }}>Проекты не найдены</h2>
-            <p style={{ margin: 0 }}>Создайте новый проект, чтобы начать.</p>
+            <h2 style={{ marginBottom: '10px', color: '#1a1a1a' }}>{t('projects.list.emptyTitle', 'Проекты не найдены')}</h2>
+            <p style={{ margin: 0 }}>{t('projects.list.emptySubtitle', 'Создайте новый проект, чтобы начать.')}</p>
           </div>
         ) : (
           <div className={styles.projectsGrid}>
@@ -181,7 +185,7 @@ export default function ProjectsList() {
                         to={`/projects/${project.id}/architecture`} 
                         className={`${styles.actionBtnPrimary} ${styles.previewButton}`} 
                       >
-                      <span className={styles.actionBtnLabel}>Просмотр</span>
+                      <span className={styles.actionBtnLabel}>{t('projects.list.view', 'Просмотр')}</span>
                       </Link>
                       <div 
                       className={styles.moreMenuWrapper}
@@ -204,22 +208,22 @@ export default function ProjectsList() {
                           <button
                             type="button"
                             className={styles.moreMenuItem}
-                            role="menuitem"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMenuOpenId(null);
-                              handleDeleteProject(project.id);
-                            }}
-                            disabled={deletingId === project.id}
-                          >
-                            <img
-                              src={trashBinIcon}
-                              alt=""
-                              aria-hidden="true"
-                              className={styles.trashIcon}
-                            />
-                            <span className={styles.moreMenuLabel}>
-                              {deletingId === project.id ? 'Удаление...' : 'Удалить'}
+                          role="menuitem"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId(null);
+                            handleDeleteProject(project.id);
+                          }}
+                          disabled={deletingId === project.id}
+                        >
+                          <img
+                            src={trashBinIcon}
+                            alt=""
+                            aria-hidden="true"
+                            className={styles.trashIcon}
+                          />
+                          <span className={styles.moreMenuLabel}>
+                              {deletingId === project.id ? t('projects.list.deleting', 'Удаление...') : t('projects.list.delete', 'Удалить')}
                             </span>
                           </button>
                         </div>
@@ -235,5 +239,4 @@ export default function ProjectsList() {
     </div>
   );
 }
-
 

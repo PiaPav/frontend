@@ -13,6 +13,7 @@ import grpcClient from '../../services/grpcClient';
 import buildGraph from '../../utils/buildGraph';
 import { layoutWithElk } from '../../utils/layoutWithElk';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../context/I18nContext';
 import styles from './Projects.module.css';
 import analysisStyles from './ProjectAnalysis.module.css';
 import GraphHeader from './GraphHeader';
@@ -48,6 +49,7 @@ export default function NewProject() {
   const streamControllerRef = useRef(null);
   const isSavingRef = useRef(false);
   const formRef = useRef(null);
+  const { t } = useI18n();
 
   const buildArchitecturePayload = () => ({
     requirements,
@@ -180,14 +182,14 @@ export default function NewProject() {
 
     // Валидация
     if (!form.name.trim()) {
-      setError('Введите название проекта');
+      setError(t('projects.new.error.nameRequired', 'Введите название проекта'));
       setLoading(false);
       return;
     }
 
     // Проверка что файл выбран (обязательно по API)
     if (!file) {
-      setError('Необходимо выбрать ZIP-файл проекта');
+      setError(t('projects.new.error.fileRequired', 'Необходимо выбрать ZIP-файл проекта'));
       setLoading(false);
       return;
     }
@@ -356,7 +358,7 @@ export default function NewProject() {
           console.log('  🏗️ Architecture nodes:', architectureDataRef.current.length);
           console.log('═══════════════════════════════════════════════════\n');
           
-          setError(`Ошибка анализа проекта: ${error.message}`);
+          setError(`${t('projects.new.error.analysis', 'Ошибка анализа проекта')}: ${error.message}`);
           setAnalysisStatus('error');
           setLoading(false);
           streamControllerRef.current = null;
@@ -369,13 +371,13 @@ export default function NewProject() {
     } catch (err) {
       console.error('Ошибка создания проекта:', err);
       
-      let errorMessage = 'Ошибка создания проекта';
+      let errorMessage = t('projects.new.error.create', 'Ошибка создания проекта');
       
       if (err.response?.data?.detail) {
         const detail = err.response.data.detail;
         if (typeof detail === 'string') {
           if (detail.includes('async for') && detail.includes('UploadFile')) {
-            errorMessage = 'Ошибка обработки файла на сервере. Обратитесь к администратору.';
+            errorMessage = t('projects.new.error.fileProcessing', 'Ошибка обработки файла на сервере. Обратитесь к администратору.');
           } else {
             errorMessage = detail;
           }
@@ -443,8 +445,8 @@ export default function NewProject() {
     requirementsCount > 0
       ? `${requirementsCount} package${requirementsCount === 1 ? '' : 's'}`
       : analysisStatus !== 'completed'
-      ? 'Waiting for stream...'
-      : 'No dependencies found';
+      ? t('analysis.waitingStream', 'Ожидание данных потока...')
+      : t('analysis.noDependencies', 'Зависимости не найдены');
 
   return (
     <div className={styles.container}>
@@ -457,30 +459,30 @@ export default function NewProject() {
             onSubmit={handleSubmit}
             onKeyDown={handleFormKeyDown}
           >
-            <h1>Создать новый проект</h1>
+            <h1>{t('projects.new.title', 'Создать новый проект')}</h1>
 
             <div className={styles.inputGroup}>
-              <label htmlFor="name">Название проекта</label>
+              <label htmlFor="name">{t('projects.new.nameLabel', 'Название проекта')}</label>
               <input
                 id="name"
                 name="name"
                 type="text"
                 value={form.name}
                 onChange={handleChange}
-                placeholder="Введите название"
+                placeholder={t('projects.new.namePlaceholder', 'Введите название')}
                 disabled={loading}
                 maxLength={100}
               />
             </div>
 
             <div className={styles.inputGroup}>
-              <label htmlFor="description">Описание</label>
+              <label htmlFor="description">{t('projects.new.descriptionLabel', 'Описание')}</label>
               <textarea
                 id="description"
                 name="description"
                 value={form.description}
                 onChange={handleChange}
-                placeholder="Опишите ваш проект"
+                placeholder={t('projects.new.descriptionPlaceholder', 'Опишите ваш проект')}
                 rows={4}
                 disabled={loading}
                 maxLength={500}
@@ -488,7 +490,7 @@ export default function NewProject() {
             </div>
 
             <div className={styles.inputGroup}>
-              <label htmlFor="file">Архитектура / файл *</label>
+              <label htmlFor="file">{t('projects.new.fileLabel', 'Архитектура / файл *')}</label>
               <div className={styles.fileUpload}>
                 <input
                   id="file"
@@ -503,15 +505,20 @@ export default function NewProject() {
                 <label htmlFor="file" className={styles.fileLabel} aria-disabled={loading}>
                   <div className={styles.fileIcon}>📦</div>
                   <div className={styles.fileText}>
-                    <div className={styles.fileTitle}>{file ? 'Файл выбран' : 'Загрузить проект (ZIP)'}</div>
+                    <div className={styles.fileTitle}>{file ? t('projects.new.fileTitleSelected', 'Файл выбран') : t('projects.new.fileTitle', 'Загрузить проект (ZIP)')}</div>
                     <div className={styles.fileHint}>
-                      {file ? `${file.name} • ${formatFileSize(file.size)}` : 'Перетащите архив сюда или нажмите, чтобы выбрать'}
+                      {file
+                        ? t('projects.new.fileHintSelected', `${file.name} • ${formatFileSize(file.size)}`, {
+                            name: file.name,
+                            size: formatFileSize(file.size),
+                          })
+                        : t('projects.new.fileHint', 'Перетащите архив сюда или нажмите, чтобы выбрать')}
                     </div>
                   </div>
-                  <div className={styles.fileBadge}>ZIP</div>
+                  <div className={styles.fileBadge}>{t('projects.new.fileBadge', 'ZIP')}</div>
                 </label>
               </div>
-              <small className={styles.fileNote}>Загрузите ZIP-архив с проектом (обязательно)</small>
+              <small className={styles.fileNote}>{t('projects.new.fileNote', 'Загрузите ZIP-архив с проектом (обязательно)')}</small>
             </div>
 
             {/* Ошибка */}
@@ -524,9 +531,9 @@ export default function NewProject() {
             {/* Статус анализа */}
             {analysisStatus && !error && (
               <div className={styles.analysisStatus}>
-                {analysisStatus === 'creating' && '📤 Создание проекта...'}
-                {analysisStatus === 'analyzing' && '📡 Анализ проекта в реальном времени...'}
-                {analysisStatus === 'completed' && '✅ Анализ завершён!'}
+                {analysisStatus === 'creating' && `📤 ${t('projects.new.analysis.creating', 'Создание проекта...')}`}
+                {analysisStatus === 'analyzing' && `📡 ${t('projects.new.analysis.analyzing', 'Анализ проекта в реальном времени...')}`}
+                {analysisStatus === 'completed' && `✅ ${t('projects.new.analysis.completed', 'Анализ завершён!')}`}
               </div>
             )}
 
@@ -537,14 +544,14 @@ export default function NewProject() {
                 onClick={() => navigate('/projects')}
                 disabled={loading}
               >
-                Отмена
+                {t('projects.new.actions.cancel', 'Отмена')}
               </button>
               <button 
                 type="submit" 
                 className={styles.createProjectBtn} 
                 disabled={loading}
               >
-                {loading ? 'Создание...' : 'Создать'}
+                {loading ? t('projects.new.actions.submitting', 'Создание...') : t('projects.new.actions.submit', 'Создать')}
               </button>
             </div>
           </form>
@@ -555,13 +562,13 @@ export default function NewProject() {
       {showGraph && (
         <div className={analysisStyles.graphOverlay}>
           <GraphHeader
-            title="Project Architecture"
+            title={t('graph.title', 'Архитектура проекта')}
             nodesCount={nodes.length}
             edgesCount={edges.length}
             requirementsCount={requirementsCount}
             endpointsCount={endpointsCount}
             onClose={() => { setShowGraph(false); navigate('/projects'); }}
-            closeLabel="Close"
+            closeLabel={t('common.close', 'Закрыть')}
           />
           
           {/* Статус построения графа */}
@@ -570,13 +577,13 @@ export default function NewProject() {
               {buildStatus === 'building' && (
                 <div className={analysisStyles.renderProgress}>
                   <div className={analysisStyles.renderProgressDot} />
-                  Building graph in progress...
+                  {t('projects.new.building', 'Построение графа в процессе...')}
                 </div>
               )}
               {buildStatus === 'done' && (
                 <div className={analysisStyles.renderDone}>
                   <div className={analysisStyles.renderDoneDot} />
-                  Build completed
+                  {t('projects.new.built', 'Построение завершено')}
                 </div>
               )}
             </div>
@@ -607,7 +614,7 @@ export default function NewProject() {
               >
                 <div className={analysisStyles.dependenciesHeader}>
                   <div className={analysisStyles.dependenciesHeaderText}>
-                    <div className={analysisStyles.dependenciesTitle}>Dependencies</div>
+                    <div className={analysisStyles.dependenciesTitle}>{t('analysis.dependencies', 'Зависимости')}</div>
                     <div className={analysisStyles.dependenciesSubtitle}>{dependenciesSubtitle}</div>
                   </div>
                   <div className={analysisStyles.dependenciesHeaderActions}>
@@ -616,7 +623,11 @@ export default function NewProject() {
                       type="button"
                       className={analysisStyles.dependenciesToggle}
                       onClick={() => setDepsCollapsed((prev) => !prev)}
-                      aria-label={depsCollapsed ? 'Expand dependencies' : 'Collapse dependencies'}
+                      aria-label={
+                        depsCollapsed
+                          ? t('analysis.expandDependencies', 'Развернуть список зависимостей')
+                          : t('analysis.collapseDependencies', 'Свернуть список зависимостей')
+                      }
                     >
                       {depsCollapsed ? '❯' : '❮'}
                     </button>
@@ -633,7 +644,7 @@ export default function NewProject() {
                         </div>
                       ))
                     ) : (
-                      <div className={analysisStyles.emptyState}>Dependencies will appear once received.</div>
+                      <div className={analysisStyles.emptyState}>{t('analysis.dependenciesEmpty', 'Список появится после получения данных.')}</div>
                     )}
                   </div>
                 )}
@@ -648,24 +659,24 @@ export default function NewProject() {
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <button className={styles.modalClose} onClick={() => setShowPremiumModal(false)}>×</button>
             <div className={styles.modalHeader}>
-              <h2>Требуется Premium</h2>
+              <h2>{t('projects.new.premium.title', 'Требуется Premium')}</h2>
               <div className={styles.warningBanner}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span>Файл превышает 50 МБ. Купить Premium для загрузки больших проектов.</span>
+                <span>{t('projects.new.premium.description', 'Файл превышает 50 МБ. Купить Premium для загрузки больших проектов.')}</span>
               </div>
             </div>
 
             <div className={styles.modalActions}>
               <button className={styles.modalPrimaryBtn} onClick={() => { navigate('/pricing'); }}>
-                Купить Premium
+                {t('projects.new.premium.buy', 'Купить Premium')}
               </button>
               <button className={styles.modalSecondaryBtn} onClick={() => { setFile(null); setShowPremiumModal(false); }}>
-                Продолжить без файла
+                {t('projects.new.premium.continueWithout', 'Продолжить без файла')}
               </button>
               <button className={styles.modalCancelBtn} onClick={() => setShowPremiumModal(false)}>
-                Отмена
+                {t('common.cancel', 'Отмена')}
               </button>
             </div>
           </div>

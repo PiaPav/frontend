@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './ProjectAnalysis.module.css';
+import { useI18n } from '../../context/I18nContext';
 
 export default function GraphHeader({
   title = 'Project Architecture',
@@ -17,6 +18,7 @@ export default function GraphHeader({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const { t } = useI18n();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -38,12 +40,16 @@ export default function GraphHeader({
       <div className={styles.graphHeaderLeft}>
         <h2 className={styles.graphTitle}>{title}</h2>
         <div className={styles.graphMeta}>
-          Nodes: {nodesCount} | Edges: {edgesCount} | Requirements: {requirementsCount} | Endpoints: {endpointsCount}
+          {t(
+            'graph.meta',
+            `Узлы: ${nodesCount} | Рёбра: ${edgesCount} | Зависимости: ${requirementsCount} | Эндпоинты: ${endpointsCount}`,
+            { nodes: nodesCount, edges: edgesCount, requirements: requirementsCount, endpoints: endpointsCount }
+          )}
         </div>
         {renderComplete && (
           <div className={styles.renderDone} role="status" aria-live="polite">
             <span className={styles.renderDoneDot} aria-hidden="true" />
-            Отрисовка закончена
+            {t('graph.rendered', 'Отрисовка закончена')}
           </div>
         )}
       </div>
@@ -53,8 +59,8 @@ export default function GraphHeader({
             <button
               className={styles.moreBtn}
               onClick={() => setMenuOpen((prev) => !prev)}
-              aria-label="Открыть меню"
-              title="Действия"
+              aria-label={t('graph.actions.more', 'Открыть меню')}
+              title={t('graph.actions.title', 'Действия')}
             >
               ⋯
             </button>

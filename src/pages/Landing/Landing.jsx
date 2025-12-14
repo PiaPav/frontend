@@ -2,6 +2,7 @@ import { useState } from 'react';
 import styles from './Landing.module.css';
 import { Link, useNavigate } from 'react-router-dom';
 import logoImage from '../../assets/img/logo/deep-learning.png';
+import { useI18n } from '../../context/I18nContext';
 
 const translations = {
     ru: {
@@ -154,8 +155,8 @@ export default function Landing() {
     const [activeFaq, setActiveFaq] = useState(null);
     const [showTrialModal, setShowTrialModal] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [lang, setLang] = useState('ru');
     const navigate = useNavigate();
+    const { language: lang, setLanguage } = useI18n();
 
     const t = translations[lang];
     const howItWorksSteps = t.howItWorksSteps;
@@ -171,7 +172,7 @@ export default function Landing() {
                 <button
                     key={code}
                     className={`${styles.langBtn} ${lang === code ? styles.langBtnActive : ''}`}
-                    onClick={() => setLang(code)}
+                    onClick={() => setLanguage(code)}
                     disabled={lang === code}
                     aria-pressed={lang === code}
                 >

@@ -133,6 +133,47 @@
   font-size: 14px;
 }
 
+.langHint {
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.langSwitch {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.langBtn {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.langBtn:hover {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.langBtnActive {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+}
+
+.langBtn:disabled {
+  cursor: default;
+  transform: none;
+  opacity: 0.95;
+}
+
 .emailSection {
   display: flex;
   flex-direction: column;

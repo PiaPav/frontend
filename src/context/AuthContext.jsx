@@ -1,11 +1,13 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import { authAPI, homeAPI } from '../services/api';
+import { useI18n } from './I18nContext';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useI18n();
 
   const updateUser = (updatedUser) => {
     if (updatedUser) {
@@ -62,7 +64,7 @@ export const AuthProvider = ({ children }) => {
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
         return {
           success: false,
-          error: 'Ошибка подключения к серверу. Проверьте настройки CORS на бэкенде.',
+          error: t('auth.error.network', 'Ошибка подключения к серверу. Проверьте настройки CORS на бэкенде.'),
         };
       }
       
@@ -78,9 +80,9 @@ export const AuthProvider = ({ children }) => {
 
       if (!errorMessage && backendType) {
         errorMessage = backendType === 'INVALID_LOGIN'
-          ? 'Неверный логин'
+          ? t('auth.error.invalidLogin', 'Неверный логин')
           : backendType === 'INVALID_PASSWORD'
-            ? 'Неверный пароль'
+            ? t('auth.error.invalidPassword', 'Неверный пароль')
             : backendType;
       }
 
@@ -89,7 +91,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (!errorMessage) {
-        errorMessage = 'Не удалось авторизоваться.';
+        errorMessage = t('auth.error.loginFailed', 'Не удалось авторизоваться.');
       }
       
       return {
@@ -122,20 +124,20 @@ export const AuthProvider = ({ children }) => {
       if (error.code === 'ERR_NETWORK') {
         return {
           success: false,
-          error: 'Ошибка сети. Проверьте подключение к серверу.',
+          error: t('auth.error.registerNetwork', 'Ошибка сети. Проверьте подключение к серверу.'),
         };
       }
       
       if (error.message === 'Network Error') {
         return {
           success: false,
-          error: 'CORS ошибка. Настройте CORS на бэкенде.',
+          error: t('auth.error.cors', 'CORS ошибка. Настройте CORS на бэкенде.'),
         };
       }
       
       // Обработка ответа от сервера
       const detail = error.response?.data?.detail;
-      let errorMessage = backendMessage || '?????? ???????????.';
+      let errorMessage = backendMessage || t('auth.error.registerFailed', 'Не удалось зарегистрироваться.');
       
       if (typeof detail === 'string') {
         errorMessage = detail;

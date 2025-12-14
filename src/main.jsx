@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import deepLearningFavicon from './assets/img/logo/deep-learning.png'
+import { I18nProvider } from './context/I18nContext.jsx'
 
 const faviconElement =
   document.querySelector("link[rel~='icon']") || document.createElement('link')
@@ -15,6 +16,8 @@ if (!faviconElement.parentNode) {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <I18nProvider>
+      <App />
+    </I18nProvider>
   </StrictMode>,
 )

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useI18n } from '../../context/I18nContext';
 import styles from './Auth.module.css';
 
 export default function Login() {
@@ -10,6 +11,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -24,7 +26,7 @@ export default function Login() {
 
     //валидация
     if (!form.login || !form.password) {
-      setError('Заполните все поля');
+      setError(t('auth.login.error.missing', 'Заполните все поля'));
       setLoading(false);
       return;
     }
@@ -35,11 +37,11 @@ export default function Login() {
       if (result?.success) {
         navigate('/projects');
       } else {
-        setError(result?.error || 'Не удалось авторизоваться.');
+        setError(result?.error || t('auth.login.error.failed', 'Не удалось авторизоваться.'));
       }
     } catch (submitError) {
       console.error('Submit login error:', submitError);
-      setError('Не удалось авторизоваться. Попробуйте ещё раз.');
+      setError(t('auth.login.error.failed', 'Не удалось авторизоваться. Попробуйте ещё раз.'));
     } finally {
       setLoading(false);
     }
@@ -49,10 +51,10 @@ export default function Login() {
     <section className={styles.container}>
       <div className={styles.formWrapper}>
         <form className={styles.form} onSubmit={handleSubmit}>
-          <h1 className={styles.title}>Вход</h1>
+          <h1 className={styles.title}>{t('auth.login.title', 'Вход')}</h1>
           
           <div className={styles.inputGroup}>
-            <label htmlFor="login">Логин</label>
+            <label htmlFor="login">{t('auth.login.loginLabel', 'Логин')}</label>
             <input
               id="login"
               name="login"
@@ -60,13 +62,13 @@ export default function Login() {
               value={form.login}
               onChange={handleChange}
               className={styles.input}
-              placeholder="Введите логин"
+              placeholder={t('auth.login.loginPlaceholder', 'Введите логин')}
               disabled={loading}
             />
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="password">Пароль</label>
+            <label htmlFor="password">{t('auth.login.passwordLabel', 'Пароль')}</label>
             <div className={styles.passwordWrapper}>
               <input
                 id="password"
@@ -75,7 +77,7 @@ export default function Login() {
                 value={form.password}
                 onChange={handleChange}
                 className={`${styles.input} ${styles.passwordInput}`}
-                placeholder="Введите пароль"
+                placeholder={t('auth.login.passwordPlaceholder', 'Введите пароль')}
                 disabled={loading}
               />
               <button
@@ -83,9 +85,9 @@ export default function Login() {
                 className={styles.togglePassword}
                 onClick={() => setShowPassword((prev) => !prev)}
                 disabled={loading}
-                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+                aria-label={showPassword ? t('auth.login.hidePassword', 'Скрыть пароль') : t('auth.login.showPassword', 'Показать пароль')}
               >
-                {showPassword ? 'Скрыть' : 'Показать'}
+                {showPassword ? t('auth.login.hidePassword', 'Скрыть') : t('auth.login.showPassword', 'Показать')}
               </button>
             </div>
           </div>
@@ -93,11 +95,12 @@ export default function Login() {
           {error && <p className={styles.error}>{error}</p>}
 
           <button type="submit" className={styles.submitBtn} disabled={loading}>
-            {loading ? 'Вход...' : 'Войти'}
+            {loading ? t('auth.login.submitting', 'Вход...') : t('auth.login.submit', 'Войти')}
           </button>
 
           <p className={styles.switch}>
-            Нет аккаунта? <Link to="/register">Создать</Link>
+            {t('auth.login.noAccount', 'Нет аккаунта?')}{' '}
+            <Link to="/register">{t('auth.login.create', 'Создать')}</Link>
           </p>
         </form>
       </div>
