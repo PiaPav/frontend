@@ -407,6 +407,7 @@
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
+  max-height: calc(100vh - 160px);
   position: relative;
   transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease,
     background 0.25s ease;
@@ -533,12 +534,30 @@
 
 .dependenciesList {
   flex: 1;
+  min-height: 0;
   padding: 12px 14px 14px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(236, 240, 252, 0.9));
+}
+
+.dependenciesList::-webkit-scrollbar {
+  width: 7px;
+}
+
+.dependenciesList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dependenciesList::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+}
+
+.dependenciesList::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
 }
 
 .requirementItem {
