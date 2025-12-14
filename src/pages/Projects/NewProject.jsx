@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Controls,
@@ -49,7 +49,7 @@ export default function NewProject() {
   const streamControllerRef = useRef(null);
   const isSavingRef = useRef(false);
   const formRef = useRef(null);
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   const buildArchitecturePayload = () => ({
     requirements,
@@ -441,12 +441,23 @@ export default function NewProject() {
 
   const requirementsCount = requirements.length;
   const endpointsCount = Object.keys(endpoints).length;
-  const dependenciesSubtitle =
-    requirementsCount > 0
-      ? `${requirementsCount} package${requirementsCount === 1 ? '' : 's'}`
-      : analysisStatus !== 'completed'
+  const dependenciesSubtitle = useMemo(() => {
+    if (requirementsCount > 0) {
+      if (language === 'en') {
+        const word = requirementsCount === 1 ? 'package' : 'packages';
+        return `${requirementsCount} ${word}`;
+      }
+      const mod10 = requirementsCount % 10;
+      const mod100 = requirementsCount % 100;
+      let word = 'зависимостей';
+      if (mod10 === 1 && mod100 !== 11) word = 'зависимость';
+      else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) word = 'зависимости';
+      return `${requirementsCount} ${word}`;
+    }
+    return analysisStatus !== 'completed'
       ? t('analysis.waitingStream', 'Ожидание данных потока...')
       : t('analysis.noDependencies', 'Зависимости не найдены');
+  }, [analysisStatus, language, requirementsCount, t]);
 
   return (
     <div className={styles.container}>

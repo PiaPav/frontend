@@ -40,7 +40,7 @@ export default function ProjectAnalysis() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [baseEdges, setBaseEdges] = useState([]);
@@ -525,13 +525,22 @@ export default function ProjectAnalysis() {
 
   const dependenciesSubtitle = useMemo(() => {
     if (requirementsCount > 0) {
-      return `${requirementsCount} package${requirementsCount === 1 ? '' : 's'}`;
+      if (language === 'en') {
+        const word = requirementsCount === 1 ? 'package' : 'packages';
+        return `${requirementsCount} ${word}`;
+      }
+      const mod10 = requirementsCount % 10;
+      const mod100 = requirementsCount % 100;
+      let word = 'зависимостей';
+      if (mod10 === 1 && mod100 !== 11) word = 'зависимость';
+      else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) word = 'зависимости';
+      return `${requirementsCount} ${word}`;
     }
     if (!streamComplete) {
       return t('analysis.waitingStream', 'Ожидание данных потока...');
     }
     return t('analysis.noDependencies', 'Зависимости не найдены');
-  }, [requirementsCount, streamComplete, t]);
+  }, [language, requirementsCount, streamComplete, t]);
 
   // Loading state while initial data is fetched
   if (loading) {
@@ -654,7 +663,7 @@ export default function ProjectAnalysis() {
         requirementsCount={requirementsCount}
         endpointsCount={endpointsCount}
         onClose={() => navigate('/projects')}
-        closeLabel={t('common.close', 'Close')}
+        closeLabel={t('common.close', 'Закрыть')}
         onDelete={handleDeleteProject}
         deleteLabel={deleting ? t('analysis.delete.deleting', 'Удаляем...') : t('analysis.delete.delete', 'Удалить проект')}
         deleteIcon={trashBinIcon}
