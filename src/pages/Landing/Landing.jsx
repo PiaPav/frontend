@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import styles from './Landing.module.css';
 import { Link, useNavigate } from 'react-router-dom';
 import logoImage from '../../assets/img/logo/deep-learning.png';
@@ -76,6 +76,13 @@ const translations = {
         modalRegister: 'Зарегистрироваться',
         langLabel: 'Язык',
         switchLabel: 'Выберите язык',
+        theme: {
+            dark: 'Тёмная тема',
+            light: 'Светлая тема',
+            toDark: 'Включить тёмную тему',
+            toLight: 'Включить светлую тему',
+            label: 'Тема',
+        },
     },
     en: {
         nav: {
@@ -148,19 +155,65 @@ const translations = {
         modalRegister: 'Sign up',
         langLabel: 'Language',
         switchLabel: 'Select language',
+        theme: {
+            dark: 'Dark theme',
+            light: 'Light theme',
+            toDark: 'Switch to dark theme',
+            toLight: 'Switch to light theme',
+            label: 'Theme',
+        },
     },
 };
+
+const SunIcon = () => (
+    <svg className={styles.themeGlyph} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+);
+
+const MoonIcon = () => (
+    <svg className={styles.themeGlyph} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+    </svg>
+);
 
 export default function Landing() {
     const [activeFaq, setActiveFaq] = useState(null);
     const [showTrialModal, setShowTrialModal] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [theme, setTheme] = useState('light');
     const navigate = useNavigate();
     const { language: lang, setLanguage } = useI18n();
 
     const t = translations[lang];
     const howItWorksSteps = t.howItWorksSteps;
     const faqs = t.faqs;
+    const isDark = theme === 'dark';
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const applyPreference = (eventOrMedia) => {
+            setTheme(eventOrMedia.matches ? 'dark' : 'light');
+        };
+
+        applyPreference(mediaQuery);
+
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', applyPreference);
+            return () => mediaQuery.removeEventListener('change', applyPreference);
+        }
+
+        mediaQuery.addListener(applyPreference);
+        return () => mediaQuery.removeListener(applyPreference);
+    }, []);
 
     const scrollToSection = (id) => {
         document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -182,8 +235,22 @@ export default function Landing() {
         </div>
     );
 
+    const renderThemeToggle = (className = '') => (
+        <button
+            type="button"
+            className={`${styles.themeToggle} ${isDark ? styles.themeToggleActive : ''} ${className}`}
+            onClick={() => setTheme(isDark ? 'light' : 'dark')}
+            aria-pressed={isDark}
+            aria-label={isDark ? t.theme.toLight : t.theme.toDark}
+            title={isDark ? t.theme.toLight : t.theme.toDark}
+        >
+            <span className={styles.themeIcon}>{isDark ? <MoonIcon /> : <SunIcon />}</span>
+            <span className={styles.themeText}>{isDark ? t.theme.dark : t.theme.light}</span>
+        </button>
+    );
+
     return (
-        <div className={styles.container}>
+        <div className={`${styles.container} ${isDark ? styles.dark : ''}`}>
             {/* Hero Section */}
             <div className={styles.heroSection}>
                 <div className={styles.header}>
@@ -208,6 +275,7 @@ export default function Landing() {
                     </div>
                     <nav className={styles.nav}>
                         {renderLanguageSwitcher(styles.navLangSwitch)}
+                        {renderThemeToggle()}
                         <Link to="/login" className={styles.loginBtn}>{t.nav.login}</Link>
                         <Link to="/register" className={styles.registerBtn}>{t.nav.register}</Link>
                     </nav>
@@ -215,6 +283,7 @@ export default function Landing() {
                     {/* Mobile Menu */}
                     <div className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ''}`}>
                         {renderLanguageSwitcher(styles.mobileLangSwitch)}
+                        {renderThemeToggle(styles.mobileThemeToggle)}
                         <button onClick={() => { scrollToSection('how-it-works'); setMobileMenuOpen(false); }}>{t.nav.howItWorks}</button>
                         <button onClick={() => { scrollToSection('faq'); setMobileMenuOpen(false); }}>{t.nav.faq}</button>
                         <Link to="/login" onClick={() => setMobileMenuOpen(false)}>{t.nav.login}</Link>
