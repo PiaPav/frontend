@@ -173,22 +173,40 @@ export function buildGraph({
     }
   };
 
-  // Сначала добавляем все endpoints
-  Object.keys(endpoints).forEach((endpointKey) => {
-    connectedNodes.add(endpointKey);
-  });
+  const endpointKeys = Object.keys(endpoints || {});
+  const hasEndpoints = endpointKeys.length > 0;
 
-  // Затем обходим граф от endpoints и связанных с ними родителей
-  Object.keys(endpoints).forEach((endpointKey) => {
-    const endpointName = normalizeName(endpointKey);
-    architectureData.forEach(({ parent }) => {
-      const parentName = normalizeName(parent);
-      if (!endpointName || !parentName) return;
-      if (parentName.includes(endpointName) || endpointName.includes(parentName)) {
-        traverse(parent);
-      }
+  if (hasEndpoints) {
+    // Сначала добавляем все endpoints
+    endpointKeys.forEach((endpointKey) => {
+      connectedNodes.add(endpointKey);
     });
-  });
+
+    // Затем обходим граф от endpoints и связанных с ними родителей
+    endpointKeys.forEach((endpointKey) => {
+      const endpointName = normalizeName(endpointKey);
+      architectureData.forEach(({ parent }) => {
+        const parentName = normalizeName(parent);
+        if (!endpointName || !parentName) return;
+        if (parentName.includes(endpointName) || endpointName.includes(parentName)) {
+          traverse(parent);
+        }
+      });
+    });
+  } else {
+    // Нет HTTP-эндпоинтов: включаем все узлы архитектуры, чтобы граф всё равно отображался
+    architectureData.forEach(({ parent, children = [] }) => {
+      if (!shouldIgnoreNodeName(parent)) {
+        connectedNodes.add(parent);
+      }
+      children.forEach((child) => {
+        const cleanChild = getBaseName(child);
+        if (cleanChild && !shouldIgnoreNodeName(cleanChild)) {
+          connectedNodes.add(cleanChild);
+        }
+      });
+    });
+  }
 
   const getNodeType = (nodeName) => {
     if (!connectedNodes.has(nodeName)) return null;

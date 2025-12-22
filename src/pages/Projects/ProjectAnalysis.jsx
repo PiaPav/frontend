@@ -36,6 +36,62 @@ const edgeTypes = {
   smart: SmartStepEdge,
 };
 
+const normalizeEndpoints = (raw) => {
+  if (!raw) return {};
+  if (Array.isArray(raw)) {
+    const result = {};
+    raw.forEach((entry) => {
+      if (entry && typeof entry === 'object') {
+        Object.entries(entry).forEach(([key, value]) => {
+          result[key] = value;
+        });
+      }
+    });
+    return result;
+  }
+  return typeof raw === 'object' ? raw : {};
+};
+
+const normalizeArchitectureParts = (raw) => {
+  if (!raw) return [];
+
+  let source = raw;
+  if (typeof source === 'string') {
+    try {
+      source = JSON.parse(source);
+    } catch {
+      return [];
+    }
+  }
+
+  if (Array.isArray(source)) {
+    return source
+      .map((item) => ({
+        parent: item?.parent || item?.name || '',
+        children: Array.isArray(item?.children) ? item.children : [],
+      }))
+      .filter((item) => item.parent);
+  }
+
+  if (typeof source === 'object') {
+    return Object.entries(source)
+      .map(([parent, children]) => ({
+        parent,
+        children: Array.isArray(children) ? children : children ? Object.values(children) : [],
+      }))
+      .filter((item) => item.parent);
+  }
+
+  return [];
+};
+
+const architecturePartsToMap = (parts) =>
+  parts.reduce((acc, { parent, children }) => {
+    if (!parent) return acc;
+    acc[parent] = Array.isArray(children) ? children : [];
+    return acc;
+  }, {});
+
 export default function ProjectAnalysis() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -229,30 +285,22 @@ export default function ProjectAnalysis() {
 
         if (archFromApi && typeof archFromApi === 'object') {
           const requirementsList = Array.isArray(archFromApi.requirements) ? archFromApi.requirements : [];
+          const endpointsObj = normalizeEndpoints(archFromApi.endpoints);
 
-          let endpointsObj = {};
-          if (archFromApi.endpoints) {
-            if (Array.isArray(archFromApi.endpoints)) {
-              archFromApi.endpoints.forEach((endpoint) => {
-                Object.entries(endpoint).forEach(([key, value]) => {
-                  endpointsObj[key] = value;
-                });
-              });
-            } else if (typeof archFromApi.endpoints === 'object') {
-              endpointsObj = archFromApi.endpoints;
-            }
-          }
-
-          const dataObj = archFromApi.data && typeof archFromApi.data === 'object' ? archFromApi.data : {};
+          const rawArchitecture = Array.isArray(archFromApi)
+            ? archFromApi
+            : archFromApi.data ?? archFromApi.architecture ?? archFromApi.parts;
+          const architectureParts = normalizeArchitectureParts(rawArchitecture);
+          const dataObj = architecturePartsToMap(architectureParts);
 
           const hasArchitectureFromApiLocal =
-            requirementsList.length > 0 || Object.keys(endpointsObj).length > 0 || Object.keys(dataObj).length > 0;
+            requirementsList.length > 0 || Object.keys(endpointsObj).length > 0 || architectureParts.length > 0;
           hasArchitectureFromApi = hasArchitectureFromApiLocal;
 
           setProject({
             ...projectData,
             architecture: {
-              ...archFromApi,
+              ...(archFromApi && typeof archFromApi === 'object' && !Array.isArray(archFromApi) ? archFromApi : {}),
               requirements: requirementsList,
               endpoints: endpointsObj,
               data: dataObj,
@@ -263,13 +311,8 @@ export default function ProjectAnalysis() {
             setIsFirstRenderSession(false);
             setRequirements(requirementsList);
             setEndpoints(endpointsObj);
-
-            const archArray = Object.entries(dataObj).map(([parent, children]) => ({
-              parent,
-              children: Array.isArray(children) ? children : [],
-            }));
-            architectureDataRef.current = archArray;
-            setArchitectureData(archArray);
+            architectureDataRef.current = architectureParts;
+            setArchitectureData(architectureParts);
             setStreamComplete(true);
             setLoading(false);
             setIsFirstLoad(false);
@@ -603,10 +646,15 @@ export default function ProjectAnalysis() {
   }
 
   // Detect whether there is architecture data to render
-  const hasArchitectureData = project?.architecture && (
-    (project.architecture.requirements && project.architecture.requirements.length > 0) ||
-    (project.architecture.endpoints && Object.keys(project.architecture.endpoints).length > 0) ||
-    (project.architecture.data && Object.keys(project.architecture.data).length > 0)
+  const hasArchitectureData = Boolean(
+    (project?.architecture && (
+      (project.architecture.requirements && project.architecture.requirements.length > 0) ||
+      (project.architecture.endpoints && Object.keys(project.architecture.endpoints).length > 0) ||
+      (project.architecture.data && Object.keys(project.architecture.data).length > 0)
+    )) ||
+    architectureData.length > 0 ||
+    Object.keys(endpoints || {}).length > 0 ||
+    requirements.length > 0
   );
 
   if (!loading && !hasArchitectureData) {
