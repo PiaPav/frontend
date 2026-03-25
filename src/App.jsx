@@ -6,7 +6,8 @@ import Register from './pages/Auth/Register';
 import ProjectsList from './pages/Projects/ProjectsList';
 import NewProject from './pages/Projects/NewProject';
 import ProjectAnalysis from './pages/Projects/ProjectAnalysis';
-import TestFlow from './pages/Projects/TestFlow';
+import GraphPreview from './pages/Projects/GraphPreview';
+import GraphRawPreview from './pages/Projects/GraphRawPreview';
 import Settings from './pages/Settings/Settings';
 import ProtectedRoute from './routes/ProtectedRoute';
 
@@ -18,7 +19,10 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/test-flow" element={<TestFlow />} />
+          <Route path="/test-flow" element={<GraphPreview />} />
+          <Route path="/graph-preview" element={<GraphPreview />} />
+          <Route path="/test-flow-raw" element={<GraphRawPreview />} />
+          <Route path="/graph-preview-raw" element={<GraphRawPreview />} />
           
           <Route
             path="/projects"
